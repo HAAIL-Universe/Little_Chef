@@ -1,5 +1,6 @@
 from pydantic import BaseModel, Field
 from typing import Optional, Dict, Any, List, Literal, Union
+from enum import Enum
 
 
 class ErrorResponse(BaseModel):
@@ -99,6 +100,50 @@ class LowStockResponse(BaseModel):
 class ProposedInventoryEventAction(BaseModel):
     action_type: Literal["create_inventory_event"] = "create_inventory_event"
     event: InventoryEventCreateRequest
+
+
+class RecipeBookStatus(str, Enum):
+    uploading = "uploading"
+    processing = "processing"
+    ready = "ready"
+    failed = "failed"
+
+
+class RecipeBook(BaseModel):
+    book_id: str
+    title: str = ""
+    filename: str
+    content_type: str
+    status: RecipeBookStatus
+    error_message: Optional[str] = None
+    created_at: str
+
+
+class RecipeBookListResponse(BaseModel):
+    books: List[RecipeBook]
+
+
+class RecipeSearchRequest(BaseModel):
+    query: str = Field(..., min_length=2)
+    max_results: int = Field(default=5, ge=1, le=10)
+
+
+class RecipeSourceType(str, Enum):
+    built_in = "built_in"
+    user_library = "user_library"
+
+
+class RecipeSearchResult(BaseModel):
+    title: str
+    source_type: RecipeSourceType
+    built_in_recipe_id: Optional[str] = None
+    file_id: Optional[str] = None
+    book_id: Optional[str] = None
+    excerpt: Optional[str] = None
+
+
+class RecipeSearchResponse(BaseModel):
+    results: List[RecipeSearchResult]
 
 
 class ChatRequest(BaseModel):

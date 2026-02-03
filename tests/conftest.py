@@ -8,6 +8,8 @@ from app.services.prefs_service import get_prefs_service
 import app.api.routers.chat as chat_router
 from app.services.chat_service import ChatService
 from app.services.inventory_service import get_inventory_service
+import app.api.routers.recipes as recipes_router
+from app.services.recipe_service import get_recipe_service, reset_recipe_service_cache
 
 
 @pytest.fixture
@@ -15,8 +17,10 @@ def app_instance():
     # Reset cached services/state for deterministic tests
     get_prefs_service.cache_clear()
     get_inventory_service.cache_clear()
+    reset_recipe_service_cache()
     chat_router._proposal_store.clear()
     chat_router._chat_service = ChatService(get_prefs_service(), get_inventory_service(), chat_router._proposal_store)
+    recipes_router.reset_recipes_for_tests()
     return create_app()
 
 
