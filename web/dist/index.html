@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Little Chef</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  <main class="container">
+    <section class="card">
+      <h1>Little Chef</h1>
+      <p>Paste JWT, then try chat, prefs, mealplan, and shopping diff.</p>
+      <label>JWT <input id="jwt" type="text" placeholder="Bearer token"></label>
+      <button id="btn-auth">Auth /auth/me</button>
+      <pre id="auth-out"></pre>
+    </section>
+
+    <section class="card">
+      <h2>Chat</h2>
+      <textarea id="chat-input" rows="3" placeholder="Ask or fill..."></textarea>
+      <button id="btn-chat">Send /chat</button>
+      <div id="chat-reply"></div>
+      <div id="chat-confirm" class="hidden">
+        <button id="btn-confirm">Confirm</button>
+        <button id="btn-cancel">Cancel</button>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>Prefs</h2>
+      <button id="btn-prefs-get">GET /prefs</button>
+      <label>Servings <input id="prefs-servings" type="number" min="1" value="2"></label>
+      <label>Meals/day <input id="prefs-meals" type="number" min="1" max="6" value="3"></label>
+      <button id="btn-prefs-put">PUT /prefs</button>
+      <pre id="prefs-out"></pre>
+    </section>
+
+    <section class="card">
+      <h2>Mealplan</h2>
+      <button id="btn-plan-gen">POST /mealplan/generate</button>
+      <pre id="plan-out"></pre>
+    </section>
+
+    <section class="card">
+      <h2>Shopping diff</h2>
+      <button id="btn-shopping">POST /shopping/diff (from last plan)</button>
+      <pre id="shopping-out"></pre>
+    </section>
+  </main>
+  <script type="module" src="/static/main.js"></script>
+</body>
+</html>

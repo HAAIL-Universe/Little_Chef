@@ -1,4 +1,6 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
+from fastapi.responses import FileResponse, JSONResponse
+from pathlib import Path
 
 from app.api.routers import health, auth, prefs, chat, inventory, recipes, shopping, mealplan
 from app.errors import (
@@ -25,6 +27,28 @@ def create_app() -> FastAPI:
     app.add_exception_handler(UnauthorizedError, unauthorized_handler)
     app.add_exception_handler(BadRequestError, bad_request_handler)
     app.add_exception_handler(NotFoundError, not_found_handler)
+
+    dist_dir = (Path(__file__).resolve().parent.parent / "web" / "dist").resolve()
+
+    @app.get("/", include_in_schema=True)
+    def ui_index():
+        index_path = dist_dir / "index.html"
+        if index_path.exists():
+            return FileResponse(index_path, media_type="text/html")
+        return JSONResponse(
+            status_code=503,
+            content={"error": "ui_not_built", "message": "UI build missing. Run npm --prefix web install && npm --prefix web run build."},
+        )
+
+    @app.get("/static/{path:path}", include_in_schema=True)
+    def ui_static(path: str):
+        target = (dist_dir / path).resolve()
+        if not str(target).startswith(str(dist_dir)):
+            raise HTTPException(status_code=404, detail="not found")
+        if not target.exists():
+            raise HTTPException(status_code=404, detail="not found")
+        return FileResponse(target)
+
     return app
 
 
