@@ -19,6 +19,12 @@ function Resolve-Python {
   return "python"
 }
 
+function Tail-Lines([string[]]$lines, [int]$n) {
+  if (-not $lines) { return @() }
+  if ($lines.Count -le $n) { return $lines }
+  return $lines[($lines.Count - $n)..($lines.Count - 1)]
+}
+
 function Append-TestRunLog(
   [string]$root,
   [string]$statusText,
@@ -32,7 +38,8 @@ function Append-TestRunLog(
   [string]$gitBranch,
   [string]$gitHead,
   [string]$gitStatus,
-  [string]$gitDiffStat
+  [string]$gitDiffStat,
+  [string]$failurePayload = ""
 ) {
   $logPath = Join-Path $root "evidence\test_runs.md"
   $logDir = Split-Path -Parent $logPath
@@ -58,28 +65,16 @@ function Append-TestRunLog(
   $lines += '```'
   $lines += $gitDiffStat
   $lines += '```'
+  if ($statusText -eq "FAIL" -and $failurePayload) {
+    $lines += "- Failure payload:"
+    $lines += '```'
+    $lines += $failurePayload
+    $lines += '```'
+  }
   $lines += ""
 
   Add-Content -LiteralPath $logPath -Value $lines -Encoding utf8
 }
-
-$root = Resolve-Path (Join-Path $PSScriptRoot "..")
-Set-Location $root
-$py = Resolve-Python
-Info "Python: $py"
-
-$startUtc = (Get-Date).ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ")
-$compileExit = -1
-$importExit = -1
-$pytestExit = -1
-$pytestSummary = "(not run)"
-$statusText = "FAIL"
-$failingTests = ""
-
-$gitBranch = "git unavailable"
-$gitHead = "git unavailable"
-$gitStatus = "git unavailable"
-$gitDiffStat = "git unavailable"
 
 function Write-TestRunLatest(
   [string]$root,
@@ -95,7 +90,8 @@ function Write-TestRunLatest(
   [string]$gitBranch,
   [string]$gitHead,
   [string]$gitStatus,
-  [string]$gitDiffStat
+  [string]$gitDiffStat,
+  [string]$failurePayload = ""
 ) {
   $logPath = Join-Path $root "evidence\test_runs_latest.md"
   $logDir = Split-Path -Parent $logPath
@@ -119,6 +115,12 @@ function Write-TestRunLatest(
     } else {
       $lines += "(see console output)"
     }
+    if ($failurePayload) {
+      $lines += "Failure payload:"
+      $lines += '```'
+      $lines += $failurePayload
+      $lines += '```'
+    }
   }
   $lines += "git status -sb:"
   $lines += '```'
@@ -132,6 +134,25 @@ function Write-TestRunLatest(
 
   Set-Content -LiteralPath $logPath -Value $lines -Encoding utf8
 }
+
+$root = Resolve-Path (Join-Path $PSScriptRoot "..")
+Set-Location $root
+$py = Resolve-Python
+Info "Python: $py"
+
+$startUtc = (Get-Date).ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ")
+$compileExit = -1
+$importExit = -1
+$pytestExit = -1
+$pytestSummary = "(not run)"
+$statusText = "FAIL"
+$failingTests = ""
+$failurePayload = ""
+
+$gitBranch = "git unavailable"
+$gitHead = "git unavailable"
+$gitStatus = "git unavailable"
+$gitDiffStat = "git unavailable"
 
 try {
   $gitBranch = (& git rev-parse --abbrev-ref HEAD 2>$null)
@@ -151,11 +172,11 @@ catch {
 }
 
 try {
-  & $py -m compileall app
+  $compileOutLines = & $py -m compileall app 2>&1
   $compileExit = $LASTEXITCODE
   if ($compileExit -eq 0) { Info "compileall app: ok" } else { Err "compileall failed ($compileExit)" }
 
-  & $py -c "import app.main; print('import ok')"
+  $importOutLines = & $py -c "import app.main; print('import ok')" 2>&1
   $importExit = $LASTEXITCODE
   if ($importExit -eq 0) { Info "import app.main: ok" } else { Err "import app.main failed ($importExit)" }
 
@@ -177,13 +198,32 @@ finally {
   }
   if ($overall -eq 0) { $statusText = "PASS" } else { $statusText = "FAIL" }
 
+  if ($statusText -eq "FAIL") {
+    $sections = @()
+    if ($compileExit -ne 0) {
+      $sections += @("=== compileall (exit $compileExit) ===")
+      $sections += (Tail-Lines $compileOutLines 200)
+    }
+    if ($importExit -ne 0) {
+      $sections += @("=== import app.main (exit $importExit) ===")
+      $sections += (Tail-Lines $importOutLines 200)
+    }
+    if ($pytestExit -ne 0) {
+      $sections += @("=== pytest (exit $pytestExit) ===")
+      $sections += (Tail-Lines $pytestLines 200)
+    }
+    $failurePayload = ($sections -join "`n").Trim()
+  }
+
   Append-TestRunLog -root $root -statusText $statusText -pythonPath $py -startUtc $startUtc -endUtc $endUtc `
     -compileExit $compileExit -importExit $importExit -pytestExit $pytestExit -pytestSummary $pytestSummary `
-    -gitBranch $gitBranch -gitHead $gitHead -gitStatus ($gitStatus -join "`n") -gitDiffStat ($gitDiffStat -join "`n")
+    -gitBranch $gitBranch -gitHead $gitHead -gitStatus ($gitStatus -join "`n") -gitDiffStat ($gitDiffStat -join "`n") `
+    -failurePayload $failurePayload
 
   Write-TestRunLatest -root $root -statusText $statusText -pythonPath $py -startUtc $startUtc -endUtc $endUtc `
     -compileExit $compileExit -importExit $importExit -pytestExit $pytestExit -pytestSummary $pytestSummary `
-    -failingTests $failingTests -gitBranch $gitBranch -gitHead $gitHead -gitStatus ($gitStatus -join "`n") -gitDiffStat ($gitDiffStat -join "`n")
+    -failingTests $failingTests -gitBranch $gitBranch -gitHead $gitHead -gitStatus ($gitStatus -join "`n") -gitDiffStat ($gitDiffStat -join "`n") `
+    -failurePayload $failurePayload
 
   if ($overall -ne 0) { exit 1 } else { exit 0 }
 }
