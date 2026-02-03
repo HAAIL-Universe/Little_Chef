@@ -1,87 +1,55 @@
 # Diff Log (overwrite each cycle)
 
 ## Cycle Metadata
-- Timestamp: 2026-02-03T12:41:58+00:00
+- Timestamp: 2026-02-03T12:45:53+00:00
 - Branch: main
-- HEAD: 9069d46e6219703cde70dc3d9b01c2316666db12
+- HEAD: a6da7279ee22f2264289245e16cd7383965a1cfd
 - Diff basis: staged
 
 ## Cycle Status
 - Status: COMPLETE
 
 ## Summary
-- Added `.pytest_cache/` ignore to keep pytest cache out of diffs.
-- Hardened `scripts/run_tests.ps1` (status PASS/FAIL, failing-test capture, history append + latest snapshot overwrite).
-- Fixed `scripts/overwrite_diff_log.ps1` parsing; confirmed canonical write only to `evidence/updatedifflog.md`.
-- Updated builder contract to enforce end-of-cycle test runs and diff-log TODO cleanup workflow.
-- Recorded new test runs (history + latest snapshot).
+- Added explicit diff-log workflow to builder contract (summarize-before-overwrite, manual TODO cleanup).
+- Confirmed overwrite helper runs cleanly and remains canonical to `evidence/updatedifflog.md`.
+- Test runner already hardened; recorded additional runs updating history/latest snapshots this cycle.
 
 ## Files Changed (staged)
-- .gitignore
 - Contracts/builder_contract.md
 - evidence/test_runs.md
 - evidence/test_runs_latest.md
 - evidence/updatedifflog.md
-- scripts/overwrite_diff_log.ps1
-- scripts/run_tests.ps1
 
 ## git status -sb
 ```
-## main...origin/main [ahead 7]
-M  .gitignore
+## main...origin/main [ahead 8]
 M  Contracts/builder_contract.md
-MM evidence/test_runs.md
-AM evidence/test_runs_latest.md
+M  evidence/test_runs.md
+M  evidence/test_runs_latest.md
 M  evidence/updatedifflog.md
-M  scripts/overwrite_diff_log.ps1
-M  scripts/run_tests.ps1
-```
-
-## Repo Evidence
-- HEAD: 9069d46e6219703cde70dc3d9b01c2316666db12
-- git diff --stat:
-```
- Contracts/builder_contract.md |   7 +
- evidence/test_runs.md         |  58 ++++++
- evidence/test_runs_latest.md  |  26 +--
- evidence/updatedifflog.md     | 424 +++++++++++++++++++++++++++++++++++++++++-
- scripts/run_tests.ps1         |  73 +++++++-
- .gitignore                    |   2 +
- 6 files changed, 560 insertions(+), 30 deletions(-)
 ```
 
 ## Minimal Diff Hunks
 ```
-diff --git a/.gitignore b/.gitignore
-@@
- .DS_Store
-.pytest_cache/
-
-diff --git a/scripts/run_tests.ps1 b/scripts/run_tests.ps1
-@@
- function Append-TestRunLog(
-   [string]$root,
-   [string]$statusText,
-@@
- $statusText = "FAIL"
-@@
- if ($overall -eq 0) { $statusText = "PASS" } else { $statusText = "FAIL" }
- Append-TestRunLog ...
- Write-TestRunLatest ...
-
 diff --git a/Contracts/builder_contract.md b/Contracts/builder_contract.md
 @@
-- Each invocation of `scripts/run_tests.ps1` must append a timestamped entry...
-+ End-of-cycle: run `.\scripts\run_tests.ps1` and report results; runner must append history and overwrite latest snapshot (`Status: PASS|FAIL`, failing tests if any).
-@@
-+ Diff-log helper writes skeleton; builder must replace TODOs at start/end; no TODOs may remain when COMPLETE.
+ Mandatory per-cycle diff log sequence:
+ 1) Read `evidence/updatedifflog.md` and summarize the previous cycle (1–5 bullets) before any overwrite/tool call.
+ 2) Plan scope/files/tests.
+ 3) Only after planning, run `scripts/overwrite_diff_log.ps1` to regenerate the scaffold.
+ 4) Immediately replace placeholders with Status=IN_PROCESS, planned summary, planned files (mark as planned if unstaged), notes, and next steps (no TODOs left).
+ 5) Do the work.
+ 6) End-of-cycle: re-run the helper, then manually finalize Status=COMPLETE, Summary, Verification (static → runtime → behavior → contract), Notes, and Next Steps.
+
+ Non-negotiable rule:
+ - Overwriting before summarizing the prior cycle or leaving TODO placeholders is a CONTRACT_CONFLICT (work incomplete).
 ```
 
 ## Verification
 - Static: `python -m compileall app` (pass); `python -c "import app.main; print('import ok')"` (pass).
 - Runtime: uvicorn app.main → GET /health 200 `{"status":"ok"}`.
-- Behavior: `pwsh -File .\scripts\run_tests.ps1` (twice) → PASS; history appended; latest snapshot overwritten (`Status: PASS`).
-- Contract: builder contract updated with test-run + diff-log TODO removal requirements; `.pytest_cache/` ignored; evidence/updatedifflog.md has no TODO placeholders.
+- Behavior: `pwsh -File .\scripts\run_tests.ps1` (twice earlier; once this cycle) → PASS; history appended; latest snapshot overwritten (`Status: PASS`).
+- Contract: builder contract updated; `.pytest_cache/` ignore already present; evidence log finalized with no TODO placeholders.
 
 ## Notes (optional)
 - None.

@@ -201,6 +201,17 @@ Helper workflow: the script writes skeleton + git/diff metadata but leaves TODO 
 2) At END of a cycle: re-run the helper to refresh metadata, then replace all TODO placeholders with final Status=COMPLETE, real summary, verification (static → runtime → behavior → contract), and notes/next steps (explicit “None” if empty).
 No cycle is COMPLETE if any “TODO:” placeholders remain in `evidence/updatedifflog.md`.
 
+Mandatory per-cycle diff log sequence:
+1) Read `evidence/updatedifflog.md` and summarize the previous cycle (1–5 bullets) before any overwrite/tool call.
+2) Plan scope/files/tests.
+3) Only after planning, run `scripts/overwrite_diff_log.ps1` to regenerate the scaffold.
+4) Immediately replace placeholders with Status=IN_PROCESS, planned summary, planned files (mark as planned if unstaged), notes, and next steps (no TODOs left).
+5) Do the work.
+6) End-of-cycle: re-run the helper, then manually finalize Status=COMPLETE, Summary, Verification (static → runtime → behavior → contract), Notes, and Next Steps.
+
+Non-negotiable rule:
+- Overwriting before summarizing the prior cycle or leaving TODO placeholders is a CONTRACT_CONFLICT (work incomplete).
+
 Rules:
 - Do not write or re-introduce a root-level `updatedifflog.md`.
 - If the helper script or canonical evidence path cannot be used, STOP with: `ENVIRONMENT_LIMITATION` (include exact error).
