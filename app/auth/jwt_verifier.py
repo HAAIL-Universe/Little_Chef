@@ -74,7 +74,7 @@ class JWTVerifier:
             claims = jwt.decode(
                 token,
                 signing_key,
-                algorithms=None,  # allow alg from header; PyJWKClient constrains to key's alg
+                algorithms=["RS256"],
                 audience=self.audience,
                 issuer=self.issuer,
                 options={"require": ["exp", "iss", "aud", "sub"]},
@@ -84,4 +84,3 @@ class JWTVerifier:
             raise JWTVerificationError("Token expired") from exc
         except jwt.InvalidTokenError as exc:
             raise JWTVerificationError(str(exc)) from exc
-
