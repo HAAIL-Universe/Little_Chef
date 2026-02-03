@@ -24,6 +24,7 @@ param(
   [string[]]$Verification = @(),
   [string[]]$NextSteps = @(),
 
+  [switch]$Finalize,
   [switch]$IncludeUnstaged,
   [switch]$OpenInVSCode
 )
@@ -94,6 +95,20 @@ try {
   $timestamp = (Get-Date).ToString("yyyy-MM-ddTHH:mm:ssK")
   $branch = (& git rev-parse --abbrev-ref HEAD).Trim()
   $head = (& git rev-parse HEAD).Trim()
+
+  if ($Finalize) {
+    if (-not (Test-Path $logPath)) {
+      Err "Finalize failed: evidence/updatedifflog.md not found at $logPath"
+      exit 1
+    }
+    $todoMatches = Select-String -Path $logPath -Pattern "TODO:" -SimpleMatch -ErrorAction SilentlyContinue
+    if ($todoMatches) {
+      Err "Finalize failed: TODO placeholders remain in diff log."
+      exit 1
+    }
+    Info "Finalize passed: no TODO placeholders found."
+    exit 0
+  }
 
   $stagedOnly = -not $IncludeUnstaged
   $basis = if ($stagedOnly) { "staged" } else { "unstaged (working tree)" }

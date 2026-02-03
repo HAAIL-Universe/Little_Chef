@@ -208,6 +208,7 @@ Mandatory per-cycle diff log sequence:
 4) Immediately replace placeholders with Status=IN_PROCESS, planned summary, planned files (mark as planned if unstaged), notes, and next steps (no TODOs left).
 5) Do the work.
 6) End-of-cycle: re-run the helper, then manually finalize Status=COMPLETE, Summary, Verification (static → runtime → behavior → contract), Notes, and Next Steps.
+7) After manual edits, run `pwsh -File .\scripts\overwrite_diff_log.ps1 -Finalize`; if it reports TODO placeholders or missing log, treat as CONTRACT_CONFLICT and stop.
 
 Non-negotiable rule:
 - Overwriting before summarizing the prior cycle or leaving TODO placeholders is a CONTRACT_CONFLICT (work incomplete).
