@@ -1,5 +1,5 @@
 from pydantic import BaseModel, Field
-from typing import Optional, Dict, Any, List, Literal
+from typing import Optional, Dict, Any, List, Literal, Union
 
 
 class ErrorResponse(BaseModel):
@@ -36,6 +36,71 @@ class ProposedUpsertPrefsAction(BaseModel):
     prefs: UserPrefs
 
 
+Unit = Literal["g", "ml", "count"]
+InventoryEventType = Literal[
+    "add",
+    "consume_cooked",
+    "consume_used_separately",
+    "consume_thrown_away",
+    "adjust",
+]
+
+
+class InventoryEventCreateRequest(BaseModel):
+    occurred_at: Optional[str] = None
+    event_type: InventoryEventType
+    item_name: str
+    quantity: float
+    unit: Unit
+    note: Optional[str] = ""
+    source: Optional[str] = "ui"
+
+
+class InventoryEvent(BaseModel):
+    event_id: str
+    occurred_at: str
+    event_type: InventoryEventType
+    item_name: str
+    quantity: float
+    unit: Unit
+    note: Optional[str] = None
+    source: Optional[str] = None
+
+
+class InventoryEventListResponse(BaseModel):
+    events: List[InventoryEvent]
+
+
+class InventorySummaryItem(BaseModel):
+    item_name: str
+    quantity: float
+    unit: Unit
+    approx: bool = False
+
+
+class InventorySummaryResponse(BaseModel):
+    items: List[InventorySummaryItem]
+    generated_at: str
+
+
+class LowStockItem(BaseModel):
+    item_name: str
+    quantity: float
+    unit: Unit
+    threshold: float
+    reason: str = ""
+
+
+class LowStockResponse(BaseModel):
+    items: List[LowStockItem]
+    generated_at: str
+
+
+class ProposedInventoryEventAction(BaseModel):
+    action_type: Literal["create_inventory_event"] = "create_inventory_event"
+    event: InventoryEventCreateRequest
+
+
 class ChatRequest(BaseModel):
     mode: Literal["ask", "fill"]
     message: str = Field(..., min_length=1)
@@ -46,7 +111,7 @@ class ChatResponse(BaseModel):
     reply_text: str
     confirmation_required: bool
     proposal_id: Optional[str] = None
-    proposed_actions: List[ProposedUpsertPrefsAction] = Field(default_factory=list)
+    proposed_actions: List[Union[ProposedUpsertPrefsAction, ProposedInventoryEventAction]] = Field(default_factory=list)
     suggested_next_questions: List[str] = Field(default_factory=list)
 
 

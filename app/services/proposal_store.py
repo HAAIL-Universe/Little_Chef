@@ -1,7 +1,7 @@
 import time
 from typing import Dict, Optional
 
-from app.schemas import ProposedUpsertPrefsAction
+from app.schemas import ProposedUpsertPrefsAction, ProposedInventoryEventAction
 
 
 class ProposalStore:
@@ -12,14 +12,14 @@ class ProposalStore:
 
     def __init__(self, ttl_seconds: int = 900) -> None:
         self.ttl_seconds = ttl_seconds
-        self._data: Dict[str, Dict[str, tuple[float, ProposedUpsertPrefsAction]]] = {}
+        self._data: Dict[str, Dict[str, tuple[float, object]]] = {}
 
-    def save(self, user_id: str, proposal_id: str, action: ProposedUpsertPrefsAction) -> None:
+    def save(self, user_id: str, proposal_id: str, action: object) -> None:
         user_bucket = self._data.setdefault(user_id, {})
         user_bucket[proposal_id] = (time.time(), action)
         self._gc(user_bucket)
 
-    def pop(self, user_id: str, proposal_id: str) -> Optional[ProposedUpsertPrefsAction]:
+    def pop(self, user_id: str, proposal_id: str) -> Optional[object]:
         user_bucket = self._data.get(user_id)
         if not user_bucket:
             return None
@@ -30,7 +30,7 @@ class ProposalStore:
         _, action = entry
         return action
 
-    def peek(self, user_id: str, proposal_id: str) -> Optional[ProposedUpsertPrefsAction]:
+    def peek(self, user_id: str, proposal_id: str) -> Optional[object]:
         user_bucket = self._data.get(user_id)
         if not user_bucket:
             return None
@@ -41,7 +41,7 @@ class ProposalStore:
         _, action = entry
         return action
 
-    def _gc(self, bucket: Dict[str, tuple[float, ProposedUpsertPrefsAction]]) -> None:
+    def _gc(self, bucket: Dict[str, tuple[float, object]]) -> None:
         now = time.time()
         expired = [pid for pid, (created, _) in bucket.items() if now - created > self.ttl_seconds]
         for pid in expired:

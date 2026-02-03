@@ -11,6 +11,7 @@ from app.schemas import (
 )
 from app.services.chat_service import ChatService
 from app.services.prefs_service import get_prefs_service
+from app.services.inventory_service import get_inventory_service
 from app.services.proposal_store import ProposalStore
 from app.errors import BadRequestError
 
@@ -18,7 +19,7 @@ router = APIRouter(prefix="", tags=["Chat"])
 
 # Shared instances (in-memory, process-local)
 _proposal_store = ProposalStore()
-_chat_service = ChatService(get_prefs_service(), _proposal_store)
+_chat_service = ChatService(get_prefs_service(), get_inventory_service(), _proposal_store)
 
 
 @router.post(
@@ -45,10 +46,10 @@ def chat_confirm(
     request: ConfirmProposalRequest,
     current_user: UserMe = Depends(get_current_user),
 ) -> ConfirmProposalResponse:
-    applied = _chat_service.confirm(current_user.user_id, request.proposal_id, request.confirm)
+    applied, applied_event_ids = _chat_service.confirm(current_user.user_id, request.proposal_id, request.confirm)
     if not applied and request.confirm:
         raise BadRequestError("proposal not found")
-    return ConfirmProposalResponse(applied=applied, applied_event_ids=[])
+    return ConfirmProposalResponse(applied=applied, applied_event_ids=applied_event_ids)
 
 
 def reset_chat_state_for_tests() -> None:
@@ -57,4 +58,6 @@ def reset_chat_state_for_tests() -> None:
     """
     global _chat_service
     _proposal_store.clear()
-    _chat_service = ChatService(get_prefs_service(), _proposal_store)
+    get_prefs_service.cache_clear()
+    get_inventory_service.cache_clear()
+    _chat_service = ChatService(get_prefs_service(), get_inventory_service(), _proposal_store)
