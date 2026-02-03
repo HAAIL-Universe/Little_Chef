@@ -1,8 +1,9 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends
 
 from app.api.deps import get_current_user
 from app.schemas import UserPrefs, UserPrefsUpsertRequest, ErrorResponse, UserMe
 from app.services.prefs_service import get_prefs_service
+from app.errors import BadRequestError
 
 router = APIRouter(prefix="", tags=["Prefs"], dependencies=[])
 
@@ -32,8 +33,5 @@ def upsert_prefs(
     service = get_prefs_service()
     prefs = request.prefs
     if prefs.servings < 1 or prefs.meals_per_day < 1:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=ErrorResponse(error="bad_request", message="servings and meals_per_day must be >= 1").model_dump(),
-        )
+        raise BadRequestError("servings and meals_per_day must be >= 1")
     return service.upsert_prefs(current_user.user_id, prefs)

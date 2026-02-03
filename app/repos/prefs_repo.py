@@ -19,3 +19,5 @@ class PrefsRepository:
         self._prefs_by_user[user_id] = prefs
         return prefs
 
+    def clear(self) -> None:
+        self._prefs_by_user.clear()

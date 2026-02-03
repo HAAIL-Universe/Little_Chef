@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends
 
 from app.api.deps import get_current_user
 from app.schemas import (
@@ -12,6 +12,7 @@ from app.schemas import (
 from app.services.chat_service import ChatService
 from app.services.prefs_service import get_prefs_service
 from app.services.proposal_store import ProposalStore
+from app.errors import BadRequestError
 
 router = APIRouter(prefix="", tags=["Chat"])
 
@@ -46,9 +47,14 @@ def chat_confirm(
 ) -> ConfirmProposalResponse:
     applied = _chat_service.confirm(current_user.user_id, request.proposal_id, request.confirm)
     if not applied and request.confirm:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=ErrorResponse(error="bad_request", message="proposal not found").model_dump(),
-        )
+        raise BadRequestError("proposal not found")
     return ConfirmProposalResponse(applied=applied, applied_event_ids=[])
 
+
+def reset_chat_state_for_tests() -> None:
+    """
+    Testing helper: clear proposal store and rebuild chat service with fresh prefs service.
+    """
+    global _chat_service
+    _proposal_store.clear()
+    _chat_service = ChatService(get_prefs_service(), _proposal_store)

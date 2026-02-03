@@ -47,3 +47,5 @@ class ProposalStore:
         for pid in expired:
             bucket.pop(pid, None)
 
+    def clear(self) -> None:
+        self._data.clear()

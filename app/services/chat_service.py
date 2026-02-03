@@ -133,10 +133,10 @@ class ChatService:
 
     def _extract_first_int(self, text: str, keywords: List[str]) -> int | None:
         for kw in keywords:
-            if kw in text:
-                match = re.search(r"(\d+)", text)
-                if match:
-                    return int(match.group(1))
+            pattern = rf"{kw}[^0-9]*(\d+)"
+            match = re.search(pattern, text)
+            if match:
+                return int(match.group(1))
         return None
 
     def _format_prefs(self, prefs: UserPrefs) -> str:

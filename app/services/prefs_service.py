@@ -28,9 +28,11 @@ class PrefsService:
     def upsert_prefs(self, user_id: str, prefs: UserPrefs) -> UserPrefs:
         return self.repo.upsert_prefs(user_id, prefs)
 
+    def clear(self) -> None:
+        self.repo.clear()
+
 
 @lru_cache(maxsize=1)
 def get_prefs_service() -> PrefsService:
     repo = PrefsRepository()
     return PrefsService(repo)
-
