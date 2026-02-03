@@ -164,6 +164,8 @@ When a reliable, maintained component exists (auth, storage, ingestion, UI widge
 - The test runner must be updated whenever new tests are added or existing test layout changes.
 - The test runner must run the full deterministic suite used for “bulk” verification.
 - Each invocation of `scripts/run_tests.ps1` must append a timestamped entry to `evidence/test_runs.md` capturing start/end time (UTC), python path, branch/HEAD (or “git unavailable”), git status/diff stat, and exit codes/summaries for compileall, import sanity, and pytest. The log MUST append (never overwrite) even when a step fails.
+- At the end of every implementation cycle marked COMPLETE, the builder MUST run `.\scripts\run_tests.ps1` and include results in verification.
+- `scripts/run_tests.ps1` must also overwrite `evidence/test_runs_latest.md` on every run; the first line must be `Status: PASS|FAIL` and, if failing, include a brief failing-tests section (or note to see console output).
 
 Minimum required behavior for `scripts/run_tests.ps1`:
 - Run static sanity for the backend (compile/import)
@@ -193,6 +195,11 @@ The builder must:
 
 If the repo has a PowerShell helper for diff logs, it must be used:
 - `scripts/overwrite_diff_log.ps1`
+
+Helper workflow: the script writes skeleton + git/diff metadata but leaves TODO placeholders. The builder must:
+1) At START of a cycle: run the helper, then replace TODO placeholders with Status=IN_PROCESS, planned/current files, summary bullets, and notes/next steps (no TODOs left).
+2) At END of a cycle: re-run the helper to refresh metadata, then replace all TODO placeholders with final Status=COMPLETE, real summary, verification (static → runtime → behavior → contract), and notes/next steps (explicit “None” if empty).
+No cycle is COMPLETE if any “TODO:” placeholders remain in `evidence/updatedifflog.md`.
 
 Rules:
 - Do not write or re-introduce a root-level `updatedifflog.md`.
