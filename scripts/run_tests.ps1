@@ -26,12 +26,15 @@ try {
   Info "Python: $py"
 
   & $py -m compileall app
+  if ($LASTEXITCODE -ne 0) { throw "compileall failed" }
   Info "compileall app: ok"
 
   & $py -c "import app.main; print('import ok')"
+  if ($LASTEXITCODE -ne 0) { throw "import app.main failed" }
   Info "import app.main: ok"
 
   & $py -m pytest -q
+  if ($LASTEXITCODE -ne 0) { throw "pytest failed" }
   Info "pytest: ok"
 }
 catch {

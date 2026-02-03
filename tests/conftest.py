@@ -7,14 +7,16 @@ from app.schemas import UserMe
 from app.services.prefs_service import get_prefs_service
 import app.api.routers.chat as chat_router
 from app.services.chat_service import ChatService
+from app.services.inventory_service import get_inventory_service
 
 
 @pytest.fixture
 def app_instance():
     # Reset cached services/state for deterministic tests
     get_prefs_service.cache_clear()
+    get_inventory_service.cache_clear()
     chat_router._proposal_store.clear()
-    chat_router._chat_service = ChatService(get_prefs_service(), chat_router._proposal_store)
+    chat_router._chat_service = ChatService(get_prefs_service(), get_inventory_service(), chat_router._proposal_store)
     return create_app()
 
 
