@@ -2,7 +2,7 @@ from functools import lru_cache
 from typing import Optional
 
 from app.schemas import UserPrefs
-from app.repos.prefs_repo import PrefsRepository
+from app.repos.prefs_repo import PrefsRepository, DbPrefsRepository, get_prefs_repository
 
 
 DEFAULT_PREFS = UserPrefs(
@@ -16,7 +16,7 @@ DEFAULT_PREFS = UserPrefs(
 
 
 class PrefsService:
-    def __init__(self, repo: PrefsRepository) -> None:
+    def __init__(self, repo) -> None:
         self.repo = repo
 
     def get_prefs(self, user_id: str) -> UserPrefs:
@@ -25,14 +25,17 @@ class PrefsService:
             return stored
         return DEFAULT_PREFS.model_copy()
 
-    def upsert_prefs(self, user_id: str, prefs: UserPrefs) -> UserPrefs:
+    def upsert_prefs(self, user_id: str, provider_subject: str, email: str | None, prefs: UserPrefs) -> UserPrefs:
+        if isinstance(self.repo, DbPrefsRepository):
+            return self.repo.upsert_prefs(user_id, provider_subject, email, prefs)
         return self.repo.upsert_prefs(user_id, prefs)
 
     def clear(self) -> None:
-        self.repo.clear()
+        if hasattr(self.repo, "clear"):
+            self.repo.clear()
 
 
 @lru_cache(maxsize=1)
 def get_prefs_service() -> PrefsService:
-    repo = PrefsRepository()
+    repo = get_prefs_repository()
     return PrefsService(repo)

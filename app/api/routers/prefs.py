@@ -34,4 +34,9 @@ def upsert_prefs(
     prefs = request.prefs
     if prefs.servings < 1 or prefs.meals_per_day < 1:
         raise BadRequestError("servings and meals_per_day must be >= 1")
-    return service.upsert_prefs(current_user.user_id, prefs)
+    return service.upsert_prefs(
+        current_user.user_id,
+        current_user.provider_subject,
+        current_user.email,
+        prefs,
+    )

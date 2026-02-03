@@ -41,7 +41,12 @@ def create_inventory_event(
     current_user: UserMe = Depends(get_current_user),
 ) -> InventoryEvent:
     service = get_inventory_service()
-    return service.create_event(current_user.user_id, request)
+    return service.create_event(
+        current_user.user_id,
+        current_user.provider_subject,
+        current_user.email,
+        request,
+    )
 
 
 @router.get(

@@ -2,7 +2,7 @@ from functools import lru_cache
 from typing import List, Dict
 from datetime import datetime, timezone
 
-from app.repos.inventory_repo import InventoryRepository
+from app.repos.inventory_repo import InventoryRepository, DbInventoryRepository, get_inventory_repository
 from app.schemas import (
     InventoryEventCreateRequest,
     InventoryEvent,
@@ -21,10 +21,12 @@ THRESHOLDS = {
 
 
 class InventoryService:
-    def __init__(self, repo: InventoryRepository) -> None:
+    def __init__(self, repo) -> None:
         self.repo = repo
 
-    def create_event(self, user_id: str, req: InventoryEventCreateRequest) -> InventoryEvent:
+    def create_event(self, user_id: str, provider_subject: str, email: str | None, req: InventoryEventCreateRequest) -> InventoryEvent:
+        if isinstance(self.repo, DbInventoryRepository):
+            return self.repo.create_event(user_id, provider_subject, email, req)
         return self.repo.create_event(user_id, req)
 
     def list_events(self, user_id: str, limit: int, since: str | None) -> List[InventoryEvent]:
@@ -78,5 +80,5 @@ class InventoryService:
 
 @lru_cache(maxsize=1)
 def get_inventory_service() -> InventoryService:
-    repo = InventoryRepository()
+    repo = get_inventory_repository()
     return InventoryService(repo)

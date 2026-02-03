@@ -9,6 +9,7 @@ from app.schemas import (
     ProposedInventoryEventAction,
     UserPrefs,
     InventoryEventCreateRequest,
+    UserMe,
 )
 from app.services.prefs_service import PrefsService
 from app.services.proposal_store import ProposalStore
@@ -21,9 +22,10 @@ class ChatService:
         self.inventory_service = inventory_service
         self.proposal_store = proposal_store
 
-    def handle_chat(self, user_id: str, request: ChatRequest) -> ChatResponse:
+    def handle_chat(self, user: UserMe, request: ChatRequest) -> ChatResponse:
         mode = request.mode
         message = request.message.lower()
+        user_id = user.user_id
 
         if mode == "ask":
             ask_reply = self._handle_ask(user_id, message)
@@ -82,8 +84,8 @@ class ChatService:
             suggested_next_questions=[],
         )
 
-    def confirm(self, user_id: str, proposal_id: str, confirm: bool) -> tuple[bool, List[str]]:
-        action = self.proposal_store.pop(user_id, proposal_id)
+    def confirm(self, user: UserMe, proposal_id: str, confirm: bool) -> tuple[bool, List[str]]:
+        action = self.proposal_store.pop(user.user_id, proposal_id)
         if not action:
             return False, []
         if not confirm:
@@ -91,10 +93,15 @@ class ChatService:
 
         applied_event_ids: List[str] = []
         if isinstance(action, ProposedUpsertPrefsAction):
-            self.prefs_service.upsert_prefs(user_id, action.prefs)
+            self.prefs_service.upsert_prefs(user.user_id, user.provider_subject, user.email, action.prefs)
             return True, applied_event_ids
         if isinstance(action, ProposedInventoryEventAction):
-            ev = self.inventory_service.create_event(user_id, action.event)
+            ev = self.inventory_service.create_event(
+                user.user_id,
+                user.provider_subject,
+                user.email,
+                action.event,
+            )
             applied_event_ids.append(ev.event_id)
             return True, applied_event_ids
         return False, []

@@ -4,6 +4,8 @@ from typing import Optional
 
 from app.auth.jwt_verifier import JWTVerifier, JWTVerificationError
 from app.schemas import UserMe
+from app.db.conn import get_database_url, connect
+from app.repos.user_repo import ensure_user
 
 
 def _deterministic_user_id(provider_subject: str) -> str:
@@ -26,6 +28,12 @@ class AuthService:
 
         email = claims.get("email")
         user_id = _deterministic_user_id(provider_subject)
+
+        if get_database_url():
+            with connect() as conn, conn.cursor() as cur:
+                ensure_user(cur, user_id, provider_subject, email)
+                conn.commit()
+
         return UserMe(
             user_id=user_id,
             provider_subject=provider_subject,
@@ -37,4 +45,3 @@ class AuthService:
 def get_auth_service() -> AuthService:
     verifier = JWTVerifier.from_env()
     return AuthService(verifier=verifier)
-

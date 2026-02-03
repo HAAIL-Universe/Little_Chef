@@ -31,7 +31,7 @@ def chat(
     request: ChatRequest,
     current_user: UserMe = Depends(get_current_user),
 ) -> ChatResponse:
-    return _chat_service.handle_chat(current_user.user_id, request)
+    return _chat_service.handle_chat(current_user, request)
 
 
 @router.post(
@@ -46,7 +46,7 @@ def chat_confirm(
     request: ConfirmProposalRequest,
     current_user: UserMe = Depends(get_current_user),
 ) -> ConfirmProposalResponse:
-    applied, applied_event_ids = _chat_service.confirm(current_user.user_id, request.proposal_id, request.confirm)
+    applied, applied_event_ids = _chat_service.confirm(current_user, request.proposal_id, request.confirm)
     if not applied and request.confirm:
         raise BadRequestError("proposal not found")
     return ConfirmProposalResponse(applied=applied, applied_event_ids=applied_event_ids)
