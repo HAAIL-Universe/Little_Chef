@@ -366,7 +366,7 @@ components:
 
     PlannedMeal:
       type: object
-      required: [name, slot, ingredients, source]
+      required: [name, slot, ingredients, source, citations]
       properties:
         name:
           type: string
@@ -382,6 +382,11 @@ components:
           default: []
         source:
           $ref: "#/components/schemas/RecipeSource"
+        citations:
+          type: array
+          minItems: 1
+          items:
+            $ref: "#/components/schemas/RecipeSource"
 
     IngredientLine:
       type: object
@@ -434,7 +439,7 @@ components:
 
     ShoppingListItem:
       type: object
-      required: [item_name, quantity, unit]
+      required: [item_name, quantity, unit, citations]
       properties:
         item_name:
           type: string
@@ -444,7 +449,12 @@ components:
           $ref: "#/components/schemas/Unit"
         reason:
           type: string
-          default: ""
+          minLength: 1
+        citations:
+          type: array
+          minItems: 1
+          items:
+            $ref: "#/components/schemas/RecipeSource"
 
     ShoppingDiffResponse:
       type: object
