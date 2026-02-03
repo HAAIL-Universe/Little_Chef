@@ -1,60 +1,226 @@
 # Diff Log (overwrite each cycle)
 
 ## Cycle Metadata
-- Timestamp: 2026-02-03T11:58:45+00:00
+- Timestamp: 2026-02-03T12:02:53+00:00
 - Branch: main
-- HEAD: 9ddfd4660bedcabc2539c73388252c1919b4a293
+- HEAD: 5dc7e4300b880cf46032e3a1d89bc419bd64b862
 - Diff basis: staged
 
 ## Cycle Status
 - Status: COMPLETE
 
 ## Summary
-- Phase 3: inventory endpoints + chat inventory actions + tests
-- Implemented /inventory events, summary, low-stock + chat inventory propose/ask
-- Added pytest coverage for inventory + chat, updated run_tests.ps1
+- Tooling: test run history logging
+- run_tests.ps1 appends to evidence/test_runs.md each run
+- builder_contract updated with test-run logging gate
 
 ## Files Changed (staged)
-- app/api/routers/inventory.py
-- app/repos/inventory_repo.py
-- app/services/inventory_service.py
-- app/api/routers/chat.py
-- app/services/chat_service.py
-- app/services/proposal_store.py
-- app/schemas.py
-- app/main.py
+- Contracts/builder_contract.md
+- evidence/test_runs.md
 - scripts/run_tests.ps1
-- tests/conftest.py
-- tests/test_auth_unauthorized_shape.py
-- tests/test_chat_confirm_missing_proposal.py
-- tests/test_chat_prefs_propose_confirm.py
-- tests/test_chat_inventory_ask_low_stock.py
-- tests/test_chat_inventory_fill_propose_confirm.py
-- tests/test_inventory_events_create_and_list.py
-- tests/test_inventory_low_stock_defaults.py
-- tests/test_inventory_summary_derived.py
 
 ## git status -sb
-    ## main...origin/main [ahead 5]
+    ## main...origin/main [ahead 6]
+    M  Contracts/builder_contract.md
+    A  evidence/test_runs.md
+    M  scripts/run_tests.ps1
 
 ## Minimal Diff Hunks
-    diff --git a/app/api/routers/inventory.py b/app/api/routers/inventory.py
-    +@router.post("/inventory/events", status_code=201, response_model=InventoryEvent)
-    +def create_inventory_event(request: InventoryEventCreateRequest, current_user: UserMe = Depends(get_current_user)) -> InventoryEvent:
-    +    service = get_inventory_service()
-    +    return service.create_event(current_user.user_id, request)
-    diff --git a/app/services/chat_service.py b/app/services/chat_service.py
-    +        if isinstance(action, ProposedInventoryEventAction):
-    +            ev = self.inventory_service.create_event(user_id, action.event)
-    +            applied_event_ids.append(ev.event_id)
-    +            return True, applied_event_ids
+    diff --git a/Contracts/builder_contract.md b/Contracts/builder_contract.md
+    index b4758c0..d4968da 100644
+    --- a/Contracts/builder_contract.md
+    +++ b/Contracts/builder_contract.md
+    @@ -163,6 +163,7 @@ When a reliable, maintained component exists (auth, storage, ingestion, UI widge
+     - Create/maintain a PowerShell test runner at: `scripts/run_tests.ps1`.
+     - The test runner must be updated whenever new tests are added or existing test layout changes.
+     - The test runner must run the full deterministic suite used for “bulk” verification.
+    +- Each invocation of `scripts/run_tests.ps1` must append a timestamped entry to `evidence/test_runs.md` capturing start/end time (UTC), python path, branch/HEAD (or “git unavailable”), git status/diff stat, and exit codes/summaries for compileall, import sanity, and pytest. The log MUST append (never overwrite) even when a step fails.
+     
+     Minimum required behavior for `scripts/run_tests.ps1`:
+     - Run static sanity for the backend (compile/import)
+    diff --git a/evidence/test_runs.md b/evidence/test_runs.md
+    new file mode 100644
+    index 0000000..29380ce
+    --- /dev/null
+    +++ b/evidence/test_runs.md
+    @@ -0,0 +1,47 @@
+    +## Test Run 2026-02-03T12:02:17Z
+    +- Start: 2026-02-03T12:02:17Z
+    +- End: 2026-02-03T12:02:20Z
+    +- Python: Z:\LittleChef\.venv\\Scripts\\python.exe
+    +- Branch: main
+    +- HEAD: 5dc7e4300b880cf46032e3a1d89bc419bd64b862
+    +- compileall exit: 0
+    +- import app.main exit: 0
+    +- pytest exit: 0
+    +- pytest summary: 10 passed, 1 warning in 0.19s
+    +- git status -sb:
+    +```
+    +## main...origin/main [ahead 6]
+    + M Contracts/builder_contract.md
+    + M scripts/run_tests.ps1
+    +```
+    +- git diff --stat:
+    +```
+    + Contracts/builder_contract.md |   1 +
+    + scripts/run_tests.ps1         | 109 ++++++++++++++++++++++++++++++++++++------
+    + 2 files changed, 96 insertions(+), 14 deletions(-)
+    +```
+    +
+    +## Test Run 2026-02-03T12:02:26Z
+    +- Start: 2026-02-03T12:02:26Z
+    +- End: 2026-02-03T12:02:28Z
+    +- Python: Z:\LittleChef\.venv\\Scripts\\python.exe
+    +- Branch: main
+    +- HEAD: 5dc7e4300b880cf46032e3a1d89bc419bd64b862
+    +- compileall exit: 0
+    +- import app.main exit: 0
+    +- pytest exit: 0
+    +- pytest summary: 10 passed, 1 warning in 0.19s
+    +- git status -sb:
+    +```
+    +## main...origin/main [ahead 6]
+    + M Contracts/builder_contract.md
+    + M scripts/run_tests.ps1
+    +?? evidence/test_runs.md
+    +```
+    +- git diff --stat:
+    +```
+    + Contracts/builder_contract.md |   1 +
+    + scripts/run_tests.ps1         | 109 ++++++++++++++++++++++++++++++++++++------
+    + 2 files changed, 96 insertions(+), 14 deletions(-)
+    +```
+    +
+    diff --git a/scripts/run_tests.ps1 b/scripts/run_tests.ps1
+    index fe6c7c3..aceb661 100644
+    --- a/scripts/run_tests.ps1
+    +++ b/scripts/run_tests.ps1
+    @@ -19,25 +19,106 @@ function Resolve-Python {
+       return "python"
+     }
+     
+    +function Append-TestRunLog(
+    +  [string]$root,
+    +  [string]$pythonPath,
+    +  [string]$startUtc,
+    +  [string]$endUtc,
+    +  [int]$compileExit,
+    +  [int]$importExit,
+    +  [int]$pytestExit,
+    +  [string]$pytestSummary,
+    +  [string]$gitBranch,
+    +  [string]$gitHead,
+    +  [string]$gitStatus,
+    +  [string]$gitDiffStat
+    +) {
+    +  $logPath = Join-Path $root "evidence\test_runs.md"
+    +  $logDir = Split-Path -Parent $logPath
+    +  if (-not (Test-Path $logDir)) { New-Item -ItemType Directory -Force -Path $logDir | Out-Null }
+    +
+    +  $lines = @()
+    +  $lines += "## Test Run $startUtc"
+    +  $lines += "- Start: $startUtc"
+    +  $lines += "- End: $endUtc"
+    +  $lines += "- Python: $pythonPath"
+    +  $lines += "- Branch: $gitBranch"
+    +  $lines += "- HEAD: $gitHead"
+    +  $lines += "- compileall exit: $compileExit"
+    +  $lines += "- import app.main exit: $importExit"
+    +  $lines += "- pytest exit: $pytestExit"
+    +  $lines += "- pytest summary: $pytestSummary"
+    +  $lines += "- git status -sb:"
+    +  $lines += '```'
+    +  $lines += $gitStatus
+    +  $lines += '```'
+    +  $lines += "- git diff --stat:"
+    +  $lines += '```'
+    +  $lines += $gitDiffStat
+    +  $lines += '```'
+    +  $lines += ""
+    +
+    +  Add-Content -LiteralPath $logPath -Value $lines -Encoding utf8
+    +}
+    +
+    +$root = Resolve-Path (Join-Path $PSScriptRoot "..")
+    +Set-Location $root
+    +$py = Resolve-Python
+    +Info "Python: $py"
+    +
+    +$startUtc = (Get-Date).ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ")
+    +$compileExit = -1
+    +$importExit = -1
+    +$pytestExit = -1
+    +$pytestSummary = "(not run)"
+    +
+    +$gitBranch = "git unavailable"
+    +$gitHead = "git unavailable"
+    +$gitStatus = "git unavailable"
+    +$gitDiffStat = "git unavailable"
+    +
+     try {
+    -  $root = Resolve-Path (Join-Path $PSScriptRoot "..")
+    -  Set-Location $root
+    -  $py = Resolve-Python
+    -  Info "Python: $py"
+    +  $gitBranch = (& git rev-parse --abbrev-ref HEAD 2>$null)
+    +  if ($LASTEXITCODE -ne 0 -or -not $gitBranch) { $gitBranch = "git unavailable" }
+    +  $gitHead = (& git rev-parse HEAD 2>$null)
+    +  if ($LASTEXITCODE -ne 0 -or -not $gitHead) { $gitHead = "git unavailable" }
+    +  $gitStatus = (& git status -sb 2>$null)
+    +  if ($LASTEXITCODE -ne 0 -or -not $gitStatus) { $gitStatus = "git unavailable" }
+    +  $gitDiffStat = (& git diff --stat 2>$null)
+    +  if ($LASTEXITCODE -ne 0) { $gitDiffStat = "git unavailable" }
+    +}
+    +catch {
+    +  $gitBranch = "git unavailable"
+    +  $gitHead = "git unavailable"
+    +  $gitStatus = "git unavailable"
+    +  $gitDiffStat = "git unavailable"
+    +}
+     
+    +try {
+       & $py -m compileall app
+    -  if ($LASTEXITCODE -ne 0) { throw "compileall failed" }
+    -  Info "compileall app: ok"
+    +  $compileExit = $LASTEXITCODE
+    +  if ($compileExit -eq 0) { Info "compileall app: ok" } else { Err "compileall failed ($compileExit)" }
+     
+       & $py -c "import app.main; print('import ok')"
+    -  if ($LASTEXITCODE -ne 0) { throw "import app.main failed" }
+    -  Info "import app.main: ok"
+    +  $importExit = $LASTEXITCODE
+    +  if ($importExit -eq 0) { Info "import app.main: ok" } else { Err "import app.main failed ($importExit)" }
+     
+    -  & $py -m pytest -q
+    -  if ($LASTEXITCODE -ne 0) { throw "pytest failed" }
+    -  Info "pytest: ok"
+    +  $pytestLines = @()
+    +  $pytestOutput = & $py -m pytest -q 2>&1 | Tee-Object -Variable pytestLines
+    +  $pytestExit = $LASTEXITCODE
+    +  $nonEmpty = $pytestLines | Where-Object { $_ -and $_.Trim().Length -gt 0 }
+    +  if ($nonEmpty.Count -gt 0) { $pytestSummary = $nonEmpty[-1] }
+    +  if ($pytestExit -eq 0) { Info "pytest: ok" } else { Err "pytest failed ($pytestExit)" }
+     }
+    -catch {
+    -  Err $_.Exception.Message
+    -  exit 1
+    +finally {
+    +  $endUtc = (Get-Date).ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ")
+    +  Append-TestRunLog -root $root -pythonPath $py -startUtc $startUtc -endUtc $endUtc `
+    +    -compileExit $compileExit -importExit $importExit -pytestExit $pytestExit -pytestSummary $pytestSummary `
+    +    -gitBranch $gitBranch -gitHead $gitHead -gitStatus ($gitStatus -join "`n") -gitDiffStat ($gitDiffStat -join "`n")
+    +
+    +  $overall = 0
+    +  foreach ($code in @($compileExit, $importExit, $pytestExit)) {
+    +    if ($code -ne 0) { $overall = 1 }
+    +  }
+    +  if ($overall -ne 0) { exit 1 } else { exit 0 }
+     }
 
 ## Verification
-- compileall app: pass
-- import app.main: pass
-- GET /inventory/events (no auth) -> 401 top-level ErrorResponse
-- run_tests.ps1: pass (pytest 10 tests)
-- contract: inventory endpoints + chat proposals align with physics
+- run_tests.ps1 first run: pass (compile/import/pytest)
+- run_tests.ps1 second run: pass (append-only confirmed)
+- contract: builder_contract updated to mandate logging
 
 ## Notes (optional)
 - TODO: blockers, risks, constraints.

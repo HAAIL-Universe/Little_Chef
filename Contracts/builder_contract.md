@@ -163,6 +163,7 @@ When a reliable, maintained component exists (auth, storage, ingestion, UI widge
 - Create/maintain a PowerShell test runner at: `scripts/run_tests.ps1`.
 - The test runner must be updated whenever new tests are added or existing test layout changes.
 - The test runner must run the full deterministic suite used for “bulk” verification.
+- Each invocation of `scripts/run_tests.ps1` must append a timestamped entry to `evidence/test_runs.md` capturing start/end time (UTC), python path, branch/HEAD (or “git unavailable”), git status/diff stat, and exit codes/summaries for compileall, import sanity, and pytest. The log MUST append (never overwrite) even when a step fails.
 
 Minimum required behavior for `scripts/run_tests.ps1`:
 - Run static sanity for the backend (compile/import)

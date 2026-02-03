@@ -19,25 +19,106 @@ function Resolve-Python {
   return "python"
 }
 
+function Append-TestRunLog(
+  [string]$root,
+  [string]$pythonPath,
+  [string]$startUtc,
+  [string]$endUtc,
+  [int]$compileExit,
+  [int]$importExit,
+  [int]$pytestExit,
+  [string]$pytestSummary,
+  [string]$gitBranch,
+  [string]$gitHead,
+  [string]$gitStatus,
+  [string]$gitDiffStat
+) {
+  $logPath = Join-Path $root "evidence\test_runs.md"
+  $logDir = Split-Path -Parent $logPath
+  if (-not (Test-Path $logDir)) { New-Item -ItemType Directory -Force -Path $logDir | Out-Null }
+
+  $lines = @()
+  $lines += "## Test Run $startUtc"
+  $lines += "- Start: $startUtc"
+  $lines += "- End: $endUtc"
+  $lines += "- Python: $pythonPath"
+  $lines += "- Branch: $gitBranch"
+  $lines += "- HEAD: $gitHead"
+  $lines += "- compileall exit: $compileExit"
+  $lines += "- import app.main exit: $importExit"
+  $lines += "- pytest exit: $pytestExit"
+  $lines += "- pytest summary: $pytestSummary"
+  $lines += "- git status -sb:"
+  $lines += '```'
+  $lines += $gitStatus
+  $lines += '```'
+  $lines += "- git diff --stat:"
+  $lines += '```'
+  $lines += $gitDiffStat
+  $lines += '```'
+  $lines += ""
+
+  Add-Content -LiteralPath $logPath -Value $lines -Encoding utf8
+}
+
+$root = Resolve-Path (Join-Path $PSScriptRoot "..")
+Set-Location $root
+$py = Resolve-Python
+Info "Python: $py"
+
+$startUtc = (Get-Date).ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ")
+$compileExit = -1
+$importExit = -1
+$pytestExit = -1
+$pytestSummary = "(not run)"
+
+$gitBranch = "git unavailable"
+$gitHead = "git unavailable"
+$gitStatus = "git unavailable"
+$gitDiffStat = "git unavailable"
+
 try {
-  $root = Resolve-Path (Join-Path $PSScriptRoot "..")
-  Set-Location $root
-  $py = Resolve-Python
-  Info "Python: $py"
-
-  & $py -m compileall app
-  if ($LASTEXITCODE -ne 0) { throw "compileall failed" }
-  Info "compileall app: ok"
-
-  & $py -c "import app.main; print('import ok')"
-  if ($LASTEXITCODE -ne 0) { throw "import app.main failed" }
-  Info "import app.main: ok"
-
-  & $py -m pytest -q
-  if ($LASTEXITCODE -ne 0) { throw "pytest failed" }
-  Info "pytest: ok"
+  $gitBranch = (& git rev-parse --abbrev-ref HEAD 2>$null)
+  if ($LASTEXITCODE -ne 0 -or -not $gitBranch) { $gitBranch = "git unavailable" }
+  $gitHead = (& git rev-parse HEAD 2>$null)
+  if ($LASTEXITCODE -ne 0 -or -not $gitHead) { $gitHead = "git unavailable" }
+  $gitStatus = (& git status -sb 2>$null)
+  if ($LASTEXITCODE -ne 0 -or -not $gitStatus) { $gitStatus = "git unavailable" }
+  $gitDiffStat = (& git diff --stat 2>$null)
+  if ($LASTEXITCODE -ne 0) { $gitDiffStat = "git unavailable" }
 }
 catch {
-  Err $_.Exception.Message
-  exit 1
+  $gitBranch = "git unavailable"
+  $gitHead = "git unavailable"
+  $gitStatus = "git unavailable"
+  $gitDiffStat = "git unavailable"
+}
+
+try {
+  & $py -m compileall app
+  $compileExit = $LASTEXITCODE
+  if ($compileExit -eq 0) { Info "compileall app: ok" } else { Err "compileall failed ($compileExit)" }
+
+  & $py -c "import app.main; print('import ok')"
+  $importExit = $LASTEXITCODE
+  if ($importExit -eq 0) { Info "import app.main: ok" } else { Err "import app.main failed ($importExit)" }
+
+  $pytestLines = @()
+  $pytestOutput = & $py -m pytest -q 2>&1 | Tee-Object -Variable pytestLines
+  $pytestExit = $LASTEXITCODE
+  $nonEmpty = $pytestLines | Where-Object { $_ -and $_.Trim().Length -gt 0 }
+  if ($nonEmpty.Count -gt 0) { $pytestSummary = $nonEmpty[-1] }
+  if ($pytestExit -eq 0) { Info "pytest: ok" } else { Err "pytest failed ($pytestExit)" }
+}
+finally {
+  $endUtc = (Get-Date).ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ")
+  Append-TestRunLog -root $root -pythonPath $py -startUtc $startUtc -endUtc $endUtc `
+    -compileExit $compileExit -importExit $importExit -pytestExit $pytestExit -pytestSummary $pytestSummary `
+    -gitBranch $gitBranch -gitHead $gitHead -gitStatus ($gitStatus -join "`n") -gitDiffStat ($gitDiffStat -join "`n")
+
+  $overall = 0
+  foreach ($code in @($compileExit, $importExit, $pytestExit)) {
+    if ($code -ne 0) { $overall = 1 }
+  }
+  if ($overall -ne 0) { exit 1 } else { exit 0 }
 }
