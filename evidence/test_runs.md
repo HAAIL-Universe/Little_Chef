@@ -286,3 +286,73 @@ M  scripts/run_tests.ps1
  4 files changed, 84 insertions(+), 38 deletions(-)
 ```
 
+## Test Run 2026-02-03T13:43:00Z
+- Status: FAIL
+- Start: 2026-02-03T13:43:00Z
+- End: 2026-02-03T13:43:03Z
+- Python: Z:\LittleChef\.venv\\Scripts\\python.exe
+- Branch: main
+- HEAD: 9ab58ab18feeada6ea27bb40cadeb0c722f2ea83
+- compileall exit: 0
+- import app.main exit: 0
+- pytest exit: 1
+- pytest summary: 1 failed, 19 passed, 1 warning in 0.64s
+- git status -sb:
+```
+## main...origin/main
+ M app/main.py
+ M app/schemas.py
+ M evidence/updatedifflog.md
+ M tests/conftest.py
+ M tests/test_shopping_diff.py
+?? app/api/routers/mealplan.py
+?? app/services/mealplan_service.py
+?? tests/test_mealplan_generate.py
+```
+- git diff --stat:
+```
+ app/main.py                 |   3 +-
+ app/schemas.py              |   7 +
+ evidence/updatedifflog.md   | 472 +++-----------------------------------------
+ tests/conftest.py           |   2 +
+ tests/test_shopping_diff.py |  18 ++
+ 5 files changed, 56 insertions(+), 446 deletions(-)
+```
+
+## Test Run 2026-02-03T13:43:38Z
+- Status: PASS
+- Start: 2026-02-03T13:43:38Z
+- End: 2026-02-03T13:43:41Z
+- Python: Z:\LittleChef\.venv\\Scripts\\python.exe
+- Branch: main
+- HEAD: 9ab58ab18feeada6ea27bb40cadeb0c722f2ea83
+- compileall exit: 0
+- import app.main exit: 0
+- pytest exit: 0
+- pytest summary: 20 passed, 1 warning in 0.51s
+- git status -sb:
+```
+## main...origin/main
+ M app/main.py
+ M app/schemas.py
+ M evidence/test_runs.md
+ M evidence/test_runs_latest.md
+ M evidence/updatedifflog.md
+ M tests/conftest.py
+ M tests/test_shopping_diff.py
+?? app/api/routers/mealplan.py
+?? app/services/mealplan_service.py
+?? tests/test_mealplan_generate.py
+```
+- git diff --stat:
+```
+ app/main.py                  |   3 +-
+ app/schemas.py               |   7 +
+ evidence/test_runs.md        |  33 +++
+ evidence/test_runs_latest.md |  34 ++--
+ evidence/updatedifflog.md    | 472 +++----------------------------------------
+ tests/conftest.py            |   2 +
+ tests/test_shopping_diff.py  |  18 ++
+ 7 files changed, 108 insertions(+), 461 deletions(-)
+```
+

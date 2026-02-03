@@ -184,6 +184,13 @@ class MealPlanResponse(BaseModel):
     notes: str = ""
 
 
+class MealPlanGenerateRequest(BaseModel):
+    days: int = Field(..., ge=1, le=31)
+    meals_per_day: Optional[int] = Field(default=None, ge=1, le=6)
+    include_user_library: bool = True
+    notes: str = ""
+
+
 class ShoppingListItem(BaseModel):
     item_name: str
     quantity: float

@@ -80,3 +80,21 @@ def test_shopping_diff_computes_missing_only(authed_client):
     assert missing["eggs"]["unit"] == "count"
     assert missing["milk"]["quantity"] == 300
     assert missing["milk"]["unit"] == "ml"
+
+
+def test_shopping_diff_works_with_generated_plan(authed_client):
+    resp = authed_client.post("/mealplan/generate", json={"days": 1, "meals_per_day": 2})
+    assert resp.status_code == 200
+    plan = resp.json()
+
+    # Seed inventory with some items from built-in ingredients
+    authed_client.post(
+        "/inventory/events",
+        json={"event_type": "add", "item_name": "tomato", "quantity": 1, "unit": "count", "note": "", "source": "ui"},
+    )
+
+    resp = authed_client.post("/shopping/diff", json={"plan": plan})
+    assert resp.status_code == 200
+    missing = resp.json()["missing_items"]
+    assert any(item["item_name"] == "tomato" for item in missing)  # still missing some tomatoes
+    assert all("unit" in item for item in missing)
