@@ -1,6 +1,8 @@
 import os
 from typing import Optional
 
+from app.config.env import load_env
+
 try:
     import psycopg
 except ImportError:  # pragma: no cover - surfaced only when DATABASE_URL set without driver
@@ -8,6 +10,7 @@ except ImportError:  # pragma: no cover - surfaced only when DATABASE_URL set wi
 
 
 def get_database_url() -> Optional[str]:
+    load_env()
     return os.environ.get("DATABASE_URL")
 
 

@@ -145,7 +145,7 @@ try {
   $out.Add("## Cycle Metadata")
   $out.Add("- Timestamp: $timestamp")
   $out.Add("- Branch: $branch")
-  $out.Add("- HEAD: $head")
+  $out.Add("- BASE_HEAD: $head")
   $out.Add("- Diff basis: $basis")
   $out.Add("")
   $out.Add("## Cycle Status")
