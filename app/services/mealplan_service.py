@@ -45,19 +45,21 @@ class MealPlanService:
                 recipe = meals_catalog[meal_idx % len(meals_catalog)]
                 recipe_id = recipe["id"]
                 ingredients = _INGREDIENTS_BY_RECIPE.get(recipe_id, [])
+                src = RecipeSource(
+                    source_type="built_in",
+                    built_in_recipe_id=recipe_id,
+                    file_id=None,
+                    book_id=None,
+                    excerpt=None,
+                )
                 day_meals.append(
                     PlannedMeal(
                         name=recipe["title"],
                         slot=self._slot_for_index(meal_idx),
                         ingredients=ingredients,
                         instructions=[],
-                        source=RecipeSource(
-                            source_type="built_in",
-                            built_in_recipe_id=recipe_id,
-                            file_id=None,
-                            book_id=None,
-                            excerpt=None,
-                        ),
+                        source=src,
+                        citations=[src],
                     )
                 )
             meals.append(MealPlanDay(day_index=day_index, meals=day_meals))

@@ -23,6 +23,12 @@ def test_mealplan_generate_happy_path(authed_client):
             assert source["book_id"] is None
             assert source["file_id"] is None
             assert "excerpt" in source
+            citations = meal.get("citations", [])
+            assert isinstance(citations, list)
+            assert len(citations) >= 1
+            first = citations[0]
+            assert first["source_type"] == "built_in"
+            assert first["built_in_recipe_id"]
             assert meal["ingredients"]
             for ing in meal["ingredients"]:
                 assert ing["item_name"]

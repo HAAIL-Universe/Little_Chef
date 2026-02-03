@@ -1,4 +1,4 @@
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, conlist
 from typing import Optional, Dict, Any, List, Literal, Union
 from enum import Enum
 
@@ -170,6 +170,7 @@ class PlannedMeal(BaseModel):
     ingredients: List[IngredientLine]
     instructions: List[str] = Field(default_factory=list)
     source: RecipeSource
+    citations: conlist(RecipeSource, min_length=1)
 
 
 class MealPlanDay(BaseModel):
@@ -195,7 +196,8 @@ class ShoppingListItem(BaseModel):
     item_name: str
     quantity: float
     unit: Unit
-    reason: str = ""
+    reason: str = Field(default="missing for meal plan", min_length=1)
+    citations: conlist(RecipeSource, min_length=1)
 
 
 class ShoppingDiffRequest(BaseModel):

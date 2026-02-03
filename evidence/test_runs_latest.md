@@ -1,36 +1,35 @@
 Status: PASS
-Start: 2026-02-03T13:43:38Z
-End: 2026-02-03T13:43:41Z
+Start: 2026-02-03T14:17:05Z
+End: 2026-02-03T14:17:08Z
 Branch: main
-HEAD: 9ab58ab18feeada6ea27bb40cadeb0c722f2ea83
+HEAD: 445a321446a20eaa259c20e1fda361341dc3b081
 Python: Z:\LittleChef\.venv\\Scripts\\python.exe
 compileall exit: 0
 import app.main exit: 0
 pytest exit: 0
-pytest summary: 20 passed, 1 warning in 0.51s
+pytest summary: 20 passed, 1 warning in 0.67s
 git status -sb:
 ```
 ## main...origin/main
- M app/main.py
  M app/schemas.py
+ M app/services/mealplan_service.py
+ M app/services/shopping_service.py
  M evidence/test_runs.md
  M evidence/test_runs_latest.md
  M evidence/updatedifflog.md
- M tests/conftest.py
+ M tests/test_mealplan_generate.py
  M tests/test_shopping_diff.py
-?? app/api/routers/mealplan.py
-?? app/services/mealplan_service.py
-?? tests/test_mealplan_generate.py
 ```
 git diff --stat:
 ```
- app/main.py                  |   3 +-
- app/schemas.py               |   7 +
- evidence/test_runs.md        |  33 +++
- evidence/test_runs_latest.md |  34 ++--
- evidence/updatedifflog.md    | 472 +++----------------------------------------
- tests/conftest.py            |   2 +
- tests/test_shopping_diff.py  |  18 ++
- 7 files changed, 108 insertions(+), 461 deletions(-)
+ app/schemas.py                   |  6 +++--
+ app/services/mealplan_service.py | 16 ++++++++------
+ app/services/shopping_service.py | 22 +++++++++++++++++--
+ evidence/test_runs.md            | 32 +++++++++++++++++++++++++++
+ evidence/test_runs_latest.md     | 40 ++++++++++++++++------------------
+ evidence/updatedifflog.md        | 47 ++++++++++++++++++++++------------------
+ tests/test_mealplan_generate.py  |  6 +++++
+ tests/test_shopping_diff.py      | 15 +++++++++++++
+ 8 files changed, 131 insertions(+), 53 deletions(-)
 ```
 

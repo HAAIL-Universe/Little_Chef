@@ -22,6 +22,15 @@ def _make_plan(ingredients):
                             "book_id": None,
                             "excerpt": None,
                         },
+                        "citations": [
+                            {
+                                "source_type": "built_in",
+                                "built_in_recipe_id": "builtin_1",
+                                "file_id": None,
+                                "book_id": None,
+                                "excerpt": None,
+                            }
+                        ],
                     }
                 ],
             }
@@ -80,6 +89,9 @@ def test_shopping_diff_computes_missing_only(authed_client):
     assert missing["eggs"]["unit"] == "count"
     assert missing["milk"]["quantity"] == 300
     assert missing["milk"]["unit"] == "ml"
+    for item in missing.values():
+        assert item["reason"]
+        assert item["citations"] and len(item["citations"]) >= 1
 
 
 def test_shopping_diff_works_with_generated_plan(authed_client):
@@ -98,3 +110,6 @@ def test_shopping_diff_works_with_generated_plan(authed_client):
     missing = resp.json()["missing_items"]
     assert any(item["item_name"] == "tomato" for item in missing)  # still missing some tomatoes
     assert all("unit" in item for item in missing)
+    for item in missing:
+        assert item["reason"]
+        assert item["citations"] and len(item["citations"]) >= 1
