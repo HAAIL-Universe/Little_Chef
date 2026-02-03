@@ -14,6 +14,11 @@ class BadRequestError(Exception):
         self.message = message
 
 
+class NotFoundError(Exception):
+    def __init__(self, message: str = "not found"):
+        self.message = message
+
+
 def unauthorized_handler(_request: Request, exc: UnauthorizedError):
     return JSONResponse(
         status_code=401,
@@ -26,4 +31,11 @@ def bad_request_handler(_request: Request, exc: BadRequestError):
     return JSONResponse(
         status_code=400,
         content=ErrorResponse(error="bad_request", message=exc.message).model_dump(),
+    )
+
+
+def not_found_handler(_request: Request, exc: NotFoundError):
+    return JSONResponse(
+        status_code=404,
+        content=ErrorResponse(error="not_found", message=exc.message).model_dump(),
     )

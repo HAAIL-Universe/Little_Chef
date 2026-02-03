@@ -1,36 +1,29 @@
 Status: PASS
-Start: 2026-02-03T12:56:14Z
-End: 2026-02-03T12:56:16Z
+Start: 2026-02-03T13:07:43Z
+End: 2026-02-03T13:07:45Z
 Branch: main
-HEAD: ea97f17a40b1730a6b1550e7302dc2210558537a
+HEAD: bbaa331a7a7e90e6b3f20d9017a47ac776b92b20
 Python: Z:\LittleChef\.venv\\Scripts\\python.exe
 compileall exit: 0
 import app.main exit: 0
 pytest exit: 0
-pytest summary: 12 passed, 1 warning in 0.31s
+pytest summary: 13 passed, 1 warning in 0.33s
 git status -sb:
 ```
-## main...origin/main [ahead 9]
- M .gitignore
+## main...origin/main [ahead 10]
+ M app/api/routers/recipes.py
+ M app/errors.py
  M app/main.py
- M app/schemas.py
  M evidence/updatedifflog.md
- M requirements.txt
- M tests/conftest.py
-?? app/api/routers/recipes.py
-?? app/repos/recipe_repo.py
-?? app/services/recipe_service.py
-?? tests/test_recipes_crud_and_search.py
-?? tests/test_recipes_unauthorized.py
+ M tests/test_recipes_crud_and_search.py
 ```
 git diff --stat:
 ```
- .gitignore                |  1 +
- app/main.py               |  3 ++-
- app/schemas.py            | 45 +++++++++++++++++++++++++++++++++
- evidence/updatedifflog.md | 63 +++++++++++++++++++----------------------------
- requirements.txt          |  1 +
- tests/conftest.py         |  4 +++
- 6 files changed, 79 insertions(+), 38 deletions(-)
+ app/api/routers/recipes.py            |   8 +-
+ app/errors.py                         |  12 +
+ app/main.py                           |  10 +-
+ evidence/updatedifflog.md             | 627 ++--------------------------------
+ tests/test_recipes_crud_and_search.py |  13 +
+ 5 files changed, 62 insertions(+), 608 deletions(-)
 ```
 

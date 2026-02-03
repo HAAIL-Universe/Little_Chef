@@ -46,3 +46,16 @@ def test_recipes_upload_list_get_delete_and_search(authed_client):
 
     resp = authed_client.get(f"/recipes/books/{book_id}")
     assert resp.status_code == 404
+    body = resp.json()
+    assert body["error"] == "not_found"
+    assert "message" in body
+    assert "detail" not in body
+
+
+def test_recipes_missing_book_returns_top_level_error(authed_client):
+    resp = authed_client.get("/recipes/books/missing-book-id")
+    assert resp.status_code == 404
+    body = resp.json()
+    assert body["error"] == "not_found"
+    assert "message" in body
+    assert "detail" not in body

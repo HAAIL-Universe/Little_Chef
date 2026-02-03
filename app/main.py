@@ -1,7 +1,14 @@
 from fastapi import FastAPI
 
 from app.api.routers import health, auth, prefs, chat, inventory, recipes
-from app.errors import UnauthorizedError, unauthorized_handler, BadRequestError, bad_request_handler
+from app.errors import (
+    UnauthorizedError,
+    unauthorized_handler,
+    BadRequestError,
+    bad_request_handler,
+    NotFoundError,
+    not_found_handler,
+)
 
 
 def create_app() -> FastAPI:
@@ -15,6 +22,7 @@ def create_app() -> FastAPI:
 
     app.add_exception_handler(UnauthorizedError, unauthorized_handler)
     app.add_exception_handler(BadRequestError, bad_request_handler)
+    app.add_exception_handler(NotFoundError, not_found_handler)
     return app
 
 

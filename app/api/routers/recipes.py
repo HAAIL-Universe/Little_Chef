@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, UploadFile, File, Form, HTTPException, status
+from fastapi import APIRouter, Depends, UploadFile, File, Form, status
 
 from app.api.deps import get_current_user
 from app.schemas import (
@@ -10,7 +10,7 @@ from app.schemas import (
     UserMe,
 )
 from app.services.recipe_service import get_recipe_service
-from app.errors import BadRequestError
+from app.errors import BadRequestError, NotFoundError
 
 router = APIRouter(prefix="", tags=["Recipes"])
 
@@ -53,7 +53,7 @@ def get_book(book_id: str, current_user: UserMe = Depends(get_current_user)) -> 
     try:
         return service.get_book(book_id)
     except KeyError:
-        raise HTTPException(status_code=404, detail=ErrorResponse(error="not_found", message="book not found").model_dump())
+        raise NotFoundError("book not found")
 
 
 @router.delete(
@@ -66,7 +66,7 @@ def delete_book(book_id: str, current_user: UserMe = Depends(get_current_user)) 
     try:
         service.delete_book(book_id)
     except KeyError:
-        raise HTTPException(status_code=404, detail=ErrorResponse(error="not_found", message="book not found").model_dump())
+        raise NotFoundError("book not found")
 
 
 def reset_recipes_for_tests() -> None:
