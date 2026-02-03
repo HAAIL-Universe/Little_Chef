@@ -44,7 +44,7 @@ This document extends the canonical Phases 0–6 without modifying them.
 ### Evidence / Verification (order)
 1) Static: TS typecheck/build (if toolchain exists); ensure no JS sources introduced.
 2) Runtime: UI loads in mobile viewport; API running locally; network calls succeed.
-3) Behavior: exercise the 4 core flows above end-to-end.
+3) Behavior: exercise the 5 core flows above end-to-end.
 4) Contract: verify `physics.yaml` covers any UI-serving surface added in 6A.0.
 
 ### Stop & Commit Checkpoint
@@ -92,4 +92,4 @@ This document extends the canonical Phases 0–6 without modifying them.
 ## Decision Log
 - Physics-first: update `physics.yaml` before implementing any new surface (including UI mount); physics is not a blocker when updated first.
 - Frontend lives in `web/` with TypeScript entrypoint; no JS sources.
-+- JWT verification is acceptable as an OAuth-forward stepping stone; OAuth flows require physics update before implementation.
+- JWT verification is acceptable as an OAuth-forward stepping stone; OAuth flows require physics update before implementation.

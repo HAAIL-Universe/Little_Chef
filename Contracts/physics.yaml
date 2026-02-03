@@ -561,6 +561,42 @@ components:
           default: []
 
 paths:
+  /:
+    get:
+      tags: [UI]
+      summary: Serve UI entry HTML
+      responses:
+        "200":
+          description: UI entry document
+          content:
+            text/html:
+              schema:
+                type: string
+                description: HTML content
+  /static/{path}:
+    get:
+      tags: [UI]
+      summary: Serve compiled UI assets
+      parameters:
+        - name: path
+          in: path
+          required: true
+          schema: { type: string }
+          description: Asset path within the static bundle
+      responses:
+        "200":
+          description: Static asset
+          content:
+            application/octet-stream:
+              schema:
+                type: string
+                format: binary
+        "404":
+          description: Asset not found
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+
   /health:
     get:
       tags: [Health]
