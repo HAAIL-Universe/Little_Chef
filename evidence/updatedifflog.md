@@ -1,108 +1,120 @@
 # Diff Log (overwrite each cycle)
 
 ## Cycle Metadata
-- Timestamp: 2026-02-03T10:46:42+00:00
+- Timestamp: 2026-02-03T10:57:46+00:00
 - Branch: master
-- HEAD: 2d9b8fb470035cc160af4f3b0757392f85bff2ae
+- HEAD: 91d8f22352fece6a2cd9f077f80dab146b6512cb
 - Diff basis: staged
-- Previous log: 2026-02-03T10:01:42+00:00 (master @ 0b0f6576de2eb140e570d27899a7a7a07cb15916)
 
 ## Cycle Status
 - Status: COMPLETE
 
 ## Summary
-- Phase1: scaffolded FastAPI backend (app/) with /health and /auth/me per physics.yaml
-- JWT verification isolated (auth/jwt_verifier.py) with deterministic user_id mapping
-- Runtime smoke via uvicorn: /health ok; /auth/me returns 401 when missing token
+- Fix diff log canonical path; removed root updatedifflog.md
+- Root log removed; script default path evidence/updatedifflog.md
 
 ## Files Changed (staged)
-- (none detected)
+- scripts/overwrite_diff_log.ps1
+- updatedifflog.md
 
 ## git status -sb
     ## master
-     M scripts/overwrite_diff_log.ps1
+    M  scripts/overwrite_diff_log.ps1
+    D  updatedifflog.md
     ?? Contracts/phases_0-6.md
-    ?? evidence/
 
 ## Minimal Diff Hunks
-    (none)
-
-## Repo Tree (depth<=2)
-```
-Z:\LittleChef\.venv
-Z:\LittleChef\app
-Z:\LittleChef\Contracts
-Z:\LittleChef\evidence
-Z:\LittleChef\scripts
-Z:\LittleChef\.gitignore
-Z:\LittleChef\requirements.txt
-Z:\LittleChef\updatedifflog.md
-Z:\LittleChef\.venv\Include
-Z:\LittleChef\.venv\Lib
-Z:\LittleChef\.venv\Scripts
-Z:\LittleChef\.venv\pyvenv.cfg
-Z:\LittleChef\.venv\Lib\site-packages
-Z:\LittleChef\.venv\Scripts\activate
-Z:\LittleChef\.venv\Scripts\activate.bat
-Z:\LittleChef\.venv\Scripts\Activate.ps1
-Z:\LittleChef\.venv\Scripts\deactivate.bat
-Z:\LittleChef\.venv\Scripts\dotenv.exe
-Z:\LittleChef\.venv\Scripts\email_validator.exe
-Z:\LittleChef\.venv\Scripts\httpx.exe
-Z:\LittleChef\.venv\Scripts\markdown-it.exe
-Z:\LittleChef\.venv\Scripts\normalizer.exe
-Z:\LittleChef\.venv\Scripts\pip.exe
-Z:\LittleChef\.venv\Scripts\pip3.12.exe
-Z:\LittleChef\.venv\Scripts\pip3.exe
-Z:\LittleChef\.venv\Scripts\pygmentize.exe
-Z:\LittleChef\.venv\Scripts\python.exe
-Z:\LittleChef\.venv\Scripts\pythonw.exe
-Z:\LittleChef\.venv\Scripts\typer.exe
-Z:\LittleChef\.venv\Scripts\uvicorn.exe
-Z:\LittleChef\.venv\Scripts\watchfiles.exe
-Z:\LittleChef\.venv\Scripts\websockets.exe
-Z:\LittleChef\app\__pycache__
-Z:\LittleChef\app\api
-Z:\LittleChef\app\auth
-Z:\LittleChef\app\services
-Z:\LittleChef\app\__init__.py
-Z:\LittleChef\app\main.py
-Z:\LittleChef\app\schemas.py
-Z:\LittleChef\app\api\__pycache__
-Z:\LittleChef\app\api\routers
-Z:\LittleChef\app\api\__init__.py
-Z:\LittleChef\app\auth\__pycache__
-Z:\LittleChef\app\auth\__init__.py
-Z:\LittleChef\app\auth\jwt_verifier.py
-Z:\LittleChef\app\services\__pycache__
-Z:\LittleChef\app\services\__init__.py
-Z:\LittleChef\app\services\auth_service.py
-Z:\LittleChef\app\__pycache__\__init__.cpython-312.pyc
-Z:\LittleChef\app\__pycache__\main.cpython-312.pyc
-Z:\LittleChef\app\__pycache__\schemas.cpython-312.pyc
-Z:\LittleChef\Contracts\blueprint.md
-Z:\LittleChef\Contracts\builder_contract.md
-Z:\LittleChef\Contracts\director_contract.md
-Z:\LittleChef\Contracts\manifesto.md
-Z:\LittleChef\Contracts\phases_0-6.md
-Z:\LittleChef\Contracts\physics.yaml
-Z:\LittleChef\Contracts\ui_style.md
-Z:\LittleChef\evidence\updatedifflog.md
-Z:\LittleChef\scripts\overwrite_diff_log.ps1
-Z:\LittleChef\scripts\run_local.ps1
-```
+    diff --git a/scripts/overwrite_diff_log.ps1 b/scripts/overwrite_diff_log.ps1
+    index ee23475..164c9d5 100644
+    --- a/scripts/overwrite_diff_log.ps1
+    +++ b/scripts/overwrite_diff_log.ps1
+    @@ -52,13 +52,20 @@ function RepoRoot {
+     }
+     
+     function ResolveLogPath([string]$root) {
+    -  $p1 = Join-Path $root "build_docs\evidence\updatedifflog.md"
+    -  $p2 = Join-Path $root "updatedifflog.md"
+    -  if (Test-Path $p1) { return $p1 }
+    -  if (Test-Path $p2) { return $p2 }
+    -  return $p2
+    +  # Canonical location (your new rule)
+    +  $pEvidence  = Join-Path $root "evidence\updatedifflog.md"
+    +
+    +  # Legacy/optional location (supported if present)
+    +  $pBuildDocs = Join-Path $root "build_docs\evidence\updatedifflog.md"
+    +
+    +  if (Test-Path $pEvidence)  { return $pEvidence }
+    +  if (Test-Path $pBuildDocs) { return $pBuildDocs }
+    +
+    +  # Default: create/write in evidence folder (even if it doesn't exist yet)
+    +  return $pEvidence
+     }
+     
+    +
+     function EnsureParent([string]$path) {
+       $parent = Split-Path -Parent $path
+       if ($parent -and -not (Test-Path $parent)) {
+    diff --git a/updatedifflog.md b/updatedifflog.md
+    deleted file mode 100644
+    index 952f87a..0000000
+    --- a/updatedifflog.md
+    +++ /dev/null
+    @@ -1,45 +0,0 @@
+    -# Diff Log (overwrite each cycle)
+    -
+    -## Cycle Metadata
+    -- Timestamp: 2026-02-03T10:01:42+00:00
+    -- Branch: master
+    -- HEAD: 0b0f6576de2eb140e570d27899a7a7a07cb15916
+    -- Diff basis: staged
+    -
+    -## Cycle Status
+    -- Status: COMPLETE
+    -
+    -## Summary
+    -- Blueprint: referenced UI style contract
+    -
+    -## Files Changed (staged)
+    -- Contracts/blueprint.md
+    -
+    -## git status -sb
+    -    ## master
+    -    M  Contracts/blueprint.md
+    -
+    -## Minimal Diff Hunks
+    -    diff --git a/Contracts/blueprint.md b/Contracts/blueprint.md
+    -    index e985c95..8b01b79 100644
+    -    --- a/Contracts/blueprint.md
+    -    +++ b/Contracts/blueprint.md
+    -    @@ -218,6 +218,7 @@ Target folders (to keep things findable/auditable):
+    -     - `db/` (schema/migrations)
+    -     - `web/` (vanilla TS UI)
+    -     - `Contracts/physics.yaml` (canonical API contract; OpenAPI format)
+    -    +- `Contracts/ui_style.md` (authoritative UI look/feel for v0.1)
+    -     
+    -     Nothing else added until v0.1 is working.
+    -     
+    -
+    -## Verification
+    -- markdown: headings/lists intact
+    -- contract: only new ui_style reference added
+    -
+    -## Notes (optional)
+    -- TODO: blockers, risks, constraints.
+    -
+    -## Next Steps
+    -- None – stop after commit
+    -
 
 ## Verification
-- compileall app: pass
-- import app.main: pass
-- GET /health -> 200 {status: ok}
-- GET /auth/me (no auth) -> 401 ErrorResponse
-- valid JWT not tested: LC_JWT_ISSUER/LC_JWT_AUDIENCE/JWKS not provided (ENVIRONMENT_LIMITATION)
-- contract check: HealthResponse/ErrorResponse/UserMe shapes match physics.yaml
+- static: script parsed/executed
+- runtime: overwrite_diff_log.ps1 run from repo root
+- behavior: evidence/updatedifflog.md updated; root updatedifflog.md absent
+- contract: canonical path evidence/updatedifflog.md only
 
 ## Notes (optional)
-- Env limitation: need LC_JWT_ISSUER + LC_JWT_AUDIENCE plus LC_OIDC_DISCOVERY_URL or LC_JWKS_URL to exercise valid JWT path.
+- TODO: blockers, risks, constraints.
 
 ## Next Steps
-- Phase2: prefs endpoints + chat propose/confirm loop
+- Proceed to Phase 2 (prefs + /chat propose/confirm)
 

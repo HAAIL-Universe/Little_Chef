@@ -52,12 +52,19 @@ function RepoRoot {
 }
 
 function ResolveLogPath([string]$root) {
-  $p1 = Join-Path $root "build_docs\evidence\updatedifflog.md"
-  $p2 = Join-Path $root "updatedifflog.md"
-  if (Test-Path $p1) { return $p1 }
-  if (Test-Path $p2) { return $p2 }
-  return $p2
+  # Canonical location (your new rule)
+  $pEvidence  = Join-Path $root "evidence\updatedifflog.md"
+
+  # Legacy/optional location (supported if present)
+  $pBuildDocs = Join-Path $root "build_docs\evidence\updatedifflog.md"
+
+  if (Test-Path $pEvidence)  { return $pEvidence }
+  if (Test-Path $pBuildDocs) { return $pBuildDocs }
+
+  # Default: create/write in evidence folder (even if it doesn't exist yet)
+  return $pEvidence
 }
+
 
 function EnsureParent([string]$path) {
   $parent = Split-Path -Parent $path
