@@ -218,6 +218,7 @@ Target folders (to keep things findable/auditable):
 - `db/` (schema/migrations)
 - `web/` (vanilla TS UI)
 - `Contracts/physics.yaml` (canonical API contract; OpenAPI format)
+- `Contracts/ui_style.md` (authoritative UI look/feel for v0.1)
 
 Nothing else added until v0.1 is working.
 
