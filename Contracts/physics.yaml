@@ -1,0 +1,942 @@
+openapi: 3.1.0
+info:
+  title: Little Chef Physics
+  version: 0.1.0
+  description: |
+    Canonical API contract ("physics law") for Little Chef.
+
+    Auth model:
+    - Users authenticate via OAuth provider (handled by a managed auth service or later via in-app OAuth).
+    - API requests carry Authorization: Bearer <JWT>.
+    - Backend verifies JWT (issuer/audience/signature via JWKS/OpenID config) and resolves the user.
+    - v0.1 does NOT define OAuth initiation/callback endpoints inside this API; the client obtains a JWT externally.
+
+servers:
+  - url: http://localhost:8000
+
+tags:
+  - name: Health
+  - name: Auth
+  - name: Prefs
+  - name: Inventory
+  - name: Recipes
+  - name: MealPlan
+  - name: Shopping
+  - name: Chat
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: |
+        Bearer JWT issued after OAuth login (e.g., via managed auth provider).
+        Client sends: Authorization: Bearer <token>
+        Server verifies JWT (issuer/audience/signature via JWKS/OpenID config) and resolves the user.
+
+  parameters:
+    CorrelationId:
+      name: X-Correlation-Id
+      in: header
+      required: false
+      schema:
+        type: string
+        minLength: 8
+      description: Correlation id for tracing requests end-to-end.
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: false
+      schema:
+        type: string
+        minLength: 8
+      description: |
+        Idempotency key for write operations. Same key + same user + same endpoint should not duplicate the write.
+
+  schemas:
+    ErrorResponse:
+      type: object
+      required: [error, message]
+      properties:
+        error:
+          type: string
+          example: bad_request
+        message:
+          type: string
+        details:
+          type: object
+          additionalProperties: true
+
+    HealthResponse:
+      type: object
+      required: [status]
+      properties:
+        status:
+          type: string
+          enum: [ok]
+
+    UserMe:
+      type: object
+      required: [user_id]
+      properties:
+        user_id:
+          type: string
+          description: Internal Little Chef user id (UUID/ulid/string).
+        provider_subject:
+          type: string
+          description: External auth subject (sub) claim, if available.
+        email:
+          type: string
+          nullable: true
+
+    UserPrefs:
+      type: object
+      required: [servings, meals_per_day]
+      properties:
+        allergies:
+          type: array
+          items: { type: string }
+          default: []
+        dislikes:
+          type: array
+          items: { type: string }
+          default: []
+        cuisine_likes:
+          type: array
+          items: { type: string }
+          default: []
+        servings:
+          type: integer
+          minimum: 1
+        meals_per_day:
+          type: integer
+          minimum: 1
+          maximum: 6
+        notes:
+          type: string
+          default: ""
+    UserPrefsUpsertRequest:
+      type: object
+      required: [prefs]
+      properties:
+        prefs:
+          $ref: "#/components/schemas/UserPrefs"
+
+    Unit:
+      type: string
+      enum: [g, ml, count]
+
+    InventoryEventType:
+      type: string
+      enum:
+        - add
+        - consume_cooked
+        - consume_used_separately
+        - consume_thrown_away
+        - adjust
+
+    InventoryEventCreateRequest:
+      type: object
+      required: [event_type, item_name, quantity, unit]
+      properties:
+        occurred_at:
+          type: string
+          format: date-time
+          description: If omitted, server sets to now (UTC).
+        event_type:
+          $ref: "#/components/schemas/InventoryEventType"
+        item_name:
+          type: string
+          minLength: 1
+        quantity:
+          type: number
+          minimum: 0
+        unit:
+          $ref: "#/components/schemas/Unit"
+        note:
+          type: string
+          default: ""
+        source:
+          type: string
+          description: Optional source label (chat, ui, import, etc.).
+          default: "ui"
+
+    InventoryEvent:
+      type: object
+      required: [event_id, occurred_at, event_type, item_name, quantity, unit]
+      properties:
+        event_id:
+          type: string
+        occurred_at:
+          type: string
+          format: date-time
+        event_type:
+          $ref: "#/components/schemas/InventoryEventType"
+        item_name:
+          type: string
+        quantity:
+          type: number
+        unit:
+          $ref: "#/components/schemas/Unit"
+        note:
+          type: string
+        source:
+          type: string
+
+    InventorySummaryItem:
+      type: object
+      required: [item_name, quantity, unit]
+      properties:
+        item_name:
+          type: string
+        quantity:
+          type: number
+        unit:
+          $ref: "#/components/schemas/Unit"
+        approx:
+          type: boolean
+          default: false
+
+    InventorySummaryResponse:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items: { $ref: "#/components/schemas/InventorySummaryItem" }
+        generated_at:
+          type: string
+          format: date-time
+
+    LowStockItem:
+      type: object
+      required: [item_name, quantity, unit, threshold]
+      properties:
+        item_name:
+          type: string
+        quantity:
+          type: number
+        unit:
+          $ref: "#/components/schemas/Unit"
+        threshold:
+          type: number
+        reason:
+          type: string
+          default: ""
+
+    LowStockResponse:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items: { $ref: "#/components/schemas/LowStockItem" }
+        generated_at:
+          type: string
+          format: date-time
+
+    RecipeBookStatus:
+      type: string
+      enum: [uploading, processing, ready, failed]
+
+    RecipeBook:
+      type: object
+      required: [book_id, filename, status, created_at]
+      properties:
+        book_id:
+          type: string
+        title:
+          type: string
+          default: ""
+        filename:
+          type: string
+        content_type:
+          type: string
+          description: e.g., application/pdf, text/markdown, text/plain
+        status:
+          $ref: "#/components/schemas/RecipeBookStatus"
+        error_message:
+          type: string
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+
+    RecipeBookListResponse:
+      type: object
+      required: [books]
+      properties:
+        books:
+          type: array
+          items: { $ref: "#/components/schemas/RecipeBook" }
+
+    RecipeSearchRequest:
+      type: object
+      required: [query]
+      properties:
+        query:
+          type: string
+          minLength: 2
+        max_results:
+          type: integer
+          minimum: 1
+          maximum: 10
+          default: 5
+
+    RecipeSearchResult:
+      type: object
+      required: [title, source_type]
+      properties:
+        title:
+          type: string
+        source_type:
+          type: string
+          enum: [built_in, user_library]
+        built_in_recipe_id:
+          type: string
+          nullable: true
+        file_id:
+          type: string
+          nullable: true
+        book_id:
+          type: string
+          nullable: true
+        excerpt:
+          type: string
+          nullable: true
+
+    RecipeSearchResponse:
+      type: object
+      required: [results]
+      properties:
+        results:
+          type: array
+          items: { $ref: "#/components/schemas/RecipeSearchResult" }
+
+    MealSlot:
+      type: string
+      enum: [breakfast, lunch, dinner, supper, snack]
+
+    MealPlanGenerateRequest:
+      type: object
+      required: [days]
+      properties:
+        days:
+          type: integer
+          minimum: 1
+          maximum: 31
+        meals_per_day:
+          type: integer
+          minimum: 1
+          maximum: 6
+          nullable: true
+          description: If omitted, uses user prefs.
+        include_user_library:
+          type: boolean
+          default: true
+        notes:
+          type: string
+          default: ""
+        budget_hint:
+          type: string
+          default: ""
+          description: Optional budget hint (e.g., "cheap", "mid", "treat").
+
+    RecipeSource:
+      type: object
+      required: [source_type]
+      properties:
+        source_type:
+          type: string
+          enum: [built_in, user_library]
+        built_in_recipe_id:
+          type: string
+          nullable: true
+        file_id:
+          type: string
+          nullable: true
+        book_id:
+          type: string
+          nullable: true
+        excerpt:
+          type: string
+          nullable: true
+          description: Short anchor excerpt/title from retrieval.
+
+    PlannedMeal:
+      type: object
+      required: [name, slot, ingredients, source]
+      properties:
+        name:
+          type: string
+        slot:
+          $ref: "#/components/schemas/MealSlot"
+        ingredients:
+          type: array
+          items:
+            $ref: "#/components/schemas/IngredientLine"
+        instructions:
+          type: array
+          items: { type: string }
+          default: []
+        source:
+          $ref: "#/components/schemas/RecipeSource"
+
+    IngredientLine:
+      type: object
+      required: [item_name, quantity, unit]
+      properties:
+        item_name:
+          type: string
+        quantity:
+          type: number
+          minimum: 0
+        unit:
+          $ref: "#/components/schemas/Unit"
+        optional:
+          type: boolean
+          default: false
+
+    MealPlanDay:
+      type: object
+      required: [day_index, meals]
+      properties:
+        day_index:
+          type: integer
+          minimum: 1
+        meals:
+          type: array
+          items: { $ref: "#/components/schemas/PlannedMeal" }
+
+    MealPlanResponse:
+      type: object
+      required: [plan_id, days, created_at]
+      properties:
+        plan_id:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+        days:
+          type: array
+          items: { $ref: "#/components/schemas/MealPlanDay" }
+        notes:
+          type: string
+          default: ""
+
+    ShoppingDiffRequest:
+      type: object
+      required: [plan]
+      properties:
+        plan:
+          $ref: "#/components/schemas/MealPlanResponse"
+
+    ShoppingListItem:
+      type: object
+      required: [item_name, quantity, unit]
+      properties:
+        item_name:
+          type: string
+        quantity:
+          type: number
+        unit:
+          $ref: "#/components/schemas/Unit"
+        reason:
+          type: string
+          default: ""
+
+    ShoppingDiffResponse:
+      type: object
+      required: [missing_items]
+      properties:
+        missing_items:
+          type: array
+          items: { $ref: "#/components/schemas/ShoppingListItem" }
+
+    ChatMode:
+      type: string
+      enum: [ask, fill]
+
+    ProposedActionType:
+      type: string
+      enum: [upsert_prefs, create_inventory_event]
+
+    ProposedActionBase:
+      type: object
+      required: [action_type]
+      properties:
+        action_type:
+          $ref: "#/components/schemas/ProposedActionType"
+        reason:
+          type: string
+          default: ""
+
+    ProposedUpsertPrefsAction:
+      allOf:
+        - $ref: "#/components/schemas/ProposedActionBase"
+        - type: object
+          required: [prefs]
+          properties:
+            prefs:
+              $ref: "#/components/schemas/UserPrefs"
+
+    ProposedInventoryEventAction:
+      allOf:
+        - $ref: "#/components/schemas/ProposedActionBase"
+        - type: object
+          required: [event]
+          properties:
+            event:
+              $ref: "#/components/schemas/InventoryEventCreateRequest"
+
+    ProposedAction:
+      oneOf:
+        - $ref: "#/components/schemas/ProposedUpsertPrefsAction"
+        - $ref: "#/components/schemas/ProposedInventoryEventAction"
+
+    ChatRequest:
+      type: object
+      required: [mode, message]
+      properties:
+        mode:
+          $ref: "#/components/schemas/ChatMode"
+        message:
+          type: string
+          minLength: 1
+        include_user_library:
+          type: boolean
+          default: true
+
+    ChatResponse:
+      type: object
+      required: [reply_text, confirmation_required]
+      properties:
+        reply_text:
+          type: string
+        confirmation_required:
+          type: boolean
+        proposal_id:
+          type: string
+          nullable: true
+          description: Present when confirmation_required is true.
+        proposed_actions:
+          type: array
+          items: { $ref: "#/components/schemas/ProposedAction" }
+          default: []
+        suggested_next_questions:
+          type: array
+          items: { type: string }
+          default: []
+
+    ConfirmProposalRequest:
+      type: object
+      required: [proposal_id, confirm]
+      properties:
+        proposal_id:
+          type: string
+        confirm:
+          type: boolean
+          description: true applies actions, false discards them.
+
+    ConfirmProposalResponse:
+      type: object
+      required: [applied]
+      properties:
+        applied:
+          type: boolean
+        applied_event_ids:
+          type: array
+          items: { type: string }
+          default: []
+
+paths:
+  /health:
+    get:
+      tags: [Health]
+      summary: Health check
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/HealthResponse" }
+
+  /auth/me:
+    get:
+      tags: [Auth]
+      summary: Resolve current user from bearer token (JWT obtained externally via OAuth flow)
+      security: [{ BearerAuth: [] }]
+      parameters:
+        - $ref: "#/components/parameters/CorrelationId"
+      responses:
+        "200":
+          description: Current user
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/UserMe" }
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+
+  /prefs:
+    get:
+      tags: [Prefs]
+      summary: Get user preferences
+      security: [{ BearerAuth: [] }]
+      responses:
+        "200":
+          description: Preferences
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/UserPrefs" }
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+    put:
+      tags: [Prefs]
+      summary: Upsert user preferences
+      security: [{ BearerAuth: [] }]
+      parameters:
+        - $ref: "#/components/parameters/CorrelationId"
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/UserPrefsUpsertRequest" }
+      responses:
+        "200":
+          description: Updated preferences
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/UserPrefs" }
+        "400":
+          description: Bad request
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+
+  /inventory/events:
+    get:
+      tags: [Inventory]
+      summary: List inventory events (most recent first)
+      security: [{ BearerAuth: [] }]
+      parameters:
+        - name: limit
+          in: query
+          required: false
+          schema: { type: integer, minimum: 1, maximum: 200, default: 50 }
+        - name: since
+          in: query
+          required: false
+          schema: { type: string, format: date-time }
+      responses:
+        "200":
+          description: Events
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [events]
+                properties:
+                  events:
+                    type: array
+                    items: { $ref: "#/components/schemas/InventoryEvent" }
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+    post:
+      tags: [Inventory]
+      summary: Create an inventory event
+      security: [{ BearerAuth: [] }]
+      parameters:
+        - $ref: "#/components/parameters/CorrelationId"
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/InventoryEventCreateRequest" }
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/InventoryEvent" }
+        "400":
+          description: Bad request
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+
+  /inventory/summary:
+    get:
+      tags: [Inventory]
+      summary: Current inventory state derived from events
+      security: [{ BearerAuth: [] }]
+      responses:
+        "200":
+          description: Summary
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/InventorySummaryResponse" }
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+
+  /inventory/low-stock:
+    get:
+      tags: [Inventory]
+      summary: Items below threshold ("what am I low on?")
+      security: [{ BearerAuth: [] }]
+      responses:
+        "200":
+          description: Low stock
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/LowStockResponse" }
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+
+  /recipes/books:
+    get:
+      tags: [Recipes]
+      summary: List recipe books uploaded by the user
+      security: [{ BearerAuth: [] }]
+      responses:
+        "200":
+          description: Recipe books
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/RecipeBookListResponse" }
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+    post:
+      tags: [Recipes]
+      summary: Upload a recipe book/notes file (.pdf, .md, .txt)
+      security: [{ BearerAuth: [] }]
+      parameters:
+        - $ref: "#/components/parameters/CorrelationId"
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file]
+              properties:
+                title:
+                  type: string
+                file:
+                  type: string
+                  format: binary
+      responses:
+        "201":
+          description: Uploaded (processing may continue async)
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/RecipeBook" }
+        "400":
+          description: Bad request
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+
+  /recipes/books/{book_id}:
+    get:
+      tags: [Recipes]
+      summary: Get recipe book metadata
+      security: [{ BearerAuth: [] }]
+      parameters:
+        - name: book_id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Book
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/RecipeBook" }
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+    delete:
+      tags: [Recipes]
+      summary: Delete a recipe book (requires confirmation in UI)
+      security: [{ BearerAuth: [] }]
+      parameters:
+        - name: book_id
+          in: path
+          required: true
+          schema: { type: string }
+        - $ref: "#/components/parameters/CorrelationId"
+        - $ref: "#/components/parameters/IdempotencyKey"
+      responses:
+        "204":
+          description: Deleted
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+
+  /recipes/search:
+    post:
+      tags: [Recipes]
+      summary: Search recipes (built-in + user library retrieval)
+      security: [{ BearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/RecipeSearchRequest" }
+      responses:
+        "200":
+          description: Search results
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/RecipeSearchResponse" }
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+
+  /mealplan/generate:
+    post:
+      tags: [MealPlan]
+      summary: Generate a meal plan (inventory-first, cites recipe sources)
+      security: [{ BearerAuth: [] }]
+      parameters:
+        - $ref: "#/components/parameters/CorrelationId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/MealPlanGenerateRequest" }
+      responses:
+        "200":
+          description: Meal plan
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/MealPlanResponse" }
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+
+  /shopping/diff:
+    post:
+      tags: [Shopping]
+      summary: Generate shopping list diff (missing-only) for a plan
+      security: [{ BearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ShoppingDiffRequest" }
+      responses:
+        "200":
+          description: Diff
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ShoppingDiffResponse" }
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+
+  /chat:
+    post:
+      tags: [Chat]
+      summary: Chat-first interface (ASK/FILL). Proposes changes; does not write without confirmation.
+      security: [{ BearerAuth: [] }]
+      parameters:
+        - $ref: "#/components/parameters/CorrelationId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ChatRequest" }
+      responses:
+        "200":
+          description: Chat response (may include proposed actions)
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ChatResponse" }
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+
+  /chat/confirm:
+    post:
+      tags: [Chat]
+      summary: Confirm or discard a proposed change bundle from /chat
+      security: [{ BearerAuth: [] }]
+      parameters:
+        - $ref: "#/components/parameters/CorrelationId"
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ConfirmProposalRequest" }
+      responses:
+        "200":
+          description: Confirmation result
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ConfirmProposalResponse" }
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
