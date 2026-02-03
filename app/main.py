@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 
-from app.api.routers import health, auth, prefs, chat, inventory, recipes
+from app.api.routers import health, auth, prefs, chat, inventory, recipes, shopping
 from app.errors import (
     UnauthorizedError,
     unauthorized_handler,
@@ -19,6 +19,7 @@ def create_app() -> FastAPI:
     app.include_router(chat.router)
     app.include_router(inventory.router)
     app.include_router(recipes.router)
+    app.include_router(shopping.router)
 
     app.add_exception_handler(UnauthorizedError, unauthorized_handler)
     app.add_exception_handler(BadRequestError, bad_request_handler)

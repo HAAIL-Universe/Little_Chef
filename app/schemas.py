@@ -102,6 +102,16 @@ class ProposedInventoryEventAction(BaseModel):
     event: InventoryEventCreateRequest
 
 
+MealSlot = Literal["breakfast", "lunch", "dinner", "supper", "snack"]
+
+
+class IngredientLine(BaseModel):
+    item_name: str
+    quantity: float
+    unit: Unit
+    optional: bool = False
+
+
 class RecipeBookStatus(str, Enum):
     uploading = "uploading"
     processing = "processing"
@@ -144,6 +154,49 @@ class RecipeSearchResult(BaseModel):
 
 class RecipeSearchResponse(BaseModel):
     results: List[RecipeSearchResult]
+
+
+class RecipeSource(BaseModel):
+    source_type: RecipeSourceType
+    built_in_recipe_id: Optional[str] = None
+    file_id: Optional[str] = None
+    book_id: Optional[str] = None
+    excerpt: Optional[str] = None
+
+
+class PlannedMeal(BaseModel):
+    name: str
+    slot: MealSlot
+    ingredients: List[IngredientLine]
+    instructions: List[str] = Field(default_factory=list)
+    source: RecipeSource
+
+
+class MealPlanDay(BaseModel):
+    day_index: int = Field(..., ge=1)
+    meals: List[PlannedMeal]
+
+
+class MealPlanResponse(BaseModel):
+    plan_id: str
+    created_at: str
+    days: List[MealPlanDay]
+    notes: str = ""
+
+
+class ShoppingListItem(BaseModel):
+    item_name: str
+    quantity: float
+    unit: Unit
+    reason: str = ""
+
+
+class ShoppingDiffRequest(BaseModel):
+    plan: MealPlanResponse
+
+
+class ShoppingDiffResponse(BaseModel):
+    missing_items: List[ShoppingListItem]
 
 
 class ChatRequest(BaseModel):
