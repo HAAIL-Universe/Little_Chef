@@ -10,6 +10,8 @@ except ImportError:  # pragma: no cover - surfaced only when DATABASE_URL set wi
 
 
 def get_database_url() -> Optional[str]:
+    if os.environ.get("LC_DISABLE_DOTENV") == "1":
+        return os.environ.get("DATABASE_URL")
     load_env()
     return os.environ.get("DATABASE_URL")
 

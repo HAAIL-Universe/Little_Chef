@@ -25,9 +25,11 @@ class InventoryService:
         self.repo = repo
 
     def create_event(self, user_id: str, provider_subject: str, email: str | None, req: InventoryEventCreateRequest) -> InventoryEvent:
-        if isinstance(self.repo, DbInventoryRepository):
+        try:
             return self.repo.create_event(user_id, provider_subject, email, req)
-        return self.repo.create_event(user_id, req)
+        except TypeError:
+            # fall back to in-memory signature (user_id, req)
+            return self.repo.create_event(user_id, req)
 
     def list_events(self, user_id: str, limit: int, since: str | None) -> List[InventoryEvent]:
         return self.repo.list_events(user_id, limit=limit, since=since)

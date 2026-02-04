@@ -1,157 +1,116 @@
 # run_local.ps1
-# Usage:
-#   Drag this file into a PowerShell terminal and press Enter.
-#   Or run: .\run_local.ps1
-#
-# Optional:
-#   .\run_local.ps1 -Port 8000 -Host "127.0.0.1" -Reload
-#
+# Simple local dev runner for Little Chef
+# Examples:
+#   pwsh -File .\scripts\run_local.ps1
+#   pwsh -File .\scripts\run_local.ps1 -ListenHost 0.0.0.0 -Port 8000
+#   pwsh -File .\scripts\run_local.ps1 -NoVenv -NoInstall -NoOpen
+
 param(
-  [string]$Host = "127.0.0.1",
+  [string]$ListenHost = "127.0.0.1",
   [int]$Port = 8000,
-  [switch]$Reload = $true,
+  [switch]$NoReload,
   [switch]$NoInstall,
-  [switch]$NoVenv
+  [switch]$NoVenv,
+  [switch]$NoOpen
 )
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
 
-function Write-Info($msg) { Write-Host "[run_local] $msg" -ForegroundColor Cyan }
-function Write-Warn($msg) { Write-Host "[run_local] $msg" -ForegroundColor Yellow }
-function Write-Err($msg)  { Write-Host "[run_local] $msg" -ForegroundColor Red }
+function Info($m) { Write-Host "[run_local] $m" -ForegroundColor Cyan }
+function Warn($m) { Write-Host "[run_local] $m" -ForegroundColor Yellow }
+function Fail($m) { Write-Host "[run_local] $m" -ForegroundColor Red; exit 1 }
 
-function Get-RepoRoot {
-  # Repo root assumed to be the directory containing this script.
-  return (Split-Path -Parent $MyInvocation.MyCommand.Path)
-}
-
-function Use-Venv($root) {
-  if ($NoVenv) {
-    Write-Warn "NoVenv set; using system Python."
-    return $null
-  }
-
-  $venvDir = Join-Path $root ".venv"
-  $venvPy  = Join-Path $venvDir "Scripts\python.exe"
-  if (-not (Test-Path $venvPy)) {
-    Write-Info "Creating venv at .venv ..."
-    python -m venv $venvDir
-  }
-
-  if (-not (Test-Path $venvPy)) {
-    throw "Failed to create/find venv python at: $venvPy"
-  }
-
-  Write-Info "Using venv python: $venvPy"
-  return $venvPy
-}
-
-function Install-Requirements($py, $root) {
-  if ($NoInstall) {
-    Write-Warn "NoInstall set; skipping dependency install."
-    return
-  }
-
-  $req = Join-Path $root "requirements.txt"
-  if (Test-Path $req) {
-    Write-Info "Installing/upgrading pip + requirements.txt ..."
-    & $py -m pip install --upgrade pip
-    & $py -m pip install -r $req
-  } else {
-    Write-Warn "No requirements.txt found; skipping install."
-  }
+function RepoRoot {
+  $base = $PSScriptRoot
+  if (-not $base) { $base = Split-Path -Parent $MyInvocation.MyCommand.Path }
+  return (Split-Path -Parent $base)
 }
 
 function Load-DotEnv($root) {
-  # Optional convenience: load KEY=VALUE lines from .env into process env
   $envPath = Join-Path $root ".env"
-  if (-not (Test-Path $envPath)) {
-    Write-Warn "No .env found (ok)."
-    return
-  }
-
-  Write-Info "Loading .env into process environment ..."
+  if (-not (Test-Path $envPath)) { return }
   Get-Content $envPath | ForEach-Object {
     $line = $_.Trim()
-    if (-not $line) { return }
-    if ($line.StartsWith("#")) { return }
-    # Split on first '='
-    $idx = $line.IndexOf("=")
-    if ($idx -lt 1) { return }
-    $key = $line.Substring(0, $idx).Trim()
-    $val = $line.Substring($idx + 1).Trim()
-
-    # Strip surrounding quotes if present
-    if (($val.StartsWith('"') -and $val.EndsWith('"')) -or ($val.StartsWith("'") -and $val.EndsWith("'"))) {
-      $val = $val.Substring(1, $val.Length - 2)
-    }
-
-    if ($key) {
-      [System.Environment]::SetEnvironmentVariable($key, $val, "Process")
+    if (-not $line -or $line.StartsWith("#")) { return }
+    $parts = $line.Split("=", 2)
+    if ($parts.Count -lt 2) { return }
+    $key = $parts[0].Trim()
+    $val = $parts[1].Trim()
+    if ($val.StartsWith('"') -and $val.EndsWith('"')) { $val = $val.Trim('"') }
+    elseif ($val.StartsWith("'") -and $val.EndsWith("'")) { $val = $val.Trim("'") }
+    if (-not [string]::IsNullOrWhiteSpace($key) -and [string]::IsNullOrWhiteSpace([Environment]::GetEnvironmentVariable($key))) {
+      [Environment]::SetEnvironmentVariable($key, $val, "Process")
     }
   }
 }
 
-function Resolve-AppImport {
-  # Preferred module path per blueprint
-  $candidates = @(
-    "app.main:app",
-    "main:app",
-    "app.main:application",
-    "main:application"
-  )
-
-  foreach ($c in $candidates) {
-    $parts = $c.Split(":")
-    $mod = $parts[0]
-    $obj = $parts[1]
-    try {
-      python -c "import importlib; m=importlib.import_module('$mod'); getattr(m,'$obj')" 2>$null | Out-Null
-      return $c
-    } catch {
-      # ignore
-    }
+function Use-Venv($root) {
+  if ($NoVenv) { Warn "NoVenv set; using system python"; return "python" }
+  $venvPy = Join-Path $root ".venv\\Scripts\\python.exe"
+  if (-not (Test-Path $venvPy)) {
+    Info "Creating venv at .venv ..."
+    python -m venv (Join-Path $root ".venv")
   }
+  if (-not (Test-Path $venvPy)) { Fail "venv python not found: $venvPy" }
+  return $venvPy
+}
 
+function Ensure-Requirements($py, $root) {
+  if ($NoInstall) { Warn "NoInstall set; skipping pip install"; return }
+  $req = Join-Path $root "requirements.txt"
+  if (-not (Test-Path $req)) { Warn "requirements.txt missing; skipping"; return }
+  Info "Installing requirements..."
+  & $py -m pip install --upgrade pip
+  & $py -m pip install -r $req
+}
+
+function Ensure-Uvicorn($py) {
+  try { & $py -c "import uvicorn" | Out-Null }
+  catch { Info "Installing uvicorn..."; & $py -m pip install uvicorn }
+}
+
+function Resolve-AppImport($py) {
+  foreach ($c in @("app.main:app", "main:app", "app.main:application", "main:application")) {
+    $parts = $c.Split(":")
+    $mod,$obj = $parts
+    try {
+      & $py -c "import importlib; m=importlib.import_module('$mod'); getattr(m,'$obj')" 2>$null | Out-Null
+      return $c
+    } catch { }
+  }
   return $null
 }
 
+function Open-App($listenHostParam, $port) {
+  if ($NoOpen) { return }
+  $openHost = if ($listenHostParam -eq "0.0.0.0") { "127.0.0.1" } else { $listenHostParam }
+  $url = "http://$openHost`:$port/"
+  Info "Opening $url ..."
+  Start-Process $url | Out-Null
+}
+
 try {
-  $root = Get-RepoRoot
+  $root = RepoRoot
   Set-Location $root
-  Write-Info "Repo root: $root"
+  $env:PYTHONPATH = $root
+  Info "Repo root: $root"
 
   $py = Use-Venv $root
-  if ($null -eq $py) {
-    # fallback to system python
-    $py = "python"
-  }
-
-  Install-Requirements $py $root
+  Ensure-Requirements $py $root
   Load-DotEnv $root
+  Ensure-Uvicorn $py
 
-  # Ensure uvicorn exists
-  try {
-    & $py -c "import uvicorn" | Out-Null
-  } catch {
-    Write-Info "uvicorn not found; installing uvicorn ..."
-    & $py -m pip install uvicorn
-  }
+  $appImport = Resolve-AppImport $py
+  if (-not $appImport) { Fail "Could not resolve ASGI app (expected app.main:app)" }
 
-  $appImport = Resolve-AppImport
-  if (-not $appImport) {
-    throw "Could not resolve ASGI app import. Expected app.main:app (preferred). Check your app entrypoint."
-  }
+  $args = @("-m","uvicorn",$appImport,"--host",$ListenHost,"--port",$Port)
+  if (-not $NoReload) { $args += "--reload" }
 
-  $reloadFlag = ""
-  if ($Reload) { $reloadFlag = "--reload" }
-
-  Write-Info "Starting FastAPI via uvicorn: $appImport"
-  Write-Info "Host=$Host Port=$Port Reload=$Reload"
-  & $py -m uvicorn $appImport --host $Host --port $Port $reloadFlag
-
-} catch {
-  Write-Err $_.Exception.Message
-  exit 1
+  Info "Starting uvicorn $appImport on http://$ListenHost`:$Port (Reload=$([bool](-not $NoReload)))"
+  Open-App $ListenHost $Port
+  & $py @args
+}
+catch {
+  Fail $_.Exception.Message
 }

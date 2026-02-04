@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Header
+import os
 
 from app.schemas import UserMe, ErrorResponse
 from app.services.auth_service import get_auth_service
@@ -11,6 +12,11 @@ router = APIRouter(prefix="", tags=["Auth"])
 def _extract_bearer_token(authorization: str | None) -> str:
     if not authorization:
         raise UnauthorizedError("Missing Authorization header")
+    # Optional debug logging (no secrets) when LC_DEBUG_AUTH=1
+    if os.environ.get("LC_DEBUG_AUTH") == "1":  # pragma: no cover - dev aid
+        snippet = authorization[:60].replace("\n", "\\n")
+        parts_preview = authorization.split()
+        print(f"[auth_debug] Authorization repr='{snippet}...' len={len(authorization)} parts={parts_preview}", flush=True)
     parts = authorization.split()
     if len(parts) != 2 or parts[0].lower() != "bearer":
         raise UnauthorizedError("Invalid Authorization header")

@@ -12,6 +12,16 @@ import app.api.routers.recipes as recipes_router
 from app.services.recipe_service import get_recipe_service, reset_recipe_service_cache
 from app.services.shopping_service import reset_shopping_service_cache
 from app.services.mealplan_service import reset_mealplan_service_cache
+import os
+
+
+@pytest.fixture
+def _clear_db_env():
+    os.environ["LC_DISABLE_DOTENV"] = "1"
+    os.environ["DATABASE_URL"] = ""
+    yield
+    os.environ["DATABASE_URL"] = ""
+    os.environ["LC_DISABLE_DOTENV"] = "1"
 
 
 @pytest.fixture
@@ -29,13 +39,13 @@ def app_instance():
 
 
 @pytest.fixture
-def client(app_instance):
+def client(app_instance, _clear_db_env):
     with TestClient(app_instance) as c:
         yield c
 
 
 @pytest.fixture
-def authed_client(app_instance):
+def authed_client(app_instance, _clear_db_env):
     app_instance.dependency_overrides[get_current_user] = lambda: UserMe(
         user_id="test-user", provider_subject="sub", email=None
     )
