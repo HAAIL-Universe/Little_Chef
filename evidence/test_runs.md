@@ -2396,3 +2396,105 @@ FAILED tests/test_auth_debug_details.py::test_auth_me_debug_details_when_enabled
  3 files changed, 25 insertions(+), 2 deletions(-)
 ```
 
+## Test Run 2026-02-04T14:04:40Z
+- Status: PASS
+- Start: 2026-02-04T14:04:40Z
+- End: 2026-02-04T14:04:44Z
+- Python: Z:\LittleChef\.venv\\Scripts\\python.exe
+- Branch: main
+- HEAD: e6e2bb777214688c0ea8c909c22353dd72892254
+- compileall exit: 0
+- import app.main exit: 0
+- pytest exit: 0
+- pytest summary: 32 passed, 1 warning in 1.75s
+- git status -sb:
+```
+## main...origin/main
+```
+- git diff --stat:
+```
+
+```
+
+## Test Run 2026-02-04T14:13:43Z
+- Status: PASS
+- Start: 2026-02-04T14:13:43Z
+- End: 2026-02-04T14:13:47Z
+- Python: Z:\LittleChef\.venv\\Scripts\\python.exe
+- Branch: main
+- HEAD: 42496808aeb9e1bf355e5304ec12453b307213a5
+- compileall exit: 0
+- import app.main exit: 0
+- pytest exit: 0
+- pytest summary: 32 passed, 1 warning in 1.80s
+- git status -sb:
+```
+## main...origin/main
+ M evidence/test_runs.md
+ M evidence/test_runs_latest.md
+ M evidence/updatedifflog.md
+ M scripts/run_local.ps1
+```
+- git diff --stat:
+```
+ evidence/test_runs.md        | 20 ++++++++++++++++++++
+ evidence/test_runs_latest.md | 17 +++++------------
+ evidence/updatedifflog.md    | 24 +++++++++++++++++-------
+ scripts/run_local.ps1        | 12 +++++++++++-
+ 4 files changed, 53 insertions(+), 20 deletions(-)
+```
+
+## Test Run 2026-02-04T14:24:24Z
+- Status: PASS
+- Start: 2026-02-04T14:24:24Z
+- End: 2026-02-04T14:24:28Z
+- Python: Z:\LittleChef\.venv\\Scripts\\python.exe
+- Branch: main
+- HEAD: 20755f34089693e6a52fcce0bd6b832fcd502df8
+- compileall exit: 0
+- import app.main exit: 0
+- pytest exit: 0
+- pytest summary: 32 passed, 1 warning in 1.73s
+- git status -sb:
+```
+## main...origin/main
+ M evidence/test_runs.md
+ M evidence/test_runs_latest.md
+```
+- git diff --stat:
+```
+ evidence/test_runs.md        | 48 ++++++++++++++++++++++++++++++++++++++++++++
+ evidence/test_runs_latest.md | 25 ++++++++++++-----------
+ 2 files changed, 61 insertions(+), 12 deletions(-)
+```
+
+## Test Run 2026-02-04T14:34:00Z
+- Status: PASS
+- Start: 2026-02-04T14:34:00Z
+- End: 2026-02-04T14:34:06Z
+- Python: Z:\LittleChef\.venv\\Scripts\\python.exe
+- Branch: main
+- HEAD: eb4fff82398232b6e297e0c0fc20b7074f0aeced
+- compileall exit: 0
+- import app.main exit: 0
+- pytest exit: 0
+- pytest summary: 32 passed, 1 warning in 2.24s
+- git status -sb:
+```
+## main...origin/main
+ M evidence/test_runs.md
+ M evidence/test_runs_latest.md
+ M web/index.html
+ M web/src/main.ts
+?? docs/render_deploy.md
+?? scripts/smoke_render.ps1
+```
+- git diff --stat:
+```
+ evidence/test_runs.md        | 72 ++++++++++++++++++++++++++++++++++++++++++++
+ evidence/test_runs_latest.md | 21 ++++++-------
+ web/index.html               | 10 ++++--
+ web/src/main.ts              | 71 +++++++++++++++++++++++++++++++++++++++++++
+ 4 files changed, 159 insertions(+), 15 deletions(-)
+```
+

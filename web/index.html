@@ -21,9 +21,13 @@
       <textarea id="chat-input" rows="3" placeholder="Ask or fill..."></textarea>
       <button id="btn-chat">Send /chat</button>
       <div id="chat-reply"></div>
-      <div id="chat-confirm" class="hidden">
-        <button id="btn-confirm">Confirm</button>
-        <button id="btn-cancel">Cancel</button>
+      <div id="chat-error" class="error"></div>
+      <div id="chat-proposal" class="hidden proposal">
+        <div id="chat-proposal-text"></div>
+        <div class="actions">
+          <button id="btn-confirm">Confirm</button>
+          <button id="btn-cancel">Cancel</button>
+        </div>
       </div>
     </section>
 
