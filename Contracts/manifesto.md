@@ -61,6 +61,16 @@ When retrieval yields nothing:
 - ask a clarifying question, or
 - fall back to built-ins (clearly labeled)
 
+Voice-first, text-native API:
+- Clients may capture audio but must send text to /chat (client-side transcription in v0.1).
+- No audio upload routes in v0.1; no client-side model calls; server owns model/tool calls.
+
+Background work is allowed (parsing, normalization, pre-fill), but it must only produce proposals or read-only derived state—never commit writes without confirmation.
+
+Message storage:
+- Raw user/assistant messages may be stored for thread context, auditability, and background parsing.
+- Any derived updates must still flow through proposal → confirm/decline.
+
 ---
 
 ## 6) Confirm-before-write (v0.1 default)
@@ -68,9 +78,12 @@ When retrieval yields nothing:
 Little Chef should not mutate user data based on ambiguous chat.
 
 Default flow for writes:
-1) propose a structured change
-2) user confirms
-3) execute write
+1) propose a structured change (exactly one active proposal per thread; a new proposal supersedes the previous active one)
+2) user confirms or declines
+3) execute write only when confirmed
+
+Decline is non-destructive: declined proposals are not applied and remain recoverable/editable within the same thread. Starting a new clean thread makes prior thread proposals inaccessible via UI (even if retained for audit).
+Thread identity (thread_id) scopes chat + proposals; UI should persist it and treat a new thread as a hard boundary.
 
 Destructive operations always require explicit confirmation.
 
