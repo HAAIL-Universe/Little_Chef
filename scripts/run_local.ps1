@@ -13,7 +13,8 @@ param(
   [switch]$NoVenv,
   [switch]$NoOpen,
   [switch]$DebugAuth,
-  [switch]$KillPortListeners
+  [switch]$KillPortListeners,
+  [switch]$Migrate
 )
 
 Set-StrictMode -Version Latest
@@ -145,6 +146,14 @@ function Find-FreePort($start, $span) {
   return $null
 }
 
+function Run-Migrations($root) {
+  $mig = Join-Path $root "scripts/db_migrate.ps1"
+  if (-not (Test-Path $mig)) { Warn "Migration script not found at $mig"; return }
+  if (-not $env:DATABASE_URL) { Warn "DATABASE_URL not set; skipping migrations"; return }
+  Info "Running migrations via $mig"
+  & pwsh -NoProfile -File $mig
+}
+
 function Resolve-AppImport($py) {
   foreach ($c in @("app.main:app", "main:app", "app.main:application", "main:application")) {
     $parts = $c.Split(":")
@@ -177,6 +186,7 @@ try {
   $env:LC_DEBUG_AUTH = "1"
   Info "LC_DEBUG_AUTH=$($env:LC_DEBUG_AUTH) (auth debug enabled by default for local runs)"
   Ensure-Uvicorn $py
+  if ($Migrate) { Run-Migrations $root }
   $desiredPort = $Port
   if ($KillPortListeners) {
     $killResult = Kill-PortListeners $desiredPort

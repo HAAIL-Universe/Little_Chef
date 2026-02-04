@@ -1,42 +1,28 @@
-# Phase 6A-6C Status Audit
+# Phase 6A–6C Status Audit (updated)
 - Timestamp: 2026-02-04T12:40:00+00:00
 - HEAD: e6e2bb777214688c0ea8c909c22353dd72892254
 
 ## Evidence Snapshot
 - git rev-parse HEAD: e6e2bb777214688c0ea8c909c22353dd72892254
-- git status -sb: clean
-- Routes (23): /, /auth/me, /chat, /chat/confirm, /health, /inventory/events, /inventory/low-stock, /inventory/summary, /mealplan/generate, /prefs, /recipes/books, /recipes/books/{book_id}, /recipes/search, /shopping/diff, /static/{path:path}, /docs, /openapi.json, /redoc, /docs/oauth2-redirect
-- UI files present: web/index.html, web/src/main.ts, web/tsconfig.json, web/dist/. No .js sources beyond dist.
-- Tests: run_tests.ps1 PASS (compileall/import/pytest)
+- git status: clean
+- Routes (23): /, /static/{path:path}, /auth/me, /chat, /chat/confirm, /prefs, /mealplan/generate, /shopping/diff, /inventory/*, /recipes/*, /docs, /openapi.json, /redoc.
+- UI files: web/index.html, web/src/main.ts, tsconfig.json, dist/ (no source .js).
+- Tests: run_tests.ps1 PASS (compileall/import/pytest).
 
-## Phase 6A Status
-- 6A.0 Physics UI mount: Routes include / and /static/{path:path}; physics.yaml does not describe these -> mismatch (served but not defined). Status: PARTIAL (UI mounted, contract gap).
-- 6A.1 UI surfaces (mobile-first TS-only):
-  1) Auth strip (/auth/me): Implemented in web/src/main.ts; depends on pasted JWT. Status: DONE (manual).
-  2) Chat + confirm (/chat, /chat/confirm): Implemented basic call/send; proposal UI minimal. Status: PARTIAL.
-  3) Prefs GET/PUT: Implemented buttons in main.ts. Status: DONE (manual wiring).
-  4) Mealplan generate: Implemented; displays response. Status: DONE.
-  5) Shopping diff: Implemented; shows missing-only. Status: DONE.
-  - TS-only rule: satisfied (only main.ts; dist main.js generated).
-
-## Phase 6B Status (DB intro, gated)
-- DB gate: DATABASE_URL optional; get_database_url uses env + dotenv. Identity mapping: user_id = uuid5(NAMESPACE_URL, 'littlechef:' + sub) in auth_service.py. Evidence: app/services/auth_service.py lines ~7-20.
-- Migrations: SQL-only db/migrations/0001_init.sql; migration runner scripts/db_migrate.ps1. Status: baseline present.
-- Prefs/inventory persistence: repo factories choose DB when DATABASE_URL set; in tests LC_DISABLE_DOTENV keeps in-memory. Status: PARTIAL (DB path exists, schema missing users table causing 503 if used without migration).
-
-## Phase 6C Status (deploy/JWT config)
-- Render/deploy config: not found (no render.yaml/docs). Status: NOT_STARTED.
-- Env wiring: run_local sets LC_DEBUG_AUTH=1; JWT verifier uses LC_JWT_ISSUER, LC_JWKS_URL/LC_OIDC_DISCOVERY_URL, LC_JWT_AUDIENCE. Status: PARTIAL (local only, no deploy doc).
-- Smoke test script for deployed URL: not present. Status: NOT_STARTED.
+## Status Table
+| Phase | Expected | Observed | Status | Gaps / Evidence |
+| --- | --- | --- | --- | --- |
+| 6A.0 UI mount | GET /, GET /static/{path} defined in physics | physics.yaml already has / and /static/{path}; backend serves both | DONE | Contracts/physics.yaml lines ~564–580; app.main routes |
+| 6A.1 UI surfaces (TS-only) | Auth strip, Chat+confirm, Prefs GET/PUT, Mealplan generate, Shopping diff | main.ts implements all; chat confirm UX minimal; TS-only rule satisfied | PARTIAL | web/src/main.ts lines cover flows; dist main.js generated; no extra .js |
+| 6B DB intro (gated) | Migrations, DATABASE_URL, user_id mapping, prefs/inventory DB path | SQL migration at db/migrations/0001_init.sql; scripts/db_migrate.ps1; user_id = uuid5(sub); DB optional; users table missing triggers 503 unless migrated | PARTIAL | auth_service.py ensure_user raises 503 schema missing; docs/db_schema_init.md added |
+| 6C Deploy/JWT config | Render config, env wiring docs, smoke script | No render.yaml; env vars in code; no deploy docs/smoke script | NOT_STARTED | repo lacks deploy doc; only run_local env notes |
 
 ## Gaps
-- 6A.0: physics.yaml missing UI mount endpoints / and /static/{path} definitions.
-- 6A.1: Chat proposal UI minimal; needs confirm/cancel UX per spec.
-- 6B: DB schema not applied by default; users table missing causes 503 unless migrations run. Need clearer migration/run_local integration.
-- 6C: No Render config or deploy instructions; no smoke script; JWT prod config not documented.
+- 6A.1: Chat confirm/cancel UX minimal.
+- 6B: Schema must be applied manually; need explicit migration step when DATABASE_URL set (doc added).
+- 6C: No deploy instructions or smoke script; JWT prod config undocumented.
 
 ## Next Minimal Steps
-1) Update physics.yaml to include / and /static/{path} (UI mount) to close 6A.0 contract gap.
-2) Improve web UI chat flow to show pending proposal + confirm/cancel (small TS change).
-3) Ensure db_migrate.ps1 (or run_local) applies 0001_init.sql when DATABASE_URL is set, or document that requirement in README/diff log.
-4) Add deploy/readme section for Render + env vars; add simple smoke script curling /health and /auth/me with a token.
+1) Improve chat confirm/cancel UI flow in main.ts.
+2) For DB usage, run `scripts/db_migrate.ps1` (or `run_local.ps1 -Migrate`) whenever DATABASE_URL is set; document in README if desired.
+3) Add Render/deploy env doc + smoke script for /health and /auth/me with token.

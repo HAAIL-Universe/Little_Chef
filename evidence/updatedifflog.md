@@ -7,13 +7,15 @@
 - Diff basis: staged
 
 ## Cycle Status
-- Status: IN_PROCESS
+- Status: COMPLETE
 
 ## Summary
-- TODO: 1–5 bullets (what changed, why, scope).
+- Added phase6_status_audit.md documenting Phase 6A–6C status vs repo with evidence and gaps.
+- Confirmed routes/UI/tests snapshot; no runtime code changes in this cycle.
 
 ## Files Changed (staged)
-- (none detected)
+- evidence/phase6_status_audit.md
+- evidence/updatedifflog.md
 
 ## git status -sb
     ## main...origin/main
@@ -22,14 +24,22 @@
     ?? evidence/phase6_status_audit.md
 
 ## Minimal Diff Hunks
-    (none)
+    diff --git a/evidence/phase6_status_audit.md b/evidence/phase6_status_audit.md
+    --- /dev/null
+    +++ b/evidence/phase6_status_audit.md
+    @@
+    +# Phase 6A-6C Status Audit
+    +... (see file for full table and evidence)
 
 ## Verification
-- TODO: verification evidence (static -> runtime -> behavior -> contract).
+- Static: python -m compileall app (PASS)
+- Runtime: python -c "import app.main; print('import ok')" (PASS)
+- Behavior: pwsh -NoProfile -Command "./scripts/run_tests.ps1" (PASS)
+- Contract: physics.yaml unchanged; routes listed (23) match expected API surface.
 
 ## Notes (optional)
-- TODO: blockers, risks, constraints.
+- None.
 
 ## Next Steps
-- TODO: next actions (small, specific).
+- Follow audit gaps: add UI mount to physics.yaml, flesh chat confirm UI, ensure migrations run when DB used, add deploy/render docs.
 
