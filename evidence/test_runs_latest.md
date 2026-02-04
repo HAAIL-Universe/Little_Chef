@@ -1,31 +1,26 @@
 Status: PASS
-Start: 2026-02-04T13:25:54Z
-End: 2026-02-04T13:25:58Z
+Start: 2026-02-04T13:44:26Z
+End: 2026-02-04T13:44:31Z
 Branch: main
-HEAD: 11fce1d6ff16c14df37fd079dfb226dede452c77
+HEAD: f88b657e7472541467fbb3cf52a2136aab888e34
 Python: Z:\LittleChef\.venv\\Scripts\\python.exe
 compileall exit: 0
 import app.main exit: 0
 pytest exit: 0
-pytest summary: 30 passed, 1 warning in 1.14s
+pytest summary: 32 passed, 1 warning in 1.98s
 git status -sb:
 ```
 ## main...origin/main
- M app/api/deps.py
- M app/api/routers/auth.py
- M evidence/test_runs.md
- M evidence/test_runs_latest.md
- M scripts/run_local.ps1
- M tests/test_auth_debug_details.py
+ M app/errors.py
+ M app/main.py
+ M app/services/auth_service.py
+?? tests/test_auth_schema_missing.py
 ```
 git diff --stat:
 ```
- app/api/deps.py                  |   7 +-
- app/api/routers/auth.py          |   7 +-
- evidence/test_runs.md            | 169 +++++++++++++++++++++++++++++++++++++++
- evidence/test_runs_latest.md     |  62 +++++++++++---
- scripts/run_local.ps1            |  28 ++++---
- tests/test_auth_debug_details.py |  45 ++++++++---
- 6 files changed, 286 insertions(+), 32 deletions(-)
+ app/errors.py                | 11 +++++++++++
+ app/main.py                  |  3 +++
+ app/services/auth_service.py | 13 +++++++++++--
+ 3 files changed, 25 insertions(+), 2 deletions(-)
 ```
 

@@ -11,6 +11,8 @@ from app.errors import (
     bad_request_handler,
     NotFoundError,
     not_found_handler,
+    ServiceUnavailableError,
+    service_unavailable_handler,
 )
 
 
@@ -29,6 +31,7 @@ def create_app() -> FastAPI:
     app.add_exception_handler(UnauthorizedError, unauthorized_handler)
     app.add_exception_handler(BadRequestError, bad_request_handler)
     app.add_exception_handler(NotFoundError, not_found_handler)
+    app.add_exception_handler(ServiceUnavailableError, service_unavailable_handler)
 
     dist_dir = (Path(__file__).resolve().parent.parent / "web" / "dist").resolve()
 

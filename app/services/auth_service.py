@@ -6,6 +6,8 @@ from app.auth.jwt_verifier import JWTVerifier, JWTVerificationError
 from app.schemas import UserMe
 from app.db.conn import get_database_url, connect
 from app.repos.user_repo import ensure_user
+from app.errors import ServiceUnavailableError
+import psycopg
 
 
 def _deterministic_user_id(provider_subject: str) -> str:
@@ -31,8 +33,15 @@ class AuthService:
 
         if get_database_url():
             with connect() as conn, conn.cursor() as cur:
-                ensure_user(cur, user_id, provider_subject, email)
-                conn.commit()
+                try:
+                    ensure_user(cur, user_id, provider_subject, email)
+                    conn.commit()
+                except psycopg.errors.UndefinedTable as exc:
+                    details = {"missing_table": "users"}
+                    raise ServiceUnavailableError(
+                        "Database schema is not initialized (missing table: users). Apply migrations to the configured DATABASE_URL.",
+                        details=details,
+                    ) from exc
 
         return UserMe(
             user_id=user_id,
