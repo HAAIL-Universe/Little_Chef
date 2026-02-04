@@ -12,7 +12,8 @@ param(
   [switch]$NoInstall,
   [switch]$NoVenv,
   [switch]$NoOpen,
-  [switch]$DebugAuth
+  [switch]$DebugAuth,
+  [switch]$KillPortListeners
 )
 
 Set-StrictMode -Version Latest
@@ -105,6 +106,22 @@ function Assert-PortFree($port) {
   }
 }
 
+function Kill-PortListeners($port) {
+  try {
+    $listeners = @((Get-NetTCPConnection -LocalPort $port -State Listen -ErrorAction SilentlyContinue)) | Where-Object { $_ }
+  } catch { $listeners = @() }
+  if ($listeners.Count -eq 0) { return }
+  $pids = @($listeners | Select-Object -ExpandProperty OwningProcess -Unique)
+  foreach ($pidVal in $pids) {
+    try {
+      Warn ("Killing PID {0} holding port {1}" -f $pidVal, $port)
+      Stop-Process -Id $pidVal -Force -ErrorAction Stop
+    } catch {
+      Warn ("Failed to kill PID {0}: {1}" -f $pidVal, $_.Exception.Message)
+    }
+  }
+}
+
 function Resolve-AppImport($py) {
   foreach ($c in @("app.main:app", "main:app", "app.main:application", "main:application")) {
     $parts = $c.Split(":")
@@ -137,6 +154,7 @@ try {
   $env:LC_DEBUG_AUTH = "1"
   Info "LC_DEBUG_AUTH=$($env:LC_DEBUG_AUTH) (auth debug enabled by default for local runs)"
   Ensure-Uvicorn $py
+  if ($KillPortListeners) { Kill-PortListeners $Port }
   Assert-PortFree $Port
 
   $appImport = Resolve-AppImport $py

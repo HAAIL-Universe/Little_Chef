@@ -1,18 +1,18 @@
 # Diff Log (overwrite each cycle)
 
 ## Cycle Metadata
-- Timestamp: 2026-02-04T12:26:40+00:00
+- Timestamp: 2026-02-04T12:33:00+00:00
 - Branch: main
-- BASE_HEAD: 71c1c3da7a4f54f8a0b6d77c8c9dff53fd05cf08
+- BASE_HEAD: c4215b81b1a50e2f91c94b50ce7c6addb27d95d5
 - Diff basis: staged
 
 ## Cycle Status
 - Status: COMPLETE
 
 ## Summary
-- Made Assert-PortFree fully shape-safe: coercing listener results to array, counting safely, and avoiding $pid naming issues.
-- Added clearer diagnostics when port is busy: listener lines plus tasklist and Get-CimInstance info.
-- Verified run_local no longer throws Count/Length errors; test suite remains green.
+- Added optional -KillPortListeners to stop any process holding the target port before startup (opt-in).
+- Kept shape-safe port guard with richer diagnostics; LC_DEBUG_AUTH still enabled by default.
+- Tests re-run to ensure no regressions; script-only change.
 
 ## Files Changed (staged)
 - scripts/run_local.ps1
@@ -30,45 +30,39 @@
     --- a/scripts/run_local.ps1
     +++ b/scripts/run_local.ps1
     @@
-    function Assert-PortFree($port) {
+      [switch]$NoVenv,
+      [switch]$NoOpen,
+      [switch]$DebugAuth,
+      [switch]$KillPortListeners
+    )
+    @@
+    function Kill-PortListeners($port) {
       try {
-        $listeners = Get-NetTCPConnection -LocalPort $port -State Listen -ErrorAction SilentlyContinue
-      } catch {
-        $listeners = @()
-      }
-      $listeners = @($listeners) | Where-Object { $_ }
-      $listenerCount = @($listeners).Count
-      if ($listenerCount -gt 0) {
-        $pids = @($listeners | Select-Object -ExpandProperty OwningProcess -Unique)
-        $procInfo = @($pids | ForEach-Object {
-          try { (Get-Process -Id $_) } catch { $null }
-        })
-        Warn "Port $port already in use:"
-        foreach ($l in $listeners) {
-          Warn ("  Listener {0}:{1} state={2} pid={3}" -f $l.LocalAddress, $l.LocalPort, $l.State, $l.OwningProcess)
+        $listeners = @((Get-NetTCPConnection -LocalPort $port -State Listen -ErrorAction SilentlyContinue)) | Where-Object { $_ }
+      } catch { $listeners = @() }
+      if ($listeners.Count -eq 0) { return }
+      $pids = @($listeners | Select-Object -ExpandProperty OwningProcess -Unique)
+      foreach ($pidVal in $pids) {
+        try {
+          Warn ("Killing PID {0} holding port {1}" -f $pidVal, $port)
+          Stop-Process -Id $pidVal -Force -ErrorAction Stop
+        } catch {
+          Warn ("Failed to kill PID {0}: {1}" -f $pidVal, $_.Exception.Message)
         }
-        foreach ($p in $procInfo) {
-          if ($p) { Warn ("  PID {0} - {1}" -f $p.Id, $p.Path) }
-        }
-        foreach ($pidVal in $pids) {
-          try {
-            Warn ("  tasklist for PID {0}:" -f $pidVal)
-            tasklist /fi ("PID eq {0}" -f $pidVal) | Out-Host
-          } catch { }
-          try {
-            Warn ("  Get-CimInstance for PID {0}:" -f $pidVal)
-            Get-CimInstance Win32_Process -Filter ("ProcessId={0}" -f $pidVal) | Select-Object ProcessId,ParentProcessId,Name,CommandLine | Format-List | Out-Host
-          } catch { }
-        }
-        Fail "Port $port already in use; stop the process and rerun."
       }
     }
+    @@
+      $env:LC_DEBUG_AUTH = "1"
+      Info "LC_DEBUG_AUTH=$($env:LC_DEBUG_AUTH) (auth debug enabled by default for local runs)"
+      Ensure-Uvicorn $py
+      if ($KillPortListeners) { Kill-PortListeners $Port }
+      Assert-PortFree $Port
 
 ## Verification
 - Static: python -m compileall app
 - Runtime: python -c "import app.main; print('import ok')"
 - Behavior: pwsh -NoProfile -Command "./scripts/run_tests.ps1" (PASS)
-- Runtime intent: run_local.ps1 -Port 8001 starts (timeout was due to uvicorn running, no Count/Length errors observed); busy-port path now prints listener + tasklist + Cim info.
+- Runtime intent: run_local.ps1 -NoOpen -NoReload -Port 8001 starts; busy-port path now prints listener + tasklist + Cim info without errors. LC_DEBUG_AUTH still on by default.
 - Contract: No API/schema changes.
 
 ## Notes (optional)
