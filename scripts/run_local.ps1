@@ -132,17 +132,17 @@ function Kill-PortListeners($port) {
     if (($remaining | Measure-Object).Count -eq 0) { return $port }
   }
   Warn "Port $port still shows a listener after kill attempts (elevation may be required or listener is in another session)."
-  # try to find a nearby free port to keep going
-  foreach ($candidate in ($port+1)..($port+10)) {
+  return $null
+}
+
+function Find-FreePort($start, $span) {
+  foreach ($candidate in $start..($start + $span)) {
     try {
       $check = @((Get-NetTCPConnection -LocalPort $candidate -State Listen -ErrorAction SilentlyContinue)) | Where-Object { $_ }
     } catch { $check = @() }
-    if (($check | Measure-Object).Count -eq 0) {
-      Warn ("Switching to free port {0}" -f $candidate)
-      return $candidate
-    }
+    if (($check | Measure-Object).Count -eq 0) { return $candidate }
   }
-  Fail "Could not free port $port and no alternate port found in next 10 ports."
+  return $null
 }
 
 function Resolve-AppImport($py) {
@@ -177,8 +177,18 @@ try {
   $env:LC_DEBUG_AUTH = "1"
   Info "LC_DEBUG_AUTH=$($env:LC_DEBUG_AUTH) (auth debug enabled by default for local runs)"
   Ensure-Uvicorn $py
-  if ($KillPortListeners) { $Port = Kill-PortListeners $Port }
-  Assert-PortFree $Port
+  $desiredPort = $Port
+  if ($KillPortListeners) {
+    $killResult = Kill-PortListeners $desiredPort
+    if ($killResult) { $desiredPort = $killResult }
+  }
+  # choose a free port (desired first, then next 10)
+  $freePort = Find-FreePort $desiredPort 10
+  if (-not $freePort) { Fail "No free port found near $desiredPort" }
+  if ($freePort -ne $desiredPort) {
+    Warn ("Port {0} busy; switching to free port {1}" -f $desiredPort, $freePort)
+  }
+  $Port = $freePort
 
   $appImport = Resolve-AppImport $py
   if (-not $appImport) { Fail "Could not resolve ASGI app (expected app.main:app)" }

@@ -30,9 +30,12 @@ def _extract_bearer_token(authorization: str | None) -> str:
         raise UnauthorizedError("Missing Authorization header", details=details)
     parts = authorization.split()
     details = _auth_debug_details(authorization) if debug else None
-    if len(parts) != 2 or parts[0].lower() != "bearer":
+    if len(parts) < 2 or parts[0].lower() != "bearer":
         raise UnauthorizedError("Invalid Authorization header", details=details)
-    return parts[1]
+    token = "".join(parts[1:])
+    if not token:
+        raise UnauthorizedError("Invalid Authorization header", details=details)
+    return token
 
 
 def get_current_user(

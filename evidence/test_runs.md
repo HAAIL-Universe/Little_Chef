@@ -2168,3 +2168,204 @@ M  web/src/main.ts
  3 files changed, 111 insertions(+), 10 deletions(-)
 ```
 
+## Test Run 2026-02-04T13:13:09Z
+- Status: PASS
+- Start: 2026-02-04T13:13:09Z
+- End: 2026-02-04T13:13:12Z
+- Python: Z:\LittleChef\.venv\\Scripts\\python.exe
+- Branch: main
+- HEAD: 11fce1d6ff16c14df37fd079dfb226dede452c77
+- compileall exit: 0
+- import app.main exit: 0
+- pytest exit: 0
+- pytest summary: 28 passed, 1 warning in 0.65s
+- git status -sb:
+```
+## main...origin/main
+ M scripts/run_local.ps1
+```
+- git diff --stat:
+```
+ scripts/run_local.ps1 | 28 +++++++++++++++++++---------
+ 1 file changed, 19 insertions(+), 9 deletions(-)
+```
+
+## Test Run 2026-02-04T13:24:42Z
+- Status: FAIL
+- Start: 2026-02-04T13:24:42Z
+- End: 2026-02-04T13:24:46Z
+- Python: Z:\LittleChef\.venv\\Scripts\\python.exe
+- Branch: main
+- HEAD: 11fce1d6ff16c14df37fd079dfb226dede452c77
+- compileall exit: 0
+- import app.main exit: 0
+- pytest exit: 1
+- pytest summary: 2 failed, 28 passed, 1 warning in 1.38s
+- git status -sb:
+```
+## main...origin/main
+ M app/api/deps.py
+ M app/api/routers/auth.py
+ M evidence/test_runs.md
+ M evidence/test_runs_latest.md
+ M scripts/run_local.ps1
+ M tests/test_auth_debug_details.py
+```
+- git diff --stat:
+```
+ app/api/deps.py                  |  7 +++++--
+ app/api/routers/auth.py          |  7 +++++--
+ evidence/test_runs.md            | 22 ++++++++++++++++++++++
+ evidence/test_runs_latest.md     | 16 ++++++----------
+ scripts/run_local.ps1            | 28 +++++++++++++++++++---------
+ tests/test_auth_debug_details.py | 25 +++++++++++++++++++++++++
+ 6 files changed, 82 insertions(+), 23 deletions(-)
+```
+- Failure payload:
+```
+=== pytest (exit 1) ===
+FF............................                                           [100%]
+================================== FAILURES ===================================
+___________________ test_auth_me_debug_details_when_enabled ___________________
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x000001E366721520>
+
+    def test_auth_me_debug_details_when_enabled(monkeypatch):
+        monkeypatch.setenv("LC_DEBUG_AUTH", "1")
+        with _make_client() as client:
+            resp = client.get("/auth/me", headers={"Authorization": "Bearer part1 part2"})
+        assert resp.status_code == 401
+        body = resp.json()
+>       assert body["message"] == "Invalid Authorization header"
+E       AssertionError: assert 'Not enough segments' == 'Invalid Authorization header'
+E         
+E         - Invalid Authorization header
+E         + Not enough segments
+
+tests\test_auth_debug_details.py:18: AssertionError
+_____________________ test_auth_me_debug_details_disabled _____________________
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x000001E3667FCC80>
+
+    def test_auth_me_debug_details_disabled(monkeypatch):
+        monkeypatch.delenv("LC_DEBUG_AUTH", raising=False)
+        with _make_client() as client:
+            resp = client.get("/auth/me", headers={"Authorization": "Bearer bad token"})
+        assert resp.status_code == 401
+        body = resp.json()
+>       assert body["message"] == "Invalid Authorization header"
+E       AssertionError: assert 'Not enough segments' == 'Invalid Authorization header'
+E         
+E         - Invalid Authorization header
+E         + Not enough segments
+
+tests\test_auth_debug_details.py:35: AssertionError
+============================== warnings summary ===============================
+.venv\Lib\site-packages\starlette\formparsers.py:12
+  Z:\LittleChef\.venv\Lib\site-packages\starlette\formparsers.py:12: PendingDeprecationWarning: Please use `import python_multipart` instead.
+    import multipart
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED tests/test_auth_debug_details.py::test_auth_me_debug_details_when_enabled
+FAILED tests/test_auth_debug_details.py::test_auth_me_debug_details_disabled
+2 failed, 28 passed, 1 warning in 1.38s
+```
+
+## Test Run 2026-02-04T13:25:26Z
+- Status: FAIL
+- Start: 2026-02-04T13:25:26Z
+- End: 2026-02-04T13:25:30Z
+- Python: Z:\LittleChef\.venv\\Scripts\\python.exe
+- Branch: main
+- HEAD: 11fce1d6ff16c14df37fd079dfb226dede452c77
+- compileall exit: 0
+- import app.main exit: 0
+- pytest exit: 1
+- pytest summary: 1 failed, 29 passed, 1 warning in 1.68s
+- git status -sb:
+```
+## main...origin/main
+ M app/api/deps.py
+ M app/api/routers/auth.py
+ M evidence/test_runs.md
+ M evidence/test_runs_latest.md
+ M scripts/run_local.ps1
+ M tests/test_auth_debug_details.py
+```
+- git diff --stat:
+```
+ app/api/deps.py                  |   7 ++-
+ app/api/routers/auth.py          |   7 ++-
+ evidence/test_runs.md            | 104 +++++++++++++++++++++++++++++++++++++++
+ evidence/test_runs_latest.md     |  80 ++++++++++++++++++++++++++----
+ scripts/run_local.ps1            |  28 +++++++----
+ tests/test_auth_debug_details.py |  32 ++++++++++--
+ 6 files changed, 232 insertions(+), 26 deletions(-)
+```
+- Failure payload:
+```
+=== pytest (exit 1) ===
+F.............................                                           [100%]
+================================== FAILURES ===================================
+___________________ test_auth_me_debug_details_when_enabled ___________________
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x0000024D3F1463C0>
+
+    def test_auth_me_debug_details_when_enabled(monkeypatch):
+        monkeypatch.setenv("LC_DEBUG_AUTH", "1")
+        with _make_client() as client:
+            resp = client.get("/auth/me", headers={"Authorization": "Bearer part1 part2"})
+        assert resp.status_code == 401
+        body = resp.json()
+        # Parsing should succeed; message now comes from JWT verification path, not parsing
+        assert body["message"] != "Invalid Authorization header"
+        details = body.get("details")
+>       assert isinstance(details, dict)
+E       assert False
+E        +  where False = isinstance(None, dict)
+
+tests\test_auth_debug_details.py:21: AssertionError
+============================== warnings summary ===============================
+.venv\Lib\site-packages\starlette\formparsers.py:12
+  Z:\LittleChef\.venv\Lib\site-packages\starlette\formparsers.py:12: PendingDeprecationWarning: Please use `import python_multipart` instead.
+    import multipart
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED tests/test_auth_debug_details.py::test_auth_me_debug_details_when_enabled
+1 failed, 29 passed, 1 warning in 1.68s
+```
+
+## Test Run 2026-02-04T13:25:54Z
+- Status: PASS
+- Start: 2026-02-04T13:25:54Z
+- End: 2026-02-04T13:25:58Z
+- Python: Z:\LittleChef\.venv\\Scripts\\python.exe
+- Branch: main
+- HEAD: 11fce1d6ff16c14df37fd079dfb226dede452c77
+- compileall exit: 0
+- import app.main exit: 0
+- pytest exit: 0
+- pytest summary: 30 passed, 1 warning in 1.14s
+- git status -sb:
+```
+## main...origin/main
+ M app/api/deps.py
+ M app/api/routers/auth.py
+ M evidence/test_runs.md
+ M evidence/test_runs_latest.md
+ M scripts/run_local.ps1
+ M tests/test_auth_debug_details.py
+```
+- git diff --stat:
+```
+ app/api/deps.py                  |   7 +-
+ app/api/routers/auth.py          |   7 +-
+ evidence/test_runs.md            | 169 +++++++++++++++++++++++++++++++++++++++
+ evidence/test_runs_latest.md     |  62 +++++++++++---
+ scripts/run_local.ps1            |  28 ++++---
+ tests/test_auth_debug_details.py |  45 ++++++++---
+ 6 files changed, 286 insertions(+), 32 deletions(-)
+```
+
