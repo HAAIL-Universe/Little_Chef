@@ -100,7 +100,8 @@ try {
   $py = Use-Venv $root
   Ensure-Requirements $py $root
   Load-DotEnv $root
-  if ($DebugAuth) { $env:LC_DEBUG_AUTH = "1"; Info "LC_DEBUG_AUTH=1 (debug auth headers)" }
+  $env:LC_DEBUG_AUTH = "1"
+  Info "LC_DEBUG_AUTH=1 (auth debug enabled by default for local runs)"
   Ensure-Uvicorn $py
 
   $appImport = Resolve-AppImport $py
