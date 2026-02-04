@@ -85,8 +85,21 @@ function Assert-PortFree($port) {
       try { (Get-Process -Id $_) } catch { $null }
     })
     Warn "Port $port already in use:"
+    foreach ($l in $listeners) {
+      Warn ("  Listener {0}:{1} state={2} pid={3}" -f $l.LocalAddress, $l.LocalPort, $l.State, $l.OwningProcess)
+    }
     foreach ($p in $procInfo) {
       if ($p) { Warn ("  PID {0} - {1}" -f $p.Id, $p.Path) }
+    }
+    foreach ($pidVal in $pids) {
+      try {
+        Warn ("  tasklist for PID {0}:" -f $pidVal)
+        tasklist /fi ("PID eq {0}" -f $pidVal) | Out-Host
+      } catch { }
+      try {
+        Warn ("  Get-CimInstance for PID {0}:" -f $pidVal)
+        Get-CimInstance Win32_Process -Filter ("ProcessId={0}" -f $pidVal) | Select-Object ProcessId,ParentProcessId,Name,CommandLine | Format-List | Out-Host
+      } catch { }
     }
     Fail "Port $port already in use; stop the process and rerun."
   }
