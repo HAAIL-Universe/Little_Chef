@@ -2498,3 +2498,50 @@ FAILED tests/test_auth_debug_details.py::test_auth_me_debug_details_when_enabled
  4 files changed, 159 insertions(+), 15 deletions(-)
 ```
 
+## Test Run 2026-02-04T14:40:38Z
+- Status: PASS
+- Start: 2026-02-04T14:40:38Z
+- End: 2026-02-04T14:40:42Z
+- Python: Z:\LittleChef\.venv\\Scripts\\python.exe
+- Branch: main
+- HEAD: d0d97f7e7d99ab692fd6d2dd20c15ed589ef6451
+- compileall exit: 0
+- import app.main exit: 0
+- pytest exit: 0
+- pytest summary: 32 passed, 1 warning in 1.78s
+- git status -sb:
+```
+## main...origin/main
+```
+- git diff --stat:
+```
+
+```
+
+## Test Run 2026-02-04T14:42:00Z
+- Status: PASS
+- Start: 2026-02-04T14:42:00Z
+- End: 2026-02-04T14:42:04Z
+- Python: Z:\LittleChef\.venv\\Scripts\\python.exe
+- Branch: main
+- HEAD: d0d97f7e7d99ab692fd6d2dd20c15ed589ef6451
+- compileall exit: 0
+- import app.main exit: 0
+- pytest exit: 0
+- pytest summary: 32 passed, 1 warning in 1.36s
+- git status -sb:
+```
+## main...origin/main
+ M evidence/test_runs.md
+ M evidence/test_runs_latest.md
+ M web/src/main.ts
+?? scripts/smoke.ps1
+```
+- git diff --stat:
+```
+ evidence/test_runs.md        | 20 ++++++++++++++++++++
+ evidence/test_runs_latest.md | 20 +++++---------------
+ web/src/main.ts              | 42 ++++++++++++++++++++++++++++--------------
+ 3 files changed, 53 insertions(+), 29 deletions(-)
+```
+

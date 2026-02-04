@@ -4,6 +4,7 @@ const state = {
   proposalId: null as string | null,
   proposedActions: [] as any[],
   chatReply: null as any,
+  chatError: "",
 };
 
 function headers() {
@@ -60,6 +61,12 @@ function clearProposal() {
   renderProposal();
 }
 
+function setChatError(msg: string) {
+  state.chatError = msg;
+  const el = document.getElementById("chat-error");
+  if (el) el.textContent = msg;
+}
+
 async function doGet(path: string) {
   const res = await fetch(path, { headers: headers() });
   return { status: res.status, json: await res.json().catch(() => null) };
@@ -82,14 +89,21 @@ function wire() {
   document.getElementById("btn-chat")?.addEventListener("click", async () => {
     const msg = (document.getElementById("chat-input") as HTMLTextAreaElement).value;
     clearProposal();
-    document.getElementById("chat-error")!.textContent = "";
-    const resp = await doPost("/chat", { mode: "ask", message: msg, include_user_library: true });
-    state.chatReply = resp;
-    setText("chat-reply", resp);
-    if (resp.json?.confirmation_required && resp.json?.proposal_id) {
-      state.proposalId = resp.json.proposal_id;
-      state.proposedActions = resp.json.proposed_actions || [];
-      renderProposal();
+    setChatError("");
+    try {
+      const resp = await doPost("/chat", { mode: "ask", message: msg, include_user_library: true });
+      state.chatReply = resp;
+      setText("chat-reply", resp);
+      if (resp.json?.confirmation_required && resp.json?.proposal_id) {
+        state.proposalId = resp.json.proposal_id;
+        state.proposedActions = resp.json.proposed_actions || [];
+        renderProposal();
+      }
+      if (resp.status >= 400) {
+        setChatError(`Chat failed (${resp.status}): ${resp.json?.message || "error"}`);
+      }
+    } catch (e: any) {
+      setChatError(`Chat error: ${e?.message || e}`);
     }
   });
 
@@ -127,24 +141,24 @@ function wire() {
 
   document.getElementById("btn-confirm")?.addEventListener("click", async () => {
     if (!state.proposalId) return;
-    document.getElementById("chat-error")!.textContent = "";
+    setChatError("");
     const resp = await doPost("/chat/confirm", { proposal_id: state.proposalId, confirm: true });
     setText("chat-reply", resp);
-    clearProposal();
     if (resp.status >= 400) {
-      document.getElementById("chat-error")!.textContent = `Confirm failed (${resp.status}): ${resp.json?.message || ""}`;
+      setChatError(`Confirm failed (${resp.status}): ${resp.json?.message || ""}`);
     }
+    clearProposal();
   });
 
   document.getElementById("btn-cancel")?.addEventListener("click", async () => {
     if (!state.proposalId) return;
-    document.getElementById("chat-error")!.textContent = "";
+    setChatError("");
     const resp = await doPost("/chat/confirm", { proposal_id: state.proposalId, confirm: false });
     setText("chat-reply", resp);
-    clearProposal();
     if (resp.status >= 400) {
-      document.getElementById("chat-error")!.textContent = `Cancel failed (${resp.status}): ${resp.json?.message || ""}`;
+      setChatError(`Cancel failed (${resp.status}): ${resp.json?.message || ""}`);
     }
+    clearProposal();
   });
 }
 
