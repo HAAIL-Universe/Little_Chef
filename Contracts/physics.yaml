@@ -505,60 +505,75 @@ components:
         - $ref: "#/components/schemas/ProposedUpsertPrefsAction"
         - $ref: "#/components/schemas/ProposedInventoryEventAction"
 
-    ChatRequest:
-      type: object
-      required: [mode, message]
-      properties:
-        mode:
-          $ref: "#/components/schemas/ChatMode"
-        message:
-          type: string
-          minLength: 1
-        include_user_library:
-          type: boolean
-          default: true
+  ChatRequest:
+    type: object
+    required: [mode, message]
+    properties:
+      mode:
+        $ref: "#/components/schemas/ChatMode"
+      message:
+        type: string
+        minLength: 1
+      include_user_library:
+        type: boolean
+        default: true
+      thread_id:
+        type: string
+        nullable: true
+        description: |
+          Optional conversation thread id. If omitted, server continues the current thread or starts a new one.
+          Exactly one active proposal is maintained per thread; starting a clean thread makes prior proposals inaccessible via UI.
 
-    ChatResponse:
-      type: object
-      required: [reply_text, confirmation_required]
-      properties:
-        reply_text:
-          type: string
-        confirmation_required:
-          type: boolean
-        proposal_id:
-          type: string
-          nullable: true
-          description: Present when confirmation_required is true.
-        proposed_actions:
-          type: array
-          items: { $ref: "#/components/schemas/ProposedAction" }
-          default: []
-        suggested_next_questions:
-          type: array
-          items: { type: string }
-          default: []
-
-    ConfirmProposalRequest:
-      type: object
-      required: [proposal_id, confirm]
-      properties:
-        proposal_id:
-          type: string
-        confirm:
-          type: boolean
-          description: true applies actions, false discards them.
-
-    ConfirmProposalResponse:
-      type: object
-      required: [applied]
-      properties:
-        applied:
-          type: boolean
-        applied_event_ids:
+  ChatResponse:
+    type: object
+    required: [reply_text, confirmation_required]
+    properties:
+      reply_text:
+        type: string
+      confirmation_required:
+        type: boolean
+      proposal_id:
+        type: string
+        nullable: true
+        description: Present when confirmation_required is true.
+      thread_id:
+        type: string
+        description: |
+          Thread id for this chat turn. Clients should persist it; starting a new thread supersedes prior active proposals.
+      proposed_actions:
+        type: array
+        items: { $ref: "#/components/schemas/ProposedAction" }
+        default: []
+      suggested_next_questions:
           type: array
           items: { type: string }
           default: []
+
+  ConfirmProposalRequest:
+    type: object
+    required: [proposal_id, confirm]
+    properties:
+      proposal_id:
+        type: string
+      confirm:
+        type: boolean
+        description: |
+          true applies the proposed actions; false marks the proposal as declined (non-destructive). Declined proposals remain recoverable until a new clean thread starts.
+
+  ConfirmProposalResponse:
+    type: object
+    required: [applied, status]
+    properties:
+      applied:
+        type: boolean
+      status:
+        type: string
+        enum: [applied, declined]
+        description: applied -> actions executed; declined -> actions not executed.
+      applied_event_ids:
+        type: array
+        items: { type: string }
+        default: []
 
 paths:
   /:
@@ -941,7 +956,7 @@ paths:
   /chat:
     post:
       tags: [Chat]
-      summary: Chat-first interface (ASK/FILL). Proposes changes; does not write without confirmation.
+      summary: Chat-first interface (ASK/FILL). Proposes changes; does not write without confirmation. Voice input is client-transcribed to text in v0.1. At most one active proposal per thread; a new proposal supersedes the prior active one.
       security: [{ BearerAuth: [] }]
       parameters:
         - $ref: "#/components/parameters/CorrelationId"
@@ -965,7 +980,7 @@ paths:
   /chat/confirm:
     post:
       tags: [Chat]
-      summary: Confirm or discard a proposed change bundle from /chat
+      summary: Confirm or decline a proposed change bundle from /chat (non-destructive decline; only one active proposal per thread)
       security: [{ BearerAuth: [] }]
       parameters:
         - $ref: "#/components/parameters/CorrelationId"
