@@ -1,38 +1,38 @@
 param(
-  [Parameter(Mandatory=$true)][string]$BaseUrl,
-  [string]$Jwt
+  [string]$BaseUrl = "http://127.0.0.1:8000",
+  [string]$BearerToken
 )
 
+$ErrorActionPreference = "Stop"
+$fail = $false
+
 function Show-Result($name, $resp) {
-  if ($null -eq $resp) { Write-Host "[$name] no response" -ForegroundColor Red; return }
+  if ($null -eq $resp) { Write-Host "[$name] no response" -ForegroundColor Red; $global:fail = $true; return }
   Write-Host ("[{0}] {1}" -f $name, $resp.StatusCode) -ForegroundColor Cyan
   try {
     $body = $resp.Content | ConvertFrom-Json -ErrorAction SilentlyContinue
     if ($body) { $body | ConvertTo-Json -Depth 4 }
   } catch { }
+  if ($resp.StatusCode -ge 400) { $global:fail = $true }
 }
 
-# health or openapi
-$healthUrl = "$BaseUrl/health"
-try {
-  $resp = Invoke-WebRequest -Method Get -Uri $healthUrl -ErrorAction Stop
-  Show-Result "health" $resp
-} catch {
-  $resp = $null
-  Write-Host "[health] failed, trying /openapi.json" -ForegroundColor Yellow
+function Hit($name, $url, $headers=@{}) {
   try {
-    $resp = Invoke-WebRequest -Method Get -Uri "$BaseUrl/openapi.json" -ErrorAction Stop
-    Show-Result "openapi" $resp
-  } catch {
-    Write-Host "[openapi] failed" -ForegroundColor Red
-  }
-}
-
-if ($Jwt) {
-  try {
-    $resp = Invoke-WebRequest -Method Get -Uri "$BaseUrl/auth/me" -Headers @{ Authorization = "Bearer $Jwt" } -ErrorAction Stop
+    $resp = Invoke-WebRequest -Method Get -Uri $url -Headers $headers -ErrorAction Stop
   } catch {
     $resp = $_.Exception.Response
   }
-  Show-Result "auth/me" $resp
+  Show-Result $name $resp
 }
+
+Hit 'health' "$BaseUrl/health"
+Hit 'docs' "$BaseUrl/docs"
+Hit 'openapi' "$BaseUrl/openapi.json"
+
+if ($BearerToken) {
+  Hit 'auth/me' "$BaseUrl/auth/me" @{ Authorization = "Bearer $BearerToken" }
+} else {
+  Hit 'auth/me (no token)' "$BaseUrl/auth/me"
+}
+
+if ($fail) { exit 1 } else { exit 0 }
