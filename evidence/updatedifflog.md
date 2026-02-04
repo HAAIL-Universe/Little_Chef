@@ -1,18 +1,18 @@
 # Diff Log (overwrite each cycle)
 
 ## Cycle Metadata
-- Timestamp: 2026-02-04T12:08:59+00:00
+- Timestamp: 2026-02-04T12:18:07+00:00
 - Branch: main
-- BASE_HEAD: 03afe0aedd7067ed563d3dd2a8896c36eb63de39
+- BASE_HEAD: a0e3967f5687342c062cc0d017f138a8fb116edd
 - Diff basis: staged
 
 ## Cycle Status
 - Status: COMPLETE
 
 ## Summary
-- Fixed run_local.ps1 port check to handle single-object listener results without Count errors and continue failing fast when the port is busy.
-- run_local still echoes LC_DEBUG_AUTH=1 and expected UI/API URL to make the active debug backend obvious.
-- Re-ran full test suite to confirm no regressions; diagnostics only.
+- Hardened Assert-PortFree to coerce Get-NetTCPConnection results into an array and count safely, eliminating Count/Length errors.
+- Port guard still fails fast with PID details and keeps LC_DEBUG_AUTH echoed for local runs.
+- Re-ran full test suite; no functional changes beyond diagnostics robustness.
 
 ## Files Changed (staged)
 - scripts/run_local.ps1
@@ -37,11 +37,12 @@
         $listeners = @()
       }
       $listeners = @($listeners) | Where-Object { $_ }
-      if ($listeners.Count -gt 0) {
-        $pids = $listeners | Select-Object -ExpandProperty OwningProcess -Unique
-        $procInfo = $pids | ForEach-Object {
+      $listenerCount = @($listeners).Count
+      if ($listenerCount -gt 0) {
+        $pids = @($listeners | Select-Object -ExpandProperty OwningProcess -Unique)
+        $procInfo = @($pids | ForEach-Object {
           try { (Get-Process -Id $_) } catch { $null }
-        }
+        })
         Warn "Port $port already in use:"
         foreach ($p in $procInfo) {
           if ($p) { Warn ("  PID {0} - {1}" -f $p.Id, $p.Path) }
@@ -54,11 +55,12 @@
 - Static: python -m compileall app
 - Runtime: python -c "import app.main; print('import ok')"
 - Behavior: pwsh -NoProfile -Command "./scripts/run_tests.ps1" (PASS)
-- Contract: No API changes; local runner diagnostics only
+- Runtime intent: run_local.ps1 no longer throws Count/Length error; still reports port ownership with PID.
+- Contract: No API/schema changes.
 
 ## Notes (optional)
-- Port check now robust for single-object Get-NetTCPConnection results; prevents silent stale servers.
+- Port guard now resilient to null/single/array results from Get-NetTCPConnection.
 
 ## Next Steps
-- Run run_local.ps1, confirm port-free message, then retry /auth/me to view debug details; stop any other listener if reported.
+- If port is reported busy, stop the listed PID or run with a free port; rerun run_local.ps1 to confirm debug details are available.
 

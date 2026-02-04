@@ -78,11 +78,12 @@ function Assert-PortFree($port) {
     $listeners = @()
   }
   $listeners = @($listeners) | Where-Object { $_ }
-  if ($listeners.Count -gt 0) {
-    $pids = $listeners | Select-Object -ExpandProperty OwningProcess -Unique
-    $procInfo = $pids | ForEach-Object {
+  $listenerCount = @($listeners).Count
+  if ($listenerCount -gt 0) {
+    $pids = @($listeners | Select-Object -ExpandProperty OwningProcess -Unique)
+    $procInfo = @($pids | ForEach-Object {
       try { (Get-Process -Id $_) } catch { $null }
-    }
+    })
     Warn "Port $port already in use:"
     foreach ($p in $procInfo) {
       if ($p) { Warn ("  PID {0} - {1}" -f $p.Id, $p.Path) }
