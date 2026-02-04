@@ -1,28 +1,28 @@
-# Phase 6A–6C Status Audit (updated)
-- Timestamp: 2026-02-04T12:40:00+00:00
-- HEAD: e6e2bb777214688c0ea8c909c22353dd72892254
+# Phase 6A–6C Status Audit (current)
+- Timestamp: 2026-02-04T12:50:00+00:00
+- HEAD: 20755f34089693e6a52fcce0bd6b832fcd502df8
+- git status -sb: clean
+- Routes (19): /, /static/{path:path}, /auth/me, /chat, /chat/confirm, /prefs, /mealplan/generate, /shopping/diff, /inventory/events, /inventory/summary, /inventory/low-stock, /recipes/books, /recipes/books/{book_id}, /recipes/search, /health, /docs, /redoc, /openapi.json, /docs/oauth2-redirect
 
-## Evidence Snapshot
-- git rev-parse HEAD: e6e2bb777214688c0ea8c909c22353dd72892254
-- git status: clean
-- Routes (23): /, /static/{path:path}, /auth/me, /chat, /chat/confirm, /prefs, /mealplan/generate, /shopping/diff, /inventory/*, /recipes/*, /docs, /openapi.json, /redoc.
-- UI files: web/index.html, web/src/main.ts, tsconfig.json, dist/ (no source .js).
-- Tests: run_tests.ps1 PASS (compileall/import/pytest).
+## Phase 6 Checklist
+- 6A.0 UI mount: DONE (physics.yaml includes / and /static; backend serves them).
+- 6A.1 UI flows:
+  - Auth strip: present (main.ts) — DONE
+  - Chat propose/confirm: present but minimal UX; confirm/cancel not prominent — PARTIAL
+  - Prefs GET/PUT: DONE
+  - Mealplan generate: DONE
+  - Shopping diff: DONE
+  - TS-only rule: satisfied (only main.ts under src; dist main.js is build output)
+- 6B DB intro: migrations exist (db/migrations/0001_init.sql; scripts/db_migrate.ps1); docs/db_schema_init.md added; DB optional; missing users table still possible unless migrations run — PARTIAL
+- 6C Deploy readiness: render/deploy doc/smoke script still absent — NOT_STARTED
 
-## Status Table
-| Phase | Expected | Observed | Status | Gaps / Evidence |
-| --- | --- | --- | --- | --- |
-| 6A.0 UI mount | GET /, GET /static/{path} defined in physics | physics.yaml already has / and /static/{path}; backend serves both | DONE | Contracts/physics.yaml lines ~564–580; app.main routes |
-| 6A.1 UI surfaces (TS-only) | Auth strip, Chat+confirm, Prefs GET/PUT, Mealplan generate, Shopping diff | main.ts implements all; chat confirm UX minimal; TS-only rule satisfied | PARTIAL | web/src/main.ts lines cover flows; dist main.js generated; no extra .js |
-| 6B DB intro (gated) | Migrations, DATABASE_URL, user_id mapping, prefs/inventory DB path | SQL migration at db/migrations/0001_init.sql; scripts/db_migrate.ps1; user_id = uuid5(sub); DB optional; users table missing triggers 503 unless migrated | PARTIAL | auth_service.py ensure_user raises 503 schema missing; docs/db_schema_init.md added |
-| 6C Deploy/JWT config | Render config, env wiring docs, smoke script | No render.yaml; env vars in code; no deploy docs/smoke script | NOT_STARTED | repo lacks deploy doc; only run_local env notes |
+## Evidence
+- UI files: web/index.html, web/src/main.ts, web/tsconfig.json, web/dist/*
+- DB migration: db/migrations/0001_init.sql; script: scripts/db_migrate.ps1; doc: docs/db_schema_init.md
+- Tests: scripts/run_tests.ps1 PASS
+- compileall/import: PASS
 
-## Gaps
-- 6A.1: Chat confirm/cancel UX minimal.
-- 6B: Schema must be applied manually; need explicit migration step when DATABASE_URL set (doc added).
-- 6C: No deploy instructions or smoke script; JWT prod config undocumented.
-
-## Next Minimal Steps
-1) Improve chat confirm/cancel UI flow in main.ts.
-2) For DB usage, run `scripts/db_migrate.ps1` (or `run_local.ps1 -Migrate`) whenever DATABASE_URL is set; document in README if desired.
-3) Add Render/deploy env doc + smoke script for /health and /auth/me with token.
+## Gaps & Next Steps
+1) 6A.1: Improve chat confirm/cancel UX in main.ts (show proposal bar; clear state on confirm/cancel/token change; show errors).
+2) 6B: Ensure users table exists by running migrations when DATABASE_URL is set (use run_local.ps1 -Migrate or db_migrate.ps1); keep tests DB-free.
+3) 6C: Add deploy/runbook (Render) + smoke script (health + auth/me with token) with env var list (DATABASE_URL, LC_JWT_ISSUER, LC_JWT_AUDIENCE, LC_JWKS_URL/LC_OIDC_DISCOVERY_URL).
