@@ -1,23 +1,22 @@
 # Diff Log (overwrite each cycle)
 
 ## Cycle Metadata
-- Timestamp: 2026-02-04T11:43:27+00:00
+- Timestamp: 2026-02-04T11:50:00+00:00
 - Branch: main
-- BASE_HEAD: 9d4e801a9b54259b0e52a4d5c4f3202a3383b0eb
-- Diff basis: staged
+- BASE_HEAD: e5c9dc4460e5f9de08468a31c6565392c330cd67
+- Diff basis: clean (no staged changes)
 
 ## Cycle Status
 - Status: COMPLETE
 
 ## Summary
-- Defaulted LC_DEBUG_AUTH=1 in scripts/run_local.ps1 so local runs always emit safe auth debug details without a flag.
-- Retained optional -DebugAuth switch (now redundant) and added explicit info message.
-- Re-ran full test suite to confirm no regressions; evidence logs refreshed.
+- Investigated why /auth/me still showed details=null for some users; confirmed current code returns details when LC_DEBUG_AUTH=1.
+- Verified run_local.ps1 already sets LC_DEBUG_AUTH=1 by default and includes info message.
+- Proved with TestClient call that malformed Authorization header returns populated details dict (no token data).
+- No code changes required this cycle.
 
 ## Files Changed (staged)
-- scripts/run_local.ps1
-- evidence/test_runs.md
-- evidence/test_runs_latest.md
+- (none; investigation only)
 
 ## git status -sb
     ## main...origin/main
@@ -26,32 +25,18 @@
      M scripts/run_local.ps1
 
 ## Minimal Diff Hunks
-    diff --git a/scripts/run_local.ps1 b/scripts/run_local.ps1
-    --- a/scripts/run_local.ps1
-    +++ b/scripts/run_local.ps1
-    @@
-     function Ensure-Uvicorn($py) {
-       try { & $py -c "import uvicorn" | Out-Null }
-       catch { Info "Installing uvicorn..."; & $py -m pip install uvicorn }
-     }
-    @@
-       $py = Use-Venv $root
-       Ensure-Requirements $py $root
-       Load-DotEnv $root
-    -  if ($DebugAuth) { $env:LC_DEBUG_AUTH = "1"; Info "LC_DEBUG_AUTH=1 (debug auth headers)" }
-    +  $env:LC_DEBUG_AUTH = "1"
-    +  Info "LC_DEBUG_AUTH=1 (auth debug enabled by default for local runs)"
-       Ensure-Uvicorn $py
+- (none; no file changes)
 
 ## Verification
 - Static: python -m compileall app
 - Runtime: python -c "import app.main; print('import ok')"
-- Behavior: pwsh -NoProfile -Command "./scripts/run_tests.ps1" (PASS)
-- Contract: API surface unchanged; only local runner env behavior updated
+- Behavior: python -c "import os; os.environ['LC_DEBUG_AUTH']='1'; from app.main import create_app; from fastapi.testclient import TestClient; app=create_app(); r=TestClient(app).get('/auth/me', headers={'Authorization':'Bearer part1 part2'}); print(r.status_code); print(r.json())" → 401 with details populated
+- Contract: API unchanged; debug-only behavior confirmed
+- Example /auth/me response (debug on, malformed header): {"error":"unauthorized","message":"Invalid Authorization header","details":{"auth_present":true,"auth_len":18,"parts_count":3,"scheme_lower":"bearer","starts_with_bearer_ci":true,"has_newline":false,"has_tab":false,"has_comma":false}}
 
 ## Notes (optional)
-- None.
+- Likely user is hitting a different origin/backend or an older build; run_local.ps1 output should show LC_DEBUG_AUTH=1 line when using the updated script.
 
 ## Next Steps
-- Start via run_local.ps1 and hit /auth/me with malformed header to confirm details populate; proceed with any remaining auth-header root-cause diagnostics.
+- Re-run the UI against the local backend started via scripts/run_local.ps1 and confirm /auth/me shows debug details; if not, verify the request host/port matches the local server.
 
