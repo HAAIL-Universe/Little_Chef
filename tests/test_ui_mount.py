@@ -10,6 +10,11 @@ def test_root_served_or_not_ready():
     assert resp.status_code in (200, 503)
     if resp.status_code == 200:
         assert "text/html" in resp.headers.get("content-type", "")
+        html = resp.text
+        assert "duet-shell" in html
+        assert "duet-assistant-bubble" in html
+        assert "duet-user-bubble" in html
+        assert "duet-composer" in html
     else:
         body = resp.json()
         assert body["error"] == "ui_not_built"

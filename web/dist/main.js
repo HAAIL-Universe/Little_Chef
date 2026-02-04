@@ -1,17 +1,180 @@
+"use strict";
 const state = {
     token: "",
     lastPlan: null,
+    proposalId: null,
+    proposedActions: [],
+    chatReply: null,
+    chatError: "",
+};
+const duetState = {
+    threadId: null,
+    history: [],
+    drawerOpen: false,
+    drawerProgress: 0,
 };
 function headers() {
+    var _a;
     const h = { "Content-Type": "application/json" };
-    if (state.token)
-        h["Authorization"] = `Bearer ${state.token}`;
+    const raw = (_a = state.token) === null || _a === void 0 ? void 0 : _a.trim();
+    if (raw) {
+        const tokenOnly = raw.replace(/^bearer\s+/i, "").replace(/\s+/g, "");
+        if (tokenOnly) {
+            h["Authorization"] = `Bearer ${tokenOnly}`;
+        }
+    }
     return h;
 }
 function setText(id, value) {
     const el = document.getElementById(id);
     if (el)
         el.textContent = typeof value === "string" ? value : JSON.stringify(value, null, 2);
+}
+function hide(id) {
+    var _a;
+    (_a = document.getElementById(id)) === null || _a === void 0 ? void 0 : _a.classList.add("hidden");
+}
+function show(id) {
+    var _a;
+    (_a = document.getElementById(id)) === null || _a === void 0 ? void 0 : _a.classList.remove("hidden");
+}
+function renderProposal() {
+    const container = document.getElementById("chat-proposal");
+    const textEl = document.getElementById("chat-proposal-text");
+    if (!container || !textEl)
+        return;
+    if (!state.proposalId || !state.proposedActions.length) {
+        container.classList.add("hidden");
+        textEl.textContent = "";
+        return;
+    }
+    const summaries = state.proposedActions.map((action) => {
+        if (action.action_type === "upsert_prefs" && action.prefs) {
+            return `Update prefs: servings ${action.prefs.servings}, meals/day ${action.prefs.meals_per_day}`;
+        }
+        if (action.action_type === "create_inventory_event" && action.event) {
+            const e = action.event;
+            return `Inventory: ${e.event_type} ${e.quantity} ${e.unit} ${e.item_name}`;
+        }
+        return action.action_type || "proposal";
+    });
+    textEl.textContent = summaries.join(" | ");
+    container.classList.remove("hidden");
+}
+function clearProposal() {
+    state.proposalId = null;
+    state.proposedActions = [];
+    renderProposal();
+}
+function setChatError(msg) {
+    state.chatError = msg;
+    const el = document.getElementById("chat-error");
+    if (el)
+        el.textContent = msg;
+}
+function setDuetStatus(msg, isError = false) {
+    const el = document.getElementById("duet-status");
+    if (!el)
+        return;
+    el.textContent = msg;
+    el.classList.toggle("error", isError);
+}
+function updateThreadLabel() {
+    var _a;
+    const label = document.getElementById("duet-thread-label");
+    if (!label)
+        return;
+    label.textContent = `Thread: ${(_a = duetState.threadId) !== null && _a !== void 0 ? _a : "—"}`;
+}
+function renderDuetHistory() {
+    const list = document.getElementById("duet-history-list");
+    const empty = document.getElementById("duet-history-empty");
+    if (!list || !empty)
+        return;
+    list.innerHTML = "";
+    if (!duetState.history.length) {
+        empty.classList.remove("hidden");
+        return;
+    }
+    empty.classList.add("hidden");
+    duetState.history.forEach((item) => {
+        const li = document.createElement("li");
+        li.className = item.role;
+        li.textContent = item.text;
+        list.appendChild(li);
+    });
+}
+function updateDuetBubbles() {
+    var _a, _b;
+    const assistant = document.getElementById("duet-assistant-text");
+    const user = document.getElementById("duet-user-text");
+    const lastAssistant = [...duetState.history].reverse().find((h) => h.role === "assistant");
+    const lastUser = [...duetState.history].reverse().find((h) => h.role === "user");
+    if (assistant)
+        assistant.textContent = (_a = lastAssistant === null || lastAssistant === void 0 ? void 0 : lastAssistant.text) !== null && _a !== void 0 ? _a : "Hi — how can I help?";
+    if (user)
+        user.textContent = (_b = lastUser === null || lastUser === void 0 ? void 0 : lastUser.text) !== null && _b !== void 0 ? _b : "Tap mic or type to start";
+}
+function applyDrawerProgress(progress, opts) {
+    const history = document.getElementById("duet-history");
+    const userBubble = document.getElementById("duet-user-bubble");
+    if (!history || !userBubble)
+        return;
+    const clamped = Math.max(0, Math.min(1, progress));
+    duetState.drawerProgress = clamped;
+    history.style.setProperty("--drawer-progress", clamped.toString());
+    history.classList.toggle("dragging", !!(opts === null || opts === void 0 ? void 0 : opts.dragging));
+    if (opts === null || opts === void 0 ? void 0 : opts.commit) {
+        duetState.drawerOpen = clamped > 0.35;
+        history.classList.toggle("open", duetState.drawerOpen);
+    }
+    const offset = clamped * 70;
+    userBubble.style.transform = `translateY(-${offset}px)`;
+}
+function wireDuetDrag() {
+    const userBubble = document.getElementById("duet-user-bubble");
+    if (!userBubble)
+        return;
+    let dragging = false;
+    let startY = 0;
+    let pointerId = null;
+    const endDrag = () => {
+        if (!dragging)
+            return;
+        dragging = false;
+        pointerId = null;
+        const targetOpen = duetState.drawerProgress > 0.35;
+        applyDrawerProgress(targetOpen ? 1 : 0, { commit: true });
+    };
+    userBubble.addEventListener("pointerdown", (ev) => {
+        dragging = true;
+        startY = ev.clientY;
+        pointerId = ev.pointerId;
+        userBubble.setPointerCapture(ev.pointerId);
+        applyDrawerProgress(duetState.drawerProgress, { dragging: true });
+    });
+    userBubble.addEventListener("pointermove", (ev) => {
+        if (!dragging || (pointerId !== null && ev.pointerId !== pointerId))
+            return;
+        const dy = startY - ev.clientY;
+        const progress = dy <= 0 ? 0 : Math.min(dy / 120, 1);
+        applyDrawerProgress(progress, { dragging: true });
+    });
+    const cancel = () => {
+        if (!dragging)
+            return;
+        dragging = false;
+        pointerId = null;
+        applyDrawerProgress(duetState.drawerOpen ? 1 : 0, { commit: true });
+    };
+    userBubble.addEventListener("pointerup", endDrag);
+    userBubble.addEventListener("pointercancel", cancel);
+    userBubble.addEventListener("lostpointercapture", cancel);
+}
+function addHistory(role, text) {
+    duetState.history.push({ role, text });
+    renderDuetHistory();
+    updateDuetBubbles();
 }
 async function doGet(path) {
     const res = await fetch(path, { headers: headers() });
@@ -21,23 +184,54 @@ async function doPost(path, body) {
     const res = await fetch(path, { method: "POST", headers: headers(), body: JSON.stringify(body) });
     return { status: res.status, json: await res.json().catch(() => null) };
 }
+async function sendChat(body) {
+    var _a;
+    const resp = await doPost("/chat", body);
+    handleChatResponse(resp);
+    if ((_a = resp.json) === null || _a === void 0 ? void 0 : _a.thread_id) {
+        duetState.threadId = resp.json.thread_id;
+        updateThreadLabel();
+    }
+    return resp;
+}
+function handleChatResponse(resp) {
+    var _a, _b, _c;
+    state.chatReply = resp;
+    setText("chat-reply", resp);
+    if (((_a = resp.json) === null || _a === void 0 ? void 0 : _a.confirmation_required) && ((_b = resp.json) === null || _b === void 0 ? void 0 : _b.proposal_id)) {
+        state.proposalId = resp.json.proposal_id;
+        state.proposedActions = resp.json.proposed_actions || [];
+        renderProposal();
+    }
+    if (resp.status >= 400) {
+        setChatError(`Chat failed (${resp.status}): ${((_c = resp.json) === null || _c === void 0 ? void 0 : _c.message) || "error"}`);
+    }
+}
 function wire() {
+    var _a, _b, _c, _d, _e, _f, _g, _h;
     const jwtInput = document.getElementById("jwt");
-    document.getElementById("btn-auth")?.addEventListener("click", async () => {
+    (_a = document.getElementById("btn-auth")) === null || _a === void 0 ? void 0 : _a.addEventListener("click", async () => {
         state.token = jwtInput.value.trim();
+        clearProposal();
         const result = await doGet("/auth/me");
         setText("auth-out", result);
     });
-    document.getElementById("btn-chat")?.addEventListener("click", async () => {
+    (_b = document.getElementById("btn-chat")) === null || _b === void 0 ? void 0 : _b.addEventListener("click", async () => {
         const msg = document.getElementById("chat-input").value;
-        const resp = await doPost("/chat", { mode: "ask", message: msg, include_user_library: true });
-        setText("chat-reply", resp);
+        clearProposal();
+        setChatError("");
+        try {
+            const resp = await sendChat({ mode: "ask", message: msg, include_user_library: true });
+        }
+        catch (e) {
+            setChatError(`Chat error: ${(e === null || e === void 0 ? void 0 : e.message) || e}`);
+        }
     });
-    document.getElementById("btn-prefs-get")?.addEventListener("click", async () => {
+    (_c = document.getElementById("btn-prefs-get")) === null || _c === void 0 ? void 0 : _c.addEventListener("click", async () => {
         const resp = await doGet("/prefs");
         setText("prefs-out", resp);
     });
-    document.getElementById("btn-prefs-put")?.addEventListener("click", async () => {
+    (_d = document.getElementById("btn-prefs-put")) === null || _d === void 0 ? void 0 : _d.addEventListener("click", async () => {
         const servings = Number(document.getElementById("prefs-servings").value);
         const meals = Number(document.getElementById("prefs-meals").value);
         const resp = await fetch("/prefs", {
@@ -48,12 +242,12 @@ function wire() {
         const json = await resp.json().catch(() => null);
         setText("prefs-out", { status: resp.status, json });
     });
-    document.getElementById("btn-plan-gen")?.addEventListener("click", async () => {
+    (_e = document.getElementById("btn-plan-gen")) === null || _e === void 0 ? void 0 : _e.addEventListener("click", async () => {
         const resp = await doPost("/mealplan/generate", { days: 2, meals_per_day: 3 });
         state.lastPlan = resp.json;
         setText("plan-out", resp);
     });
-    document.getElementById("btn-shopping")?.addEventListener("click", async () => {
+    (_f = document.getElementById("btn-shopping")) === null || _f === void 0 ? void 0 : _f.addEventListener("click", async () => {
         if (!state.lastPlan) {
             setText("shopping-out", "No plan yet. Generate a plan first.");
             return;
@@ -61,5 +255,93 @@ function wire() {
         const resp = await doPost("/shopping/diff", { plan: state.lastPlan });
         setText("shopping-out", resp);
     });
+    (_g = document.getElementById("btn-confirm")) === null || _g === void 0 ? void 0 : _g.addEventListener("click", async () => {
+        var _a;
+        if (!state.proposalId)
+            return;
+        setChatError("");
+        const resp = await doPost("/chat/confirm", { proposal_id: state.proposalId, confirm: true });
+        setText("chat-reply", resp);
+        if (resp.status >= 400) {
+            setChatError(`Confirm failed (${resp.status}): ${((_a = resp.json) === null || _a === void 0 ? void 0 : _a.message) || ""}`);
+        }
+        clearProposal();
+    });
+    (_h = document.getElementById("btn-cancel")) === null || _h === void 0 ? void 0 : _h.addEventListener("click", async () => {
+        var _a;
+        if (!state.proposalId)
+            return;
+        setChatError("");
+        const resp = await doPost("/chat/confirm", { proposal_id: state.proposalId, confirm: false });
+        setText("chat-reply", resp);
+        if (resp.status >= 400) {
+            setChatError(`Cancel failed (${resp.status}): ${((_a = resp.json) === null || _a === void 0 ? void 0 : _a.message) || ""}`);
+        }
+        clearProposal();
+    });
+    wireDuetComposer();
+    wireDuetDrag();
+    applyDrawerProgress(duetState.drawerOpen ? 1 : 0, { commit: true });
+    renderDuetHistory();
+    updateDuetBubbles();
+    updateThreadLabel();
 }
 document.addEventListener("DOMContentLoaded", wire);
+function wireDuetComposer() {
+    const input = document.getElementById("duet-input");
+    const sendBtn = document.getElementById("duet-send");
+    const micBtn = document.getElementById("duet-mic");
+    if (!input || !sendBtn)
+        return;
+    const syncButtons = () => {
+        sendBtn.disabled = input.value.trim().length === 0;
+    };
+    const send = async () => {
+        var _a, _b, _c, _d;
+        const text = input.value.trim();
+        if (!text)
+            return;
+        clearProposal();
+        setChatError("");
+        addHistory("user", text);
+        setDuetStatus("Sending…");
+        syncButtons();
+        try {
+            const payload = { mode: "ask", message: text, include_user_library: true };
+            if (duetState.threadId)
+                payload.thread_id = duetState.threadId;
+            const resp = await sendChat(payload);
+            input.value = "";
+            syncButtons();
+            const replyText = ((_a = resp.json) === null || _a === void 0 ? void 0 : _a.reply_text) || ((_b = resp.json) === null || _b === void 0 ? void 0 : _b.message);
+            if (replyText)
+                addHistory("assistant", replyText);
+            renderDuetHistory();
+            updateDuetBubbles();
+            if (resp.status >= 400) {
+                setDuetStatus(`Error ${resp.status}: ${((_c = resp.json) === null || _c === void 0 ? void 0 : _c.message) || "chat failed"}`, true);
+            }
+            else if ((_d = resp.json) === null || _d === void 0 ? void 0 : _d.confirmation_required) {
+                setDuetStatus("Proposal pending: confirm or decline.", false);
+            }
+            else {
+                setDuetStatus("Reply received.");
+            }
+        }
+        catch (e) {
+            setDuetStatus(`Send failed: ${(e === null || e === void 0 ? void 0 : e.message) || e}`, true);
+        }
+    };
+    input.addEventListener("input", syncButtons);
+    sendBtn.addEventListener("click", send);
+    input.addEventListener("keydown", (ev) => {
+        if (ev.key === "Enter" && !ev.shiftKey) {
+            ev.preventDefault();
+            send();
+        }
+    });
+    micBtn === null || micBtn === void 0 ? void 0 : micBtn.addEventListener("click", () => {
+        setDuetStatus("Voice uses client-side transcription; mic will feed text here.", false);
+        input.focus();
+    });
+}

@@ -7,6 +7,15 @@ const state = {
   chatError: "",
 };
 
+type HistoryItem = { role: "user" | "assistant"; text: string };
+
+const duetState = {
+  threadId: null as string | null,
+  history: [] as HistoryItem[],
+  drawerOpen: false,
+  drawerProgress: 0,
+};
+
 function headers() {
   const h: Record<string, string> = { "Content-Type": "application/json" };
   const raw = state.token?.trim();
@@ -67,6 +76,110 @@ function setChatError(msg: string) {
   if (el) el.textContent = msg;
 }
 
+function setDuetStatus(msg: string, isError = false) {
+  const el = document.getElementById("duet-status");
+  if (!el) return;
+  el.textContent = msg;
+  el.classList.toggle("error", isError);
+}
+
+function updateThreadLabel() {
+  const label = document.getElementById("duet-thread-label");
+  if (!label) return;
+  label.textContent = `Thread: ${duetState.threadId ?? "—"}`;
+}
+
+function renderDuetHistory() {
+  const list = document.getElementById("duet-history-list");
+  const empty = document.getElementById("duet-history-empty");
+  if (!list || !empty) return;
+  list.innerHTML = "";
+  if (!duetState.history.length) {
+    empty.classList.remove("hidden");
+    return;
+  }
+  empty.classList.add("hidden");
+  duetState.history.forEach((item) => {
+    const li = document.createElement("li");
+    li.className = item.role;
+    li.textContent = item.text;
+    list.appendChild(li);
+  });
+}
+
+function updateDuetBubbles() {
+  const assistant = document.getElementById("duet-assistant-text");
+  const user = document.getElementById("duet-user-text");
+  const lastAssistant = [...duetState.history].reverse().find((h) => h.role === "assistant");
+  const lastUser = [...duetState.history].reverse().find((h) => h.role === "user");
+  if (assistant) assistant.textContent = lastAssistant?.text ?? "Hi — how can I help?";
+  if (user) user.textContent = lastUser?.text ?? "Tap mic or type to start";
+}
+
+function applyDrawerProgress(progress: number, opts?: { dragging?: boolean; commit?: boolean }) {
+  const history = document.getElementById("duet-history");
+  const userBubble = document.getElementById("duet-user-bubble");
+  if (!history || !userBubble) return;
+  const clamped = Math.max(0, Math.min(1, progress));
+  duetState.drawerProgress = clamped;
+  history.style.setProperty("--drawer-progress", clamped.toString());
+  history.classList.toggle("dragging", !!opts?.dragging);
+  if (opts?.commit) {
+    duetState.drawerOpen = clamped > 0.35;
+    history.classList.toggle("open", duetState.drawerOpen);
+  }
+  const offset = clamped * 70;
+  userBubble.style.transform = `translateY(-${offset}px)`;
+}
+
+function wireDuetDrag() {
+  const userBubble = document.getElementById("duet-user-bubble");
+  if (!userBubble) return;
+  let dragging = false;
+  let startY = 0;
+  let pointerId: number | null = null;
+
+  const endDrag = () => {
+    if (!dragging) return;
+    dragging = false;
+    pointerId = null;
+    const targetOpen = duetState.drawerProgress > 0.35;
+    applyDrawerProgress(targetOpen ? 1 : 0, { commit: true });
+  };
+
+  userBubble.addEventListener("pointerdown", (ev) => {
+    dragging = true;
+    startY = ev.clientY;
+    pointerId = ev.pointerId;
+    userBubble.setPointerCapture(ev.pointerId);
+    applyDrawerProgress(duetState.drawerProgress, { dragging: true });
+  });
+
+  userBubble.addEventListener("pointermove", (ev) => {
+    if (!dragging || (pointerId !== null && ev.pointerId !== pointerId)) return;
+    const dy = startY - ev.clientY;
+    const progress = dy <= 0 ? 0 : Math.min(dy / 120, 1);
+    applyDrawerProgress(progress, { dragging: true });
+  });
+
+  const cancel = () => {
+    if (!dragging) return;
+    dragging = false;
+    pointerId = null;
+    applyDrawerProgress(duetState.drawerOpen ? 1 : 0, { commit: true });
+  };
+
+  userBubble.addEventListener("pointerup", endDrag);
+  userBubble.addEventListener("pointercancel", cancel);
+  userBubble.addEventListener("lostpointercapture", cancel);
+}
+
+function addHistory(role: HistoryItem["role"], text: string) {
+  duetState.history.push({ role, text });
+  renderDuetHistory();
+  updateDuetBubbles();
+}
+
 async function doGet(path: string) {
   const res = await fetch(path, { headers: headers() });
   return { status: res.status, json: await res.json().catch(() => null) };
@@ -75,6 +188,29 @@ async function doGet(path: string) {
 async function doPost(path: string, body: any) {
   const res = await fetch(path, { method: "POST", headers: headers(), body: JSON.stringify(body) });
   return { status: res.status, json: await res.json().catch(() => null) };
+}
+
+async function sendChat(body: any) {
+  const resp = await doPost("/chat", body);
+  handleChatResponse(resp);
+  if (resp.json?.thread_id) {
+    duetState.threadId = resp.json.thread_id;
+    updateThreadLabel();
+  }
+  return resp;
+}
+
+function handleChatResponse(resp: { status: number; json: any }) {
+  state.chatReply = resp;
+  setText("chat-reply", resp);
+  if (resp.json?.confirmation_required && resp.json?.proposal_id) {
+    state.proposalId = resp.json.proposal_id;
+    state.proposedActions = resp.json.proposed_actions || [];
+    renderProposal();
+  }
+  if (resp.status >= 400) {
+    setChatError(`Chat failed (${resp.status}): ${resp.json?.message || "error"}`);
+  }
 }
 
 function wire() {
@@ -91,17 +227,7 @@ function wire() {
     clearProposal();
     setChatError("");
     try {
-      const resp = await doPost("/chat", { mode: "ask", message: msg, include_user_library: true });
-      state.chatReply = resp;
-      setText("chat-reply", resp);
-      if (resp.json?.confirmation_required && resp.json?.proposal_id) {
-        state.proposalId = resp.json.proposal_id;
-        state.proposedActions = resp.json.proposed_actions || [];
-        renderProposal();
-      }
-      if (resp.status >= 400) {
-        setChatError(`Chat failed (${resp.status}): ${resp.json?.message || "error"}`);
-      }
+      const resp = await sendChat({ mode: "ask", message: msg, include_user_library: true });
     } catch (e: any) {
       setChatError(`Chat error: ${e?.message || e}`);
     }
@@ -160,6 +286,68 @@ function wire() {
     }
     clearProposal();
   });
+
+  wireDuetComposer();
+  wireDuetDrag();
+  applyDrawerProgress(duetState.drawerOpen ? 1 : 0, { commit: true });
+  renderDuetHistory();
+  updateDuetBubbles();
+  updateThreadLabel();
 }
 
 document.addEventListener("DOMContentLoaded", wire);
+
+function wireDuetComposer() {
+  const input = document.getElementById("duet-input") as HTMLInputElement | null;
+  const sendBtn = document.getElementById("duet-send") as HTMLButtonElement | null;
+  const micBtn = document.getElementById("duet-mic");
+  if (!input || !sendBtn) return;
+
+  const syncButtons = () => {
+    sendBtn.disabled = input.value.trim().length === 0;
+  };
+
+  const send = async () => {
+    const text = input.value.trim();
+    if (!text) return;
+    clearProposal();
+    setChatError("");
+    addHistory("user", text);
+    setDuetStatus("Sending…");
+    syncButtons();
+    try {
+      const payload: Record<string, any> = { mode: "ask", message: text, include_user_library: true };
+      if (duetState.threadId) payload.thread_id = duetState.threadId;
+      const resp = await sendChat(payload);
+      input.value = "";
+      syncButtons();
+      const replyText = resp.json?.reply_text || resp.json?.message;
+      if (replyText) addHistory("assistant", replyText);
+      renderDuetHistory();
+      updateDuetBubbles();
+      if (resp.status >= 400) {
+        setDuetStatus(`Error ${resp.status}: ${resp.json?.message || "chat failed"}`, true);
+      } else if (resp.json?.confirmation_required) {
+        setDuetStatus("Proposal pending: confirm or decline.", false);
+      } else {
+        setDuetStatus("Reply received.");
+      }
+    } catch (e: any) {
+      setDuetStatus(`Send failed: ${e?.message || e}`, true);
+    }
+  };
+
+  input.addEventListener("input", syncButtons);
+  sendBtn.addEventListener("click", send);
+  input.addEventListener("keydown", (ev) => {
+    if (ev.key === "Enter" && !ev.shiftKey) {
+      ev.preventDefault();
+      send();
+    }
+  });
+
+  micBtn?.addEventListener("click", () => {
+    setDuetStatus("Voice uses client-side transcription; mic will feed text here.", false);
+    input.focus();
+  });
+}

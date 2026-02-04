@@ -8,7 +8,34 @@
 </head>
 <body>
   <main class="container">
-    <section class="card">
+    <section class="duet-shell" id="duet-shell">
+      <div class="duet-stage">
+        <div class="duet-bubble assistant" id="duet-assistant-bubble">
+          <div class="bubble-label">Little Chef</div>
+          <div class="bubble-text" id="duet-assistant-text">Hi — how can I help?</div>
+        </div>
+        <div class="duet-bubble user" id="duet-user-bubble">
+          <div class="bubble-label">You</div>
+          <div class="bubble-text" id="duet-user-text">Tap mic or type to start</div>
+        </div>
+        <div class="duet-history" id="duet-history">
+          <div class="history-header">
+            <span>History</span>
+            <span class="history-thread" id="duet-thread-label">Thread: —</span>
+          </div>
+          <ul id="duet-history-list"></ul>
+          <div class="history-empty" id="duet-history-empty">No history yet.</div>
+        </div>
+      </div>
+      <div class="duet-composer" id="duet-composer">
+        <button class="icon-btn" id="duet-mic" aria-label="Start voice input">🎤</button>
+        <input id="duet-input" type="text" placeholder="Ask or fill..." autocomplete="off" inputmode="text" />
+        <button class="icon-btn primary" id="duet-send" aria-label="Send message" disabled>➤</button>
+      </div>
+      <div class="duet-status" id="duet-status"></div>
+    </section>
+
+    <section class="card legacy-card">
       <h1>Little Chef</h1>
       <p>Paste JWT, then try chat, prefs, mealplan, and shopping diff.</p>
       <label>JWT <input id="jwt" type="text" placeholder="Bearer token"></label>
