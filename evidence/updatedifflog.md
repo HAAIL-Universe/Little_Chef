@@ -1,9 +1,9 @@
 # Diff Log (overwrite each cycle)
 
 ## Cycle Metadata
-- Timestamp: 2026-02-04T13:04:54+00:00
+- Timestamp: 2026-02-04T14:05:13+00:00
 - Branch: main
-- BASE_HEAD: 3144df7b51c6db501c255359729dbde8235e159b
+- BASE_HEAD: e6e2bb777214688c0ea8c909c22353dd72892254
 - Diff basis: staged
 
 ## Cycle Status
@@ -19,7 +19,7 @@
     ## main...origin/main
      M evidence/test_runs.md
      M evidence/test_runs_latest.md
-     M scripts/run_local.ps1
+    ?? evidence/phase6_status_audit.md
 
 ## Minimal Diff Hunks
     (none)
