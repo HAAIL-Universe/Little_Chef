@@ -1,41 +1,48 @@
 # Diff Log (overwrite each cycle)
 
 ## Cycle Metadata
-- Timestamp: 2026-02-04T17:40:00+00:00
+- Timestamp: 2026-02-04T18:05:00+00:00
 - Branch: main
-- HEAD: d74e4dbc61e52e5d169de7e466bf2e3cfd2f51f9
-- BASE_HEAD: f7e3aa6669f64c7a01213f6cfe6f9284717b2cb9
+- HEAD: eb4561aaeb1c42531e1935d49538e2737461557c
+- BASE_HEAD: d74e4dbc61e52e5d169de7e466bf2e3cfd2f51f9
 - Diff basis: staged
 
 ## Cycle Status
 - Status: COMPLETE
 
 ## Summary
-- Produced Phase 0–6C audit report with evidence anchors (no runtime code changes).
-- Confirmed migrations, routes vs physics, and current phase statuses (0–5 largely done; 2/5/6A/6B/6C partial gaps noted).
+- Hardened `scripts/smoke.ps1` to capture non-2xx status/body, add timeouts, and explicit expectations for `/auth/me` (401 without token, 200 with token) without leaking tokens.
+- Added guard test `tests/test_smoke_script_no_token_leak.py` to prevent token/header logging in smoke script output.
+- Recorded prod smoke run (no token) showing 200 for health/docs/openapi and 401 for auth/me.
 
 ## Files Changed (staged)
-- evidence/phase_status_audit.md
+- scripts/smoke.ps1
+- tests/test_smoke_script_no_token_leak.py
 - evidence/updatedifflog.md
 
 ## git status -sb
-    ## main...origin/main [ahead 1]
+    ## main...origin/main
+     M scripts/smoke.ps1
+    ?? tests/test_smoke_script_no_token_leak.py
      M evidence/updatedifflog.md
-    ?? evidence/phase_status_audit.md
 
 ## Minimal Diff Hunks
-    evidence/phase_status_audit.md: new audit with phase status tables and gaps.
-    evidence/updatedifflog.md: updated metadata, summary, verification, next steps.
+    scripts/smoke.ps1
+      + Structured results (Name, Status, Expected, BodySnippet), timeout, error capture from responses.
+      + Always run /auth/me unauth (expect 401); token path expect 200; no token echo.
+      + Reduced openapi noise (status-only).
+    tests/test_smoke_script_no_token_leak.py
+      + Static check: no Write-Host/Write-Output lines contain token words.
+    evidence/updatedifflog.md
+      + Updated metadata, summary, verification, and smoke evidence.
 
 ## Verification
 - Static: `python -m compileall app` (PASS)
 - Runtime: `python -c "import app.main; print('import ok')"` (PASS)
 - Behavior: `pwsh -NoProfile -Command "./scripts/run_tests.ps1"` (PASS)
-- Contract: Routes checked against physics in audit; physics.yaml unchanged (PASS)
-
-## Notes (optional)
-- Working tree clean after staging audit files; no runtime changes this cycle.
+- Smoke (no token): `pwsh -NoProfile -Command "./scripts/smoke.ps1 -BaseUrl https://little-chef.onrender.com"` → health 200, docs 200, openapi 200, auth/me 401 (as expected) (PASS)
+- Contract: `Contracts/physics.yaml` unchanged (PASS)
+- Token-auth smoke not run in builder environment (no token available); Julius previously confirmed curl with token returned 200 on 2026-02-04.
 
 ## Next Steps
-- Run `./scripts/db_migrate.ps1 -VerifySchema` on target DB, restart app, and retest `/auth/me` with valid JWT to close remaining Phase 6B gap; then address chat confirm UI gap (Phase 2/6A).
-
+- (Phase 6C wrap) If token available, run `./scripts/smoke.ps1 -BaseUrl https://little-chef.onrender.com -BearerToken "<redacted>"` to capture 200 for `/auth/me`; then proceed to Phase 6A/Phase 2 UI polish backlog.
