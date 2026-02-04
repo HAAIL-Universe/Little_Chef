@@ -1,6 +1,7 @@
 param(
   [switch]$NoVenv,
-  [switch]$ValidateOnly
+  [switch]$ValidateOnly,
+  [switch]$VerifySchema
 )
 
 Set-StrictMode -Version Latest
@@ -49,6 +50,14 @@ try {
     Info "DATABASE_URL present (value not printed)."
   }
 
+  $py = Resolve-Python
+  Info "Python: $py"
+
+  if ($ValidateOnly -and $VerifySchema) {
+    Err "Use only one of -ValidateOnly or -VerifySchema."
+    exit 1
+  }
+
   if ($ValidateOnly) {
     $sqlPath = Join-Path $repoRoot "db/migrations/0001_init.sql"
     if (-not (Test-Path $sqlPath)) {
@@ -59,8 +68,31 @@ try {
     exit 0
   }
 
-  $py = Resolve-Python
-  Info "Python: $py"
+  if ($VerifySchema) {
+    $verifyScript = @"
+import os, psycopg
+conn = psycopg.connect(os.environ['DATABASE_URL'])
+with conn.cursor() as cur:
+    cur.execute("select version from schema_migrations order by applied_at desc limit 5")
+    versions = [r[0] for r in cur.fetchall()]
+    cur.execute("select to_regclass('public.users')")
+    users = cur.fetchone()[0]
+print("applied:", ",".join(versions) if versions else "(none)")
+print("users table present:", "YES" if users else "NO")
+if not users:
+    raise SystemExit(1)
+conn.close()
+"@
+    $tmpVerify = New-TemporaryFile
+    Set-Content -Path $tmpVerify -Value $verifyScript -Encoding utf8
+    $verifyOut = & $py $tmpVerify
+    $exit = $LASTEXITCODE
+    Remove-Item $tmpVerify -ErrorAction SilentlyContinue
+    Write-Host $verifyOut
+    if ($exit -ne 0) { exit $exit }
+    exit 0
+  }
+
   Push-Location $repoRoot
   try {
     $out = & $py -m app.db.migrate 2>&1
@@ -76,43 +108,25 @@ try {
     }
     if ($out) { $out | Write-Host }
 
-    # Post-check: ensure users table exists; if missing, re-apply base migration SQL directly (idempotent).
+    # Post-check users table exists
     $checkScript = @"
 import os, psycopg
-conn = psycopg.connect(os.environ[""DATABASE_URL""])
+conn = psycopg.connect(os.environ['DATABASE_URL'])
 with conn.cursor() as cur:
-    cur.execute(""""select to_regclass('public.users')"""")
+    cur.execute("select to_regclass('public.users')")
     exists = cur.fetchone()[0]
-print("USERS_OK" if exists else "USERS_MISSING")
 conn.close()
+print("users table present:", "YES" if exists else "NO")
+if not exists:
+    raise SystemExit(1)
 "@
     $tmpCheck = New-TemporaryFile
     Set-Content -Path $tmpCheck -Value $checkScript -Encoding utf8
     $checkOut = & $py $tmpCheck
+    $checkExit = $LASTEXITCODE
     Remove-Item $tmpCheck -ErrorAction SilentlyContinue
-    if ($checkOut -notlike "*USERS_OK*") {
-      Info "users table missing; re-applying db/migrations/0001_init.sql directly (idempotent)."
-      $sqlPath = Join-Path $repoRoot "db/migrations/0001_init.sql"
-      $applyScript = @"
-import os, psycopg
-from pathlib import Path
-sql = Path(r"$sqlPath").read_text(encoding="utf-8")
-conn = psycopg.connect(os.environ[""DATABASE_URL""])
-with conn.cursor() as cur:
-    cur.execute(sql)
-conn.commit()
-conn.close()
-print("SQL_APPLIED")
-"@
-      $tmpApply = New-TemporaryFile
-      Set-Content -Path $tmpApply -Value $applyScript -Encoding utf8
-      $applyOut = & $py $tmpApply
-      Remove-Item $tmpApply -ErrorAction SilentlyContinue
-      if ($applyOut -notlike "*SQL_APPLIED*") {
-        throw "Re-apply of 0001_init.sql did not complete."
-      }
-      Info "users table created via direct SQL apply."
-    }
+    Write-Host $checkOut
+    if ($checkExit -ne 0) { throw "users table missing after migration" }
   }
   finally {
     Pop-Location

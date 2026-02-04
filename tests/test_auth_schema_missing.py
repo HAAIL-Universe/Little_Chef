@@ -20,12 +20,12 @@ def test_auth_me_schema_missing_returns_503(monkeypatch):
 
     monkeypatch.setattr(jwt_verifier.JWTVerifier, "verify", staticmethod(fake_verify))
     # patch ensure_user to raise UndefinedTable
-    import app.repos.user_repo as user_repo
+    import app.services.auth_service as auth_service
 
     def boom(*args, **kwargs):
         raise psycopg.errors.UndefinedTable("missing users")
 
-    monkeypatch.setattr(user_repo, "ensure_user", boom)
+    monkeypatch.setattr(auth_service, "ensure_user", boom)
 
     with _make_client() as client:
         resp = client.get("/auth/me", headers={"Authorization": "Bearer dummy"})
