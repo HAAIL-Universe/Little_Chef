@@ -71,6 +71,25 @@ function Ensure-Uvicorn($py) {
   catch { Info "Installing uvicorn..."; & $py -m pip install uvicorn }
 }
 
+function Assert-PortFree($port) {
+  try {
+    $listeners = Get-NetTCPConnection -LocalPort $port -State Listen -ErrorAction SilentlyContinue
+  } catch {
+    $listeners = @()
+  }
+  if ($listeners -and $listeners.Count -gt 0) {
+    $pids = $listeners | Select-Object -ExpandProperty OwningProcess -Unique
+    $procInfo = $pids | ForEach-Object {
+      try { (Get-Process -Id $_) } catch { $null }
+    }
+    Warn "Port $port already in use:"
+    foreach ($p in $procInfo) {
+      if ($p) { Warn ("  PID {0} - {1}" -f $p.Id, $p.Path) }
+    }
+    Fail "Port $port already in use; stop the process and rerun."
+  }
+}
+
 function Resolve-AppImport($py) {
   foreach ($c in @("app.main:app", "main:app", "app.main:application", "main:application")) {
     $parts = $c.Split(":")
@@ -101,8 +120,9 @@ try {
   Ensure-Requirements $py $root
   Load-DotEnv $root
   $env:LC_DEBUG_AUTH = "1"
-  Info "LC_DEBUG_AUTH=1 (auth debug enabled by default for local runs)"
+  Info "LC_DEBUG_AUTH=$($env:LC_DEBUG_AUTH) (auth debug enabled by default for local runs)"
   Ensure-Uvicorn $py
+  Assert-PortFree $Port
 
   $appImport = Resolve-AppImport $py
   if (-not $appImport) { Fail "Could not resolve ASGI app (expected app.main:app)" }
@@ -111,6 +131,7 @@ try {
   if (-not $NoReload) { $args += "--reload" }
 
   Info "Starting uvicorn $appImport on http://$ListenHost`:$Port (Reload=$([bool](-not $NoReload)))"
+  Info "Expect UI/API at http://127.0.0.1:$Port"
   Open-App $ListenHost $Port
   & $py @args
 }
