@@ -98,8 +98,11 @@ If code and physics diverge, STOP with: `CONTRACT_CONFLICT`.
 
 ## 6) Confirm-before-write rule (v0.1 default)
 
-For changes to prefs/inventory:
+For changes to prefs/inventory (and any state mutation):
 - Chat flow must propose structured action(s), then require confirmation, then execute write.
+- Exactly one active proposal per thread; a new proposal supersedes the prior active proposal.
+- Decline is non-destructive: declined proposals are not applied and remain recoverable/editable within the same thread; starting a new clean thread makes prior thread proposals inaccessible via UI (even if retained for audit).
+- Thread identity (`thread_id`) scopes conversation + proposals; UI/clients should persist/pass it when continuing a thread. Do NOT add `/threads/*` endpoints unless physics is updated first.
 
 If implementation mutates user data without confirmation, STOP with: `CONTRACT_CONFLICT`.
 
@@ -119,6 +122,19 @@ When a reliable, maintained component exists (auth, storage, ingestion, UI widge
 
 - New dependencies must be explicitly approved in the directive (include rationale + alternatives considered).
 - Do not introduce heavyweight frameworks or sweeping architecture changes without explicit instruction.
+
+### 7.2 Voice-first, text-native API (v0.1)
+- Voice input is allowed but must be transcribed client-side; backend receives text via `/chat` only.
+- Do NOT add audio upload/transcribe routes unless physics is updated first.
+- Do NOT place OpenAI or other model keys in the browser; all model/tool calls remain server-side.
+
+### 7.3 Background work (allowed, never silent writes)
+- Background agents/jobs may parse stored messages and pre-fill flow state.
+- Background work may produce proposals or read-only derived state; it must not apply writes without explicit confirmation.
+
+### 7.4 OpenAI integration guidance (implementation-level)
+- Use server-side OpenAI calls (e.g., Responses API) only; keep model selection configurable via env/config (chat vs transcription vs embeddings independently configurable).
+- Never log or return secrets; keep keys in server env only.
 
 ---
 
@@ -175,6 +191,12 @@ Minimum required behavior for `scripts/run_tests.ps1`:
 The builder must:
 - Add/update `scripts/run_tests.ps1` in the same cycle as adding tests (or STOP with `CONTRACT_CONFLICT` if tests were added without updating the runner).
 - Include the exact commands + outputs in the diff log verification section.
+
+### 9.3 Drift guardrails (UI/TS + evidence discipline)
+- UI work must remain TypeScript-only (no new `.js` sources); mobile-first per `Contracts/ui_style.md`.
+- Physics-first: no new routes without updating `Contracts/physics.yaml` first.
+- Minimal diffs per cycle; no refactors unless the contract forces it.
+- Every cycle overwrites `evidence/updatedifflog.md` with verification: static → runtime → behavior → contract.
 
 ---
 
