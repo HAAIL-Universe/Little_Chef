@@ -19,6 +19,15 @@ The UI shows dashboards/forms as a *display surface* of structured data, but **e
 
 ---
 
+## Core interaction invariants (must hold)
+- Confirm-before-write: all mutations are proposals first; apply only on explicit confirm.
+- Exactly one active proposal per thread; a new proposal supersedes the previous active proposal.
+- Decline is non-destructive within a thread; declined proposals remain recoverable/editable until a new clean thread starts (then prior proposals are not accessible via UI).
+- Thread scope uses `thread_id` (per physics); UI may store/pass it when continuing a thread.
+- Voice-first via client-side transcription: backend receives text at `/chat`; no audio routes; no secrets in browser.
+
+---
+
 ## 2) MVP scope (v0.1)
 
 ### Must ship
@@ -173,15 +182,19 @@ The model must NOT:
 - directly mutate DB (no direct tool to DB)
 - bypass confirmation for destructive actions (see confirmations below)
 
+Background work is allowed (parsing/normalizing messages, pre-fill), but it must only produce proposals or read-only derived state; never commit writes without explicit confirmation. Raw user/assistant messages may be stored for context/audit/background parsing; derived updates still flow through proposal → confirm/decline.
+
 ---
 
 ## 7) Confirmation & safety rules (MVP)
 
 ### Confirm-before-write (v0.1 default)
 Writes that change inventory or prefs should follow:
-1) propose structured change
-2) user confirms
-3) execute write
+1) propose structured change (one active proposal per thread; new proposal supersedes prior active)
+2) user confirms or declines
+3) execute write only on confirm
+
+Decline is non-destructive within the thread; starting a new clean thread makes prior thread proposals inaccessible via UI (even if retained for audit).
 
 Exception: small obvious adds can be “auto-confirmed” later, but not in v0.1.
 
@@ -226,19 +239,16 @@ Nothing else added until v0.1 is working.
 
 ## 10) v0.1 acceptance checklist
 
-MVP is “done” when:
-- A new user can OAuth login (bearer JWT), complete onboarding, and see prefs reflected in UI.
-- User can add inventory via chat (g/ml/count) and see correct totals.
-- User can log consumption via chat:
-  - cooked
-  - used separately
-  - thrown away
-- “What am I low on?” returns sensible results based on thresholds.
-- User can generate a 7-day plan (full-day) and receive:
-  - structured plan output
-  - shopping list diff (missing only)
-- Recipe library upload works end-to-end for at least 1 PDF and retrieval is used.
-- No plan includes a “user library” recipe without a citation.
-- API layer remains thin (no domain logic / SQL / LLM calls inside routers).
+MVP is “done” when (each item requires PASS evidence: mobile screenshot/GIF + redacted JSON snippet + endpoint list):
+- Auth / prefs: OAuth login with bearer JWT; onboarding prefs via chat; prefs reflected in UI. Evidence: `/auth/me`, `/prefs`.
+- Inventory: add via chat (g/ml/count) → proposal → confirm → summary updates; consume (cooked/used separately/thrown away); low-stock output. Evidence: `/inventory/events`, `/inventory/summary`, `/inventory/low-stock`.
+- Meal plan: generate 7-day plan with citations. Evidence: `/mealplan/generate` JSON + UI plan view.
+- Shopping diff: missing-only items from plan with citations/source chips. Evidence: `/shopping/diff` JSON + UI diff view.
+- Recipes: upload at least one PDF and retrieve; plan/diff cites user library; no plan item without citation. Evidence: upload response, `/recipes/search`, plan/diff citations.
+- Voice-first: mic → text → `/chat`; no audio endpoints in physics; no secrets in browser.
+- Chat confirm/decline: `/chat` shows `thread_id` + proposal; `/chat/confirm` returns `applied` + `status`; decline leaves proposal visible within thread; new clean thread hides prior proposals.
+- API layer remains thin (no domain logic / SQL / LLM calls in routers). Evidence: router/service anchors.
+
+E2E proof pack (see Contracts/phases_7_plus.md Phase 7.6): store artifacts in `evidence/` and link from `evidence/updatedifflog.md` each cycle.
 
 --- End of Blueprint ---

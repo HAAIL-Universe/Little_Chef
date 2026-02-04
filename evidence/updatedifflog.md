@@ -1,41 +1,44 @@
 # Diff Log (overwrite each cycle)
 
 ## Cycle Metadata
-- Timestamp: 2026-02-04T23:10:00+00:00
+- Timestamp: 2026-02-04T23:35:00+00:00
 - Branch: main
-- HEAD: 7cc48dffcf9f07b78bd7c098cc735f43794da089
-- BASE_HEAD: e6f603d32ff816531d6fe2e80a2f41dc1de8da1a
+- HEAD: d1f47f3b7d555f1a6d22d7a3c56fdb0a4bd769ec
+- BASE_HEAD: 7cc48dffcf9f07b78bd7c098cc735f43794da089
 - Diff basis: staged
 
 ## Cycle Status
 - Status: COMPLETE
 
 ## Summary
-- Updated Contracts/builder_contract.md to align with physics/manifesto: one active proposal per thread, non-destructive decline, thread_id boundary, voice-first client transcription, background work without silent writes, OpenAI guidance, and TS/mobile-first + evidence guardrails.
+- Updated Contracts/blueprint.md to align acceptance criteria and evidence with physics/manifesto/thread semantics, voice-first client transcription, and Phase 7+ proof expectations.
 
 ## Files Changed (staged)
-- Contracts/builder_contract.md
+- Contracts/blueprint.md
 - evidence/updatedifflog.md
 
 ## git status -sb
     ## main...origin/main
-     M Contracts/builder_contract.md
+     M Contracts/blueprint.md
      M evidence/updatedifflog.md
 
 ## Minimal Diff Hunks
-    Contracts/builder_contract.md
-      + Confirm-before-write invariants: one active proposal per thread; decline non-destructive; clean thread boundary; thread_id guidance.
-      + Voice-first (client transcription), background-work guard, OpenAI integration guidance.
-      + Drift guardrails: TS-only UI, mobile-first, physics-first, evidence discipline.
+    Contracts/blueprint.md
+      + Added core interaction invariants (confirm-before-write, one active proposal per thread, non-destructive decline, thread_id, voice-first).
+      + Strengthened confirm-before-write section with thread/decline semantics.
+      + Acceptance checklist now requires evidence (screenshots + redacted JSON) for auth/prefs, inventory, low-stock, mealplan, shopping diff, recipes with citations, voice-first, and chat confirm/decline with thread_id/status.
+      + Added proof-pack pointer and background work/message storage guard.
+    evidence/updatedifflog.md
+      + Cycle metadata, summary, verification, next steps recorded.
 
 ## Verification
 - Static: `python -m compileall app` (PASS)
 - Runtime: `python -c "import app.main; print('import ok')"` (PASS)
 - Behavior: `pwsh -NoProfile -Command "./scripts/run_tests.ps1"` (PASS)
-- Contract: physics.yaml unchanged this cycle; builder contract now aligned with manifesto/physics (PASS)
+- Contract: physics.yaml unchanged this cycle (PASS)
 
 ## Notes (optional)
-- Doc-only changes; runtime untouched.
+- Doc-only; runtime untouched.
 
 ## Next Steps
-- Update Blueprint in a follow-up doc cycle to mirror these semantics; continue Phase 7 UI evidence work.
+- Execute Phase 7 UI work using updated acceptance/evidence expectations; keep blueprint/manifesto alignment in future cycles.
