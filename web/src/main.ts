@@ -7,7 +7,10 @@ function headers() {
   const h: Record<string, string> = { "Content-Type": "application/json" };
   const raw = state.token?.trim();
   if (raw) {
-    h["Authorization"] = raw.toLowerCase().startsWith("bearer ") ? raw : `Bearer ${raw}`;
+    const tokenOnly = raw.replace(/^bearer\s+/i, "").replace(/\s+/g, "");
+    if (tokenOnly) {
+      h["Authorization"] = `Bearer ${tokenOnly}`;
+    }
   }
   return h;
 }
