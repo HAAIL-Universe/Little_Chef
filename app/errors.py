@@ -5,8 +5,9 @@ from app.schemas import ErrorResponse
 
 
 class UnauthorizedError(Exception):
-    def __init__(self, message: str = "unauthorized"):
+    def __init__(self, message: str = "unauthorized", details=None):
         self.message = message
+        self.details = details
 
 
 class BadRequestError(Exception):
@@ -22,7 +23,7 @@ class NotFoundError(Exception):
 def unauthorized_handler(_request: Request, exc: UnauthorizedError):
     return JSONResponse(
         status_code=401,
-        content=ErrorResponse(error="unauthorized", message=exc.message).model_dump(),
+        content=ErrorResponse(error="unauthorized", message=exc.message, details=getattr(exc, "details", None)).model_dump(),
         headers={"WWW-Authenticate": "Bearer"},
     )
 

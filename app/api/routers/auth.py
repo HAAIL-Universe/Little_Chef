@@ -9,17 +9,31 @@ from app.errors import UnauthorizedError
 router = APIRouter(prefix="", tags=["Auth"])
 
 
+def _auth_debug_details(authorization: str | None):
+    text = authorization or ""
+    parts = text.split()
+    scheme_lower = parts[0].lower() if parts else None
+    return {
+        "auth_present": authorization is not None,
+        "auth_len": len(text),
+        "parts_count": len(parts),
+        "scheme_lower": scheme_lower,
+        "starts_with_bearer_ci": text.lower().startswith("bearer"),
+        "has_newline": "\n" in text,
+        "has_tab": "\t" in text,
+        "has_comma": "," in text,
+    }
+
+
 def _extract_bearer_token(authorization: str | None) -> str:
+    debug = os.environ.get("LC_DEBUG_AUTH") == "1"
     if not authorization:
-        raise UnauthorizedError("Missing Authorization header")
-    # Optional debug logging (no secrets) when LC_DEBUG_AUTH=1
-    if os.environ.get("LC_DEBUG_AUTH") == "1":  # pragma: no cover - dev aid
-        snippet = authorization[:60].replace("\n", "\\n")
-        parts_preview = authorization.split()
-        print(f"[auth_debug] Authorization repr='{snippet}...' len={len(authorization)} parts={parts_preview}", flush=True)
+        details = _auth_debug_details(authorization) if debug else None
+        raise UnauthorizedError("Missing Authorization header", details=details)
     parts = authorization.split()
+    details = _auth_debug_details(authorization) if debug else None
     if len(parts) != 2 or parts[0].lower() != "bearer":
-        raise UnauthorizedError("Invalid Authorization header")
+        raise UnauthorizedError("Invalid Authorization header", details=details)
     return parts[1]
 
 

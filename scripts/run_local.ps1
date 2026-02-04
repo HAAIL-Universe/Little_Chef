@@ -11,7 +11,8 @@ param(
   [switch]$NoReload,
   [switch]$NoInstall,
   [switch]$NoVenv,
-  [switch]$NoOpen
+  [switch]$NoOpen,
+  [switch]$DebugAuth
 )
 
 Set-StrictMode -Version Latest
@@ -99,6 +100,7 @@ try {
   $py = Use-Venv $root
   Ensure-Requirements $py $root
   Load-DotEnv $root
+  if ($DebugAuth) { $env:LC_DEBUG_AUTH = "1"; Info "LC_DEBUG_AUTH=1 (debug auth headers)" }
   Ensure-Uvicorn $py
 
   $appImport = Resolve-AppImport $py
