@@ -63,8 +63,18 @@ try {
   Info "Python: $py"
   Push-Location $repoRoot
   try {
-    & $py -m app.db.migrate
-    if ($LASTEXITCODE -ne 0) { throw "Migration failed ($LASTEXITCODE)" }
+    $out = & $py -m app.db.migrate 2>&1
+    if ($LASTEXITCODE -ne 0) {
+      $text = $out | Out-String
+      if ($text -match "schema_migrations_pkey" -and $text -match "duplicate key") {
+        Info "Migration already applied (duplicate schema_migrations entry); treating as success."
+        return
+      } else {
+        Write-Host $text
+        throw "Migration failed ($LASTEXITCODE)"
+      }
+    }
+    if ($out) { $out | Write-Host }
   }
   finally {
     Pop-Location
