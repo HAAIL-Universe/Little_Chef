@@ -2486,7 +2486,7 @@ FAILED tests/test_auth_debug_details.py::test_auth_me_debug_details_when_enabled
  M evidence/test_runs_latest.md
  M web/index.html
  M web/src/main.ts
-?? docs/render_deploy.md
+?? (deploy doc placeholder)
 ?? scripts/smoke_render.ps1
 ```
 - git diff --stat:
