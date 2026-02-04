@@ -79,7 +79,7 @@ function Assert-PortFree($port) {
     $listeners = @()
   }
   $listeners = @($listeners) | Where-Object { $_ }
-  $listenerCount = @($listeners).Count
+  $listenerCount = ($listeners | Measure-Object).Count
   if ($listenerCount -gt 0) {
     $pids = @($listeners | Select-Object -ExpandProperty OwningProcess -Unique)
     $procInfo = @($pids | ForEach-Object {
@@ -110,16 +110,39 @@ function Kill-PortListeners($port) {
   try {
     $listeners = @((Get-NetTCPConnection -LocalPort $port -State Listen -ErrorAction SilentlyContinue)) | Where-Object { $_ }
   } catch { $listeners = @() }
-  if ($listeners.Count -eq 0) { return }
+  if (($listeners | Measure-Object).Count -eq 0) { return $port }
   $pids = @($listeners | Select-Object -ExpandProperty OwningProcess -Unique)
   foreach ($pidVal in $pids) {
     try {
       Warn ("Killing PID {0} holding port {1}" -f $pidVal, $port)
       Stop-Process -Id $pidVal -Force -ErrorAction Stop
     } catch {
-      Warn ("Failed to kill PID {0}: {1}" -f $pidVal, $_.Exception.Message)
+      Warn ("Stop-Process failed for PID {0}: {1}" -f $pidVal, $_.Exception.Message)
+    }
+    try {
+      & taskkill /PID $pidVal /F /T | Out-Null
+    } catch { }
+  }
+  # re-check to confirm clear
+  for ($i=0; $i -lt 5; $i++) {
+    Start-Sleep -Milliseconds 300
+    try {
+      $remaining = @((Get-NetTCPConnection -LocalPort $port -State Listen -ErrorAction SilentlyContinue)) | Where-Object { $_ }
+    } catch { $remaining = @() }
+    if (($remaining | Measure-Object).Count -eq 0) { return $port }
+  }
+  Warn "Port $port still shows a listener after kill attempts (elevation may be required or listener is in another session)."
+  # try to find a nearby free port to keep going
+  foreach ($candidate in ($port+1)..($port+10)) {
+    try {
+      $check = @((Get-NetTCPConnection -LocalPort $candidate -State Listen -ErrorAction SilentlyContinue)) | Where-Object { $_ }
+    } catch { $check = @() }
+    if (($check | Measure-Object).Count -eq 0) {
+      Warn ("Switching to free port {0}" -f $candidate)
+      return $candidate
     }
   }
+  Fail "Could not free port $port and no alternate port found in next 10 ports."
 }
 
 function Resolve-AppImport($py) {
@@ -154,7 +177,7 @@ try {
   $env:LC_DEBUG_AUTH = "1"
   Info "LC_DEBUG_AUTH=$($env:LC_DEBUG_AUTH) (auth debug enabled by default for local runs)"
   Ensure-Uvicorn $py
-  if ($KillPortListeners) { Kill-PortListeners $Port }
+  if ($KillPortListeners) { $Port = Kill-PortListeners $Port }
   Assert-PortFree $Port
 
   $appImport = Resolve-AppImport $py
