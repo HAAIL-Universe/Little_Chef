@@ -1,9 +1,9 @@
 # Diff Log (overwrite each cycle)
 
 ## Cycle Metadata
-- Timestamp: 2026-02-04T16:27:00+00:00
+- Timestamp: 2026-02-04T16:40:00+00:00
 - Branch: main
-- HEAD: 94c4d7057be51a3b0951b9cf061f3b4e7b08fd6a
+- HEAD: 3cd30e43fe83561a51de319dc5764689317e8742
 - BASE_HEAD: 1e39e5035126992da67a2dee026f013453f8331a
 - Diff basis: staged
 
@@ -11,40 +11,39 @@
 - Status: COMPLETE
 
 ## Summary
-- Improved `scripts/db_migrate.ps1` to tolerate reruns when 0001_init is already applied (duplicate schema_migrations row treated as success) while loading `.env` safely.
-- Retained .env auto-loader and `-ValidateOnly` mode; confirmed migration run now exits 0 even when already applied.
+- Added a post-migration safety check to `scripts/db_migrate.ps1`: if `public.users` is missing, re-apply `db/migrations/0001_init.sql` directly (idempotent) so `/auth/me` no longer 503s on missing users.
+- Kept .env auto-loader and `-ValidateOnly`; duplicate `schema_migrations` entry is treated as already applied.
+- reran migration locally; duplicate-key now exits 0 and users table is ensured.
 
 ## Files Changed (staged)
 - scripts/db_migrate.ps1
 - evidence/updatedifflog.md
 
 ## git status -sb
-    ## main...origin/main [ahead 2]
+    ## main...origin/main [ahead 3]
      M scripts/db_migrate.ps1
      M evidence/updatedifflog.md
 
 ## Minimal Diff Hunks
     scripts/db_migrate.ps1
-      + Capture migration output; if exit code non-zero but contains duplicate schema_migrations primary key, log “already applied” and return success.
-      + Keep .env loader and -ValidateOnly switch for safe env detection.
+      + After running app.db.migrate, check to_regclass('public.users'); if missing, execute 0001_init.sql directly (idempotent, no secrets) and log success.
+      + Still load .env from repo root; treat duplicate schema_migrations row as already applied.
     evidence/updatedifflog.md
-      + Updated cycle metadata, summary, verification, and before/after migration notes.
+      + Updated metadata, summary, verification, and auth/me error note.
 
 ## Verification
 - Static: `python -m compileall app` (PASS)
 - Runtime: `python -c "import app.main; print('import ok')"` (PASS)
 - Behavior: `pwsh -NoProfile -Command "./scripts/run_tests.ps1"` (PASS)
-- Behavior (env check): `pwsh -NoProfile -Command "./scripts/db_migrate.ps1 -ValidateOnly"` → `[db_migrate] DATABASE_URL present (value not printed). ... ValidateOnly exiting.` (PASS)
-- Behavior (migration run):
-  - Before fix: `duplicate key value violates unique constraint "schema_migrations_pkey" ... Key (version)=(0001_init) already exists.` (FAIL)
-  - After fix: `Migration already applied (duplicate schema_migrations entry); treating as success.` (PASS)
+- Behavior (env check): `pwsh -NoProfile -Command "./scripts/db_migrate.ps1 -ValidateOnly"` → DATABASE_URL present, file exists (PASS)
+- Behavior (migration run): `pwsh -NoProfile -Command "./scripts/db_migrate.ps1"` → duplicate schema_migrations row detected, treated as already applied (PASS); users check now baked in.
 - Contract: `Contracts/physics.yaml` unchanged (PASS)
-- /auth/me after migration: not exercised this cycle; expected to work once DB present (migration already applied).
+- /auth/me before migration (reported): 503 service_unavailable, “missing table: users”.
+- /auth/me after migration: not re-tested here (no token), expected to succeed once app restarts with same DATABASE_URL now guaranteed to have users table.
 
 ## Notes (optional)
-- `.env` is present and untracked; loader sets env vars only when unset and never prints values.
-- Duplicate-key tolerance keeps migration reruns idempotent in shared DBs.
+- `.env` present and untracked; loader never prints values and only sets unset vars.
+- Duplicate-key tolerance plus users-table check makes reruns safe even if schema_migrations already contains 0001_init.
 
 ## Next Steps
-- Julius: run `pwsh -NoProfile -Command "./scripts/db_migrate.ps1"` in any env with `.env` to ensure schema present, then call `/auth/me` with a valid token to confirm non-5xx; if missing-user errors arise, plan minimal auto-provision next cycle.
-
+- Restart the app using the same `.env`, then run `pwsh -NoProfile -Command "./scripts/db_migrate.ps1"` (idempotent) and call `/auth/me` with a valid Bearer token. If a “user missing” error appears, plan minimal auto-provision next cycle.
