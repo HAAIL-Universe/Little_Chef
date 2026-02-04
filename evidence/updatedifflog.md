@@ -1,18 +1,18 @@
 # Diff Log (overwrite each cycle)
 
 ## Cycle Metadata
-- Timestamp: 2026-02-04T12:01:25+00:00
+- Timestamp: 2026-02-04T12:08:59+00:00
 - Branch: main
-- BASE_HEAD: d156e25aa037c535290f3f4f1fd076d3366b4ced
+- BASE_HEAD: 03afe0aedd7067ed563d3dd2a8896c36eb63de39
 - Diff basis: staged
 
 ## Cycle Status
 - Status: COMPLETE
 
 ## Summary
-- Added port-in-use check to run_local.ps1 to fail fast if another process owns the port, preventing accidental old servers.
-- run_local.ps1 now echoes LC_DEBUG_AUTH value and expected UI/API URL so users see debug is on and which origin to hit.
-- Full test suite re-run; behavior unchanged beyond local runner diagnostics.
+- Fixed run_local.ps1 port check to handle single-object listener results without Count errors and continue failing fast when the port is busy.
+- run_local still echoes LC_DEBUG_AUTH=1 and expected UI/API URL to make the active debug backend obvious.
+- Re-ran full test suite to confirm no regressions; diagnostics only.
 
 ## Files Changed (staged)
 - scripts/run_local.ps1
@@ -30,49 +30,35 @@
     --- a/scripts/run_local.ps1
     +++ b/scripts/run_local.ps1
     @@
-     function Ensure-Uvicorn($py) {
-       try { & $py -c "import uvicorn" | Out-Null }
-       catch { Info "Installing uvicorn..."; & $py -m pip install uvicorn }
-     }
-    +
-    +function Assert-PortFree($port) {
-    +  try {
-    +    $listeners = Get-NetTCPConnection -LocalPort $port -State Listen -ErrorAction SilentlyContinue
-    +  } catch {
-    +    $listeners = @()
-    +  }
-    +  if ($listeners -and $listeners.Count -gt 0) {
-    +    $pids = $listeners | Select-Object -ExpandProperty OwningProcess -Unique
-    +    $procInfo = $pids | ForEach-Object {
-    +      try { (Get-Process -Id $_) } catch { $null }
-    +    }
-    +    Warn "Port $port already in use:"
-    +    foreach ($p in $procInfo) {
-    +      if ($p) { Warn ("  PID {0} - {1}" -f $p.Id, $p.Path) }
-    +    }
-    +    Fail "Port $port already in use; stop the process and rerun."
-    +  }
-    +}
-    @@
-       $py = Use-Venv $root
-       Ensure-Requirements $py $root
-       Load-DotEnv $root
-      $env:LC_DEBUG_AUTH = "1"
-    -  Info "LC_DEBUG_AUTH=$($env:LC_DEBUG_AUTH) (auth debug enabled by default for local runs)"
-    +  Info "LC_DEBUG_AUTH=$($env:LC_DEBUG_AUTH) (auth debug enabled by default for local runs)"
-       Ensure-Uvicorn $py
-    +  Assert-PortFree $Port
+    function Assert-PortFree($port) {
+      try {
+        $listeners = Get-NetTCPConnection -LocalPort $port -State Listen -ErrorAction SilentlyContinue
+      } catch {
+        $listeners = @()
+      }
+      $listeners = @($listeners) | Where-Object { $_ }
+      if ($listeners.Count -gt 0) {
+        $pids = $listeners | Select-Object -ExpandProperty OwningProcess -Unique
+        $procInfo = $pids | ForEach-Object {
+          try { (Get-Process -Id $_) } catch { $null }
+        }
+        Warn "Port $port already in use:"
+        foreach ($p in $procInfo) {
+          if ($p) { Warn ("  PID {0} - {1}" -f $p.Id, $p.Path) }
+        }
+        Fail "Port $port already in use; stop the process and rerun."
+      }
+    }
 
 ## Verification
 - Static: python -m compileall app
 - Runtime: python -c "import app.main; print('import ok')"
 - Behavior: pwsh -NoProfile -Command "./scripts/run_tests.ps1" (PASS)
 - Contract: No API changes; local runner diagnostics only
-- Example local proof: LC_DEBUG_AUTH echoes in run_local output; TestClient earlier confirmed /auth/me returns details when debug is on.
 
 ## Notes (optional)
-- If details remain null in browser, likely hitting a different process/port; port check now prevents silent conflicts.
+- Port check now robust for single-object Get-NetTCPConnection results; prevents silent stale servers.
 
 ## Next Steps
-- Start via run_local.ps1, confirm port-free message and LC_DEBUG_AUTH=1, then retry /auth/me from browser; gather details if still failing.
+- Run run_local.ps1, confirm port-free message, then retry /auth/me to view debug details; stop any other listener if reported.
 

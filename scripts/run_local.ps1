@@ -77,7 +77,8 @@ function Assert-PortFree($port) {
   } catch {
     $listeners = @()
   }
-  if ($listeners -and $listeners.Count -gt 0) {
+  $listeners = @($listeners) | Where-Object { $_ }
+  if ($listeners.Count -gt 0) {
     $pids = $listeners | Select-Object -ExpandProperty OwningProcess -Unique
     $procInfo = $pids | ForEach-Object {
       try { (Get-Process -Id $_) } catch { $null }
