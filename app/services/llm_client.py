@@ -58,7 +58,7 @@ class LlmClient:
             client = OpenAI(timeout=self.timeout)
             response = client.responses.create(
                 model=self.model,
-                messages=[
+                input=[
                     {"role": "system", "content": system_prompt},
                     {"role": "user", "content": user_text},
                 ],
