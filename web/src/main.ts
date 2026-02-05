@@ -543,6 +543,7 @@ function updateInventoryOverlayVisibility() {
   if (!inventoryOverlay) return;
   const visible = currentFlowKey === "inventory";
   inventoryOverlay.classList.toggle("hidden", !visible);
+  inventoryOverlay.style.display = visible ? "flex" : "none";
   if (visible && (!inventoryHasLoaded || !inventoryLowList?.childElementCount)) {
     refreshInventoryOverlay();
   }
@@ -556,16 +557,22 @@ function setupInventoryGhostOverlay() {
   const overlay = document.createElement("div");
   overlay.id = "inventory-ghost";
   overlay.className = "inventory-ghost hidden";
+  overlay.style.display = "flex";
   overlay.style.flexDirection = "column";
   overlay.style.justifyContent = "center";
   overlay.style.alignItems = "center";
   overlay.style.gap = "14px";
+  overlay.style.inset = "10px";
+  overlay.style.width = "calc(100% - 20px)";
+  overlay.style.height = "calc(100% - 20px)";
+  overlay.style.position = "absolute";
 
   const content = document.createElement("div");
   content.style.display = "grid";
   content.style.gap = "12px";
   content.style.width = "100%";
   content.style.maxWidth = "520px";
+  content.style.margin = "0 auto";
 
   const header = document.createElement("div");
   header.className = "inventory-ghost-header";

@@ -1,112 +1,111 @@
 # Diff Log (overwrite each cycle)
 
 ## Cycle Metadata
-- Timestamp: 2026-02-05T19:17:20Z
+- Timestamp: 2026-02-05T20:04:09.8546384+00:00
 - Branch: main
-- BASE_HEAD: b6b7410bb157f0a66fe27970ab3d151f8fab2d74
-- Diff basis: staged
+- BASE_HEAD: 7acbf37ed84b146ada0ea854d3fc6a1b1ec5de01
+- Diff basis: unstaged (status-only)
 
 ## Cycle Status
-- Status: COMPLETE_AWAITING_AUTHORIZATION
+- Status: COMPLETE_STATUS_REPORT
 
-## Summary
-- Root cause: Inventory overlay was visible in every flow because an inline display:flex set in JS overrode the .hidden {display:none} class, so the overlay never hid outside the Inventory flow, and the content sat high because the wrapper lacked centering.
-- Fix: Centered the inventory overlay itself by forcing flex align/justify center and full-height fill so the ghost card sits in the middle of the stage; dist rebuilt.
-- Kept prior adjustments: history drawer stays hidden unless opened via clock; drag ghost removed; Options dropdown/dev panel unchanged.
-
-## Files Changed (staged)
-- evidence/test_runs.md
-- evidence/test_runs_latest.md
+## Resolved contract paths
+- Contracts/blueprint.md
+- Contracts/builder_contract.md
+- Contracts/manifesto.md
+- Contracts/physics.yaml
 - evidence/updatedifflog.md
-- web/dist/main.js
-- web/src/main.ts
-- web/src/style.css
+- Contracts/directive.md: NOT PRESENT (expected)
 
-## git status -sb
+## Evidence bundle (verbatim)
+- git status -sb:
 `
-## main...origin/main [ahead 2]
-M  evidence/test_runs.md
-M  evidence/test_runs_latest.md
-M  evidence/updatedifflog.md
-M  web/dist/main.js
-M  web/src/main.ts
-M  web/src/style.css
+## main...origin/main [ahead 1]
+ M evidence/test_runs.md
+ M evidence/test_runs_latest.md
+ M evidence/updatedifflog.md
+ M web/dist/main.js
+ M web/src/main.ts
 ?? evidence/orchestration_system_snapshot.md
 ?? web/node_modules/
 `
-
-## git rev-parse HEAD
+- git rev-parse HEAD:
 `
-b6b7410bb157f0a66fe27970ab3d151f8fab2d74
+7acbf37ed84b146ada0ea854d3fc6a1b1ec5de01
 `
-
-## git log -1 --oneline
+- git log -1 --oneline:
 `
-b6b7410 Hotfix: lock viewport and hide flow dropdown without CSS
+7acbf37 Center inventory overlay and scope visibility
 `
-
-## git diff --name-only
-`
-evidence/test_runs.md
-evidence/test_runs_latest.md
-web/dist/main.js
-web/src/main.ts
-`
-
-## git diff --staged --name-only
+- git diff --name-only:
 `
 evidence/test_runs.md
 evidence/test_runs_latest.md
 evidence/updatedifflog.md
 web/dist/main.js
 web/src/main.ts
-web/src/style.css
 `
-
-## Evidence bundle (files exist)
-- scripts/run_tests.ps1 (git + filesystem): OK
-- evidence/test_runs.md, evidence/test_runs_latest.md (git + filesystem): OK
-- Test-Path checks: scripts/run_tests.ps1 True; evidence/test_runs.md True; evidence/test_runs_latest.md True
-- git status --porcelain (node_modules unstaged):
+- git diff --staged --name-only:
 `
-M  evidence/test_runs.md
-M  evidence/test_runs_latest.md
-M  evidence/updatedifflog.md
-M  web/dist/main.js
-M  web/src/main.ts
-M  web/src/style.css
+(none)
+`
+- git status --porcelain:
+`
+ M evidence/test_runs.md
+ M evidence/test_runs_latest.md
+ M evidence/updatedifflog.md
+ M web/dist/main.js
+ M web/src/main.ts
 ?? evidence/orchestration_system_snapshot.md
 ?? web/node_modules/
 `
+- scripts/run_tests.ps1 present:
+`
+scripts/run_tests.ps1
+Test-Path .\scripts\run_tests.ps1 => True
+`
 
-## Static serving proof
-- app/main.py lines 22-54 mount / and /static/{path} from dist_dir = (Path(__file__).resolve().parent.parent / "web" / "dist"); FileResponse serves files after path guard. Conclusion: /static/* served from web/dist; dist rebuild performed.
+## Forensics A — /chat implementation
+- Route definitions (app/api/routers/chat.py):
+  - lines 25-34: @router.post("/chat", response_model=ChatResponse) -> chat(request: ChatRequest, current_user: UserMe) returns _chat_service.handle_chat(...).
+  - lines 37-52: @router.post("/chat/confirm", response_model=ConfirmProposalResponse) -> chat_confirm(request: ConfirmProposalRequest, current_user: UserMe); raises BadRequestError if proposal missing when confirm=True; otherwise returns ConfirmProposalResponse.
+- Chat service logic (app/services/chat_service.py):
+  - line 25: handle_chat routes modes.
+  - mode "ask": answers from prefs/inventory data; canned fallback text.
+  - mode "fill": regex parses inventory events or prefs; builds proposal_id, stores in ProposalStore, returns ChatResponse with confirmation_required accordingly.
+  - line 87: confirm pops proposal and applies prefs/inventory update; no LLM calls anywhere.
+- Schemas (app/schemas.py lines ~211): ChatRequest{mode,message}, ChatResponse{reply_text, confirmation_required, proposal_id, proposed_actions, suggested_next_questions}.
 
-## Minimal Diff Hunks
-- web/src/main.ts: removed inline overlay.style.display = "flex" so inventory-ghost obeys the hidden class and hides outside Inventory.
-- web/dist/main.js: regenerated via 
-pm --prefix web run build to ship the above fix.
+## Forensics A2 — app entrypoint & wiring
+- FastAPI instance: app/main.py line 16-34 (create_app) creates FastAPI(title "Little Chef"); includes routers health, auth, prefs, chat, inventory, recipes, shopping, mealplan.
+- Static UI served from app/main.py: index/static from web/dist.
+- Server script: scripts/run_local.ps1 lines ~200 start uvicorn app.main:app on http://127.0.0.1:<port> (default 8000) with --reload; pure HTTP (no TLS).
 
-## Verification
-- Status: PASS (scripts/run_tests.ps1)
-- Start: 2026-02-05T19:06:00Z
-- End: 2026-02-05T19:17:10Z
-- compileall app: 0
-- import app.main: ok
-- pytest: ok (scripts/run_tests.ps1)
-- python: Z:\LittleChef\.venv\\Scripts\\python.exe
-- Branch/HEAD during run: main @ b6b7410bb157f0a66fe27970ab3d151f8fab2d74
+## Forensics B — LLM/OpenAI presence
+- Code search for openai/LLM/ChatCompletion: no matches in repo.
+- Dependencies: requirements.txt contains fastapi, uvicorn, pytest, requests, python-dotenv, psycopg; **no openai package**.
+- Env var search for OPENAI/API_KEY: none in code. Env loader (app/config/env.py) only loads dotenv.
+- Conclusion: NO LLM CLIENT FOUND; chat logic is rule-based string parsing only.
+
+## Forensics C — “invalid HTTP request received” symptom
+- Server run script exposes HTTP on http://127.0.0.1:<port> via uvicorn; no HTTPS listener. Hitting with HTTPS or wrong port would trigger uvicorn's "Invalid HTTP request received" (likely Julius sent TLS to HTTP). No local server run in this cycle to preserve state; inference based on run_local.ps1 and default uvicorn behavior.
+
+## Where we stand (required)
+1) /chat status: Implemented in app/api/routers/chat.py lines 25-34; returns ChatResponse via ChatService. /chat/confirm implemented lines 37-52.
+2) LLM status: No OpenAI/LLM client or wrapper present; requirements lack openai; code contains no LLM calls.
+3) Wiring: /chat calls ChatService which performs regex/int parsing and proposals; no model invocation; ProposalStore in-memory.
+4) Likely reason for Julius’ "invalid HTTP request received": server listens HTTP on uvicorn (run_local.ps1) while request likely sent as HTTPS or to mismatched port; uvicorn logs that when TLS bytes are sent to HTTP.
+
+## Verification (tests run this cycle)
+- python -m compileall app -> PASS
+- python -c "import app.main; print('import ok')" -> import ok
+- pwsh -NoProfile -Command "./scripts/run_tests.ps1" -> PASS
+- Contracts unchanged (physics.yaml untouched)
+
+## Files changed (this cycle)
+- evidence/updatedifflog.md
+- evidence/test_runs.md
+- evidence/test_runs_latest.md
 
 ## Notes
-- Contracts/directive.md: NOT PRESENT (expected).
 - Untracked left untouched: evidence/orchestration_system_snapshot.md, web/node_modules/.
-- Root-cause statement: Inline display on the inventory overlay overrode .hidden, forcing it visible in all flows; removing the inline display restored flow-scoped visibility.
-
-## Next Steps
-- Await AUTHORIZED before commit/push; if UI still stale, hard refresh to pull regenerated /static/main.js.
-
-
-
-
-
-
