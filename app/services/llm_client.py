@@ -7,6 +7,7 @@ from openai import OpenAI
 logger = logging.getLogger(__name__)
 
 _runtime_enabled: Optional[bool] = None
+_runtime_model: Optional[str] = None
 
 
 def _is_truthy(value: Optional[str]) -> bool:
@@ -38,6 +39,22 @@ def runtime_enabled(default_env_enabled: bool) -> bool:
     return _runtime_enabled
 
 
+def set_runtime_model(model: Optional[str]) -> None:
+    global _runtime_model
+    _runtime_model = model.strip() if model else None
+
+
+def reset_runtime_model() -> None:
+    global _runtime_model
+    _runtime_model = None
+
+
+def runtime_model(default_env_model: Optional[str]) -> Optional[str]:
+    if _runtime_model is not None:
+        return _runtime_model
+    return default_env_model
+
+
 class LlmClient:
     DISABLED_REPLY = "LLM disabled; set LLM_ENABLED=1 and a gpt-5*-mini or gpt-5*-nano model to enable replies."
     INVALID_MODEL_REPLY = "Set OPENAI_MODEL to a valid gpt-5*-mini or gpt-5*-nano model (e.g., gpt-5.1-mini or gpt-5-nano) to enable LLM replies."
@@ -49,15 +66,17 @@ class LlmClient:
         self.timeout = float(os.getenv("OPENAI_TIMEOUT_S", "30"))
 
     def generate_reply(self, system_prompt: str, user_text: str) -> str:
+        effective_model = runtime_model(self.model)
+
         if not runtime_enabled(self.env_enabled):
             return self.DISABLED_REPLY
-        if not _valid_model(self.model):
+        if not _valid_model(effective_model):
             return self.INVALID_MODEL_REPLY
 
         try:
             client = OpenAI(timeout=self.timeout)
             response = client.responses.create(
-                model=self.model,
+                model=effective_model,
                 input=[
                     {"role": "system", "content": system_prompt},
                     {"role": "user", "content": user_text},
