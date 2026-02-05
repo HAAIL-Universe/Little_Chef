@@ -7,6 +7,12 @@ const state = {
     chatReply: null,
     chatError: "",
 };
+const flowOptions = [
+    { key: "general", label: "General", placeholder: "Ask or fill..." },
+    { key: "inventory", label: "Inventory", placeholder: "Ask about inventory, stock, or adjustments…" },
+    { key: "mealplan", label: "Meal Plan", placeholder: "Plan meals or ask for ideas…" },
+    { key: "prefs", label: "Preferences", placeholder: "Update dislikes, allergies, or servings…" },
+];
 const duetState = {
     threadId: null,
     history: [],
@@ -15,6 +21,7 @@ const duetState = {
 };
 let historyOverlay = null;
 let historyToggle = null;
+let currentFlowKey = flowOptions[0].key;
 function headers() {
     var _a;
     const h = { "Content-Type": "application/json" };
@@ -80,6 +87,14 @@ function setDuetStatus(msg, isError = false) {
         return;
     el.textContent = msg;
     el.classList.toggle("error", isError);
+}
+function setComposerPlaceholder() {
+    var _a;
+    const input = document.getElementById("duet-input");
+    if (!input)
+        return;
+    const flow = (_a = flowOptions.find((f) => f.key === currentFlowKey)) !== null && _a !== void 0 ? _a : flowOptions[0];
+    input.placeholder = flow.placeholder;
 }
 function updateThreadLabel() {
     var _a;
@@ -329,6 +344,7 @@ function wire() {
         setText("chat-reply", { status: 0, json: { message: "Shell-only decline stub (Phase 7.4 wires backend)" } });
         clearProposal();
     });
+    setupFlowChips();
     wireDuetComposer();
     setupHistoryDrawerUi();
     wireHistoryHotkeys();
@@ -349,12 +365,14 @@ function wireDuetComposer() {
         sendBtn.disabled = input.value.trim().length === 0;
     };
     const send = () => {
+        var _a;
         const text = input.value.trim();
         if (!text)
             return;
         clearProposal();
         setChatError("");
-        addHistory("user", text);
+        const flow = (_a = flowOptions.find((f) => f.key === currentFlowKey)) !== null && _a !== void 0 ? _a : flowOptions[0];
+        addHistory("user", `[${flow.label}] ${text}`);
         setDuetStatus("Shell-only: preparing local reply…");
         syncButtons();
         shellOnlyDuetReply(text);
@@ -373,4 +391,50 @@ function wireDuetComposer() {
         setDuetStatus("Voice uses client-side transcription; mic will feed text here.", false);
         input.focus();
     });
+    setComposerPlaceholder();
+}
+function setupFlowChips() {
+    const shell = document.getElementById("duet-shell");
+    const composer = document.getElementById("duet-composer");
+    if (!shell || !composer)
+        return;
+    let container = document.getElementById("flow-chips");
+    if (!container) {
+        container = document.createElement("div");
+        container.id = "flow-chips";
+        container.className = "flow-chips";
+        shell.insertBefore(container, composer);
+    }
+    container.innerHTML = "";
+    flowOptions.forEach((flow) => {
+        const btn = document.createElement("button");
+        btn.type = "button";
+        btn.className = "flow-chip";
+        btn.textContent = flow.label;
+        btn.setAttribute("data-key", flow.key);
+        btn.setAttribute("aria-pressed", flow.key === currentFlowKey ? "true" : "false");
+        if (flow.key === currentFlowKey) {
+            btn.classList.add("active");
+        }
+        btn.addEventListener("click", () => selectFlow(flow.key));
+        btn.addEventListener("keydown", (ev) => {
+            if (ev.key === "Enter" || ev.key === " ") {
+                ev.preventDefault();
+                selectFlow(flow.key);
+            }
+        });
+        container.appendChild(btn);
+    });
+}
+function selectFlow(key) {
+    if (!flowOptions.find((f) => f.key === key))
+        return;
+    currentFlowKey = key;
+    const chips = Array.from(document.querySelectorAll("#flow-chips .flow-chip"));
+    chips.forEach((chip) => {
+        const active = chip.getAttribute("data-key") === key;
+        chip.classList.toggle("active", active);
+        chip.setAttribute("aria-pressed", active ? "true" : "false");
+    });
+    setComposerPlaceholder();
 }

@@ -125,6 +125,42 @@ pre {
   overflow: hidden;
 }
 
+.flow-chips {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  padding: 4px 2px 2px;
+  margin: -2px 0 2px;
+}
+
+.flow-chip {
+  flex: 0 0 auto;
+  padding: 8px 12px;
+  border-radius: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--text);
+  cursor: pointer;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  transition: transform 120ms ease, box-shadow 120ms ease, background 120ms ease, border-color 120ms ease;
+  box-shadow: var(--shadow);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+}
+
+.flow-chip:hover {
+  transform: translateY(-1px);
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.flow-chip.active {
+  background: linear-gradient(135deg, var(--accent), var(--accent-2));
+  color: #051225;
+  border-color: rgba(255, 255, 255, 0.3);
+  box-shadow: 0 10px 26px rgba(0, 0, 0, 0.32);
+}
+
 .duet-stage {
   position: relative;
   min-height: 240px;

@@ -9,6 +9,14 @@ const state = {
 
 type HistoryItem = { role: "user" | "assistant"; text: string };
 
+type FlowOption = { key: string; label: string; placeholder: string };
+const flowOptions: FlowOption[] = [
+  { key: "general", label: "General", placeholder: "Ask or fill..." },
+  { key: "inventory", label: "Inventory", placeholder: "Ask about inventory, stock, or adjustments…" },
+  { key: "mealplan", label: "Meal Plan", placeholder: "Plan meals or ask for ideas…" },
+  { key: "prefs", label: "Preferences", placeholder: "Update dislikes, allergies, or servings…" },
+];
+
 const duetState = {
   threadId: null as string | null,
   history: [] as HistoryItem[],
@@ -18,6 +26,7 @@ const duetState = {
 
 let historyOverlay: HTMLDivElement | null = null;
 let historyToggle: HTMLButtonElement | null = null;
+let currentFlowKey = flowOptions[0].key;
 
 function headers() {
   const h: Record<string, string> = { "Content-Type": "application/json" };
@@ -84,6 +93,13 @@ function setDuetStatus(msg: string, isError = false) {
   if (!el) return;
   el.textContent = msg;
   el.classList.toggle("error", isError);
+}
+
+function setComposerPlaceholder() {
+  const input = document.getElementById("duet-input") as HTMLInputElement | null;
+  if (!input) return;
+  const flow = flowOptions.find((f) => f.key === currentFlowKey) ?? flowOptions[0];
+  input.placeholder = flow.placeholder;
 }
 
 function updateThreadLabel() {
@@ -353,6 +369,7 @@ function wire() {
     clearProposal();
   });
 
+  setupFlowChips();
   wireDuetComposer();
   setupHistoryDrawerUi();
   wireHistoryHotkeys();
@@ -380,7 +397,8 @@ function wireDuetComposer() {
     if (!text) return;
     clearProposal();
     setChatError("");
-    addHistory("user", text);
+    const flow = flowOptions.find((f) => f.key === currentFlowKey) ?? flowOptions[0];
+    addHistory("user", `[${flow.label}] ${text}`);
     setDuetStatus("Shell-only: preparing local reply…");
     syncButtons();
     shellOnlyDuetReply(text);
@@ -401,4 +419,53 @@ function wireDuetComposer() {
     setDuetStatus("Voice uses client-side transcription; mic will feed text here.", false);
     input.focus();
   });
+
+  setComposerPlaceholder();
+}
+
+function setupFlowChips() {
+  const shell = document.getElementById("duet-shell");
+  const composer = document.getElementById("duet-composer");
+  if (!shell || !composer) return;
+
+  let container = document.getElementById("flow-chips");
+  if (!container) {
+    container = document.createElement("div");
+    container.id = "flow-chips";
+    container.className = "flow-chips";
+    shell.insertBefore(container, composer);
+  }
+  container.innerHTML = "";
+
+  flowOptions.forEach((flow) => {
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "flow-chip";
+    btn.textContent = flow.label;
+    btn.setAttribute("data-key", flow.key);
+    btn.setAttribute("aria-pressed", flow.key === currentFlowKey ? "true" : "false");
+    if (flow.key === currentFlowKey) {
+      btn.classList.add("active");
+    }
+    btn.addEventListener("click", () => selectFlow(flow.key));
+    btn.addEventListener("keydown", (ev) => {
+      if (ev.key === "Enter" || ev.key === " ") {
+        ev.preventDefault();
+        selectFlow(flow.key);
+      }
+    });
+    container.appendChild(btn);
+  });
+}
+
+function selectFlow(key: string) {
+  if (!flowOptions.find((f) => f.key === key)) return;
+  currentFlowKey = key;
+  const chips = Array.from(document.querySelectorAll<HTMLButtonElement>("#flow-chips .flow-chip"));
+  chips.forEach((chip) => {
+    const active = chip.getAttribute("data-key") === key;
+    chip.classList.toggle("active", active);
+    chip.setAttribute("aria-pressed", active ? "true" : "false");
+  });
+  setComposerPlaceholder();
 }
