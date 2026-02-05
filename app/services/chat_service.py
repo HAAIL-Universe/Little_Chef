@@ -14,7 +14,7 @@ from app.schemas import (
 from app.services.prefs_service import PrefsService
 from app.services.proposal_store import ProposalStore
 from app.services.inventory_service import InventoryService
-from app.services.llm_client import LlmClient, set_runtime_enabled
+from app.services.llm_client import LlmClient, set_runtime_enabled, current_model
 
 
 class ChatService:
@@ -46,10 +46,11 @@ class ChatService:
         if message.startswith("/llm"):
             parts = message.split()
             action = parts[1] if len(parts) > 1 else ""
-            reply = "LLM status: use /llm on or /llm off. Model is taken from OPENAI_MODEL env."
+            model = current_model() or "unset"
+            reply = f"LLM status: use /llm on or /llm off. Model from env: {model}"
             if action in {"on", "enable"}:
                 set_runtime_enabled(True)
-                reply = "LLM enabled (model from OPENAI_MODEL env)."
+                reply = f"LLM enabled (model from env: {model})."
             elif action in {"off", "disable"}:
                 set_runtime_enabled(False)
                 reply = "LLM disabled for this session."

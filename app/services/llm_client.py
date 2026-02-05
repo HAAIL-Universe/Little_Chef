@@ -38,6 +38,10 @@ def runtime_enabled(default_env_enabled: bool) -> bool:
     return _runtime_enabled
 
 
+def current_model() -> Optional[str]:
+    return os.getenv("OPENAI_MODEL")
+
+
 class LlmClient:
     DISABLED_REPLY = "LLM disabled; set LLM_ENABLED=1 and a gpt-5*-mini or gpt-5*-nano model to enable replies."
     INVALID_MODEL_REPLY = "Set OPENAI_MODEL to a valid gpt-5*-mini or gpt-5*-nano model (e.g., gpt-5.1-mini or gpt-5-nano) to enable LLM replies."
