@@ -664,6 +664,31 @@ function setComposerBusy(busy) {
     if (input)
         input.readOnly = busy;
 }
+async function silentGreetOnce() {
+    var _a;
+    if (!((_a = state.token) === null || _a === void 0 ? void 0 : _a.trim()))
+        return;
+    const key = "lc_silent_greet_done";
+    if (sessionStorage.getItem(key) === "1")
+        return;
+    sessionStorage.setItem(key, "1");
+    try {
+        const res = await doPost("/chat", {
+            mode: "ask",
+            message: "hello",
+            include_user_library: true,
+        });
+        const json = res.json;
+        if (res.status === 200 && json && typeof json.reply_text === "string") {
+            duetState.history.push({ role: "assistant", text: json.reply_text });
+            renderDuetHistory();
+            updateDuetBubbles();
+        }
+    }
+    catch (_err) {
+        // Silent failure by design
+    }
+}
 function wire() {
     var _a, _b, _c, _d, _e, _f, _g, _h;
     enforceViewportLock();
@@ -673,6 +698,7 @@ function wire() {
         clearProposal();
         const result = await doGet("/auth/me");
         setText("auth-out", result);
+        await silentGreetOnce();
         inventoryHasLoaded = false;
         if (currentFlowKey === "inventory") {
             refreshInventoryOverlay(true);
