@@ -16,6 +16,9 @@ const duetState = {
   drawerProgress: 0,
 };
 
+let historyOverlay: HTMLDivElement | null = null;
+let historyToggle: HTMLButtonElement | null = null;
+
 function headers() {
   const h: Record<string, string> = { "Content-Type": "application/json" };
   const raw = state.token?.trim();
@@ -89,6 +92,17 @@ function updateThreadLabel() {
   label.textContent = `Thread: ${duetState.threadId ?? "—"}`;
 }
 
+function syncHistoryUi() {
+  const open = duetState.drawerOpen;
+  document.body.classList.toggle("history-open", open);
+  historyOverlay?.classList.toggle("open", open);
+  historyOverlay?.setAttribute("aria-hidden", open ? "false" : "true");
+  if (historyToggle) {
+    historyToggle.setAttribute("aria-expanded", open ? "true" : "false");
+    historyToggle.classList.toggle("active", open);
+  }
+}
+
 function renderDuetHistory() {
   const list = document.getElementById("duet-history-list");
   const empty = document.getElementById("duet-history-empty");
@@ -99,12 +113,15 @@ function renderDuetHistory() {
     return;
   }
   empty.classList.add("hidden");
-  duetState.history.forEach((item) => {
-    const li = document.createElement("li");
-    li.className = item.role;
-    li.textContent = item.text;
-    list.appendChild(li);
-  });
+  [...duetState.history]
+    .slice()
+    .reverse()
+    .forEach((item) => {
+      const li = document.createElement("li");
+      li.className = item.role;
+      li.textContent = item.text;
+      list.appendChild(li);
+    });
 }
 
 function updateDuetBubbles() {
@@ -127,6 +144,7 @@ function applyDrawerProgress(progress: number, opts?: { dragging?: boolean; comm
   if (opts?.commit) {
     duetState.drawerOpen = clamped > 0.35;
     history.classList.toggle("open", duetState.drawerOpen);
+    syncHistoryUi();
   }
   const offset = clamped * 70;
   userBubble.style.transform = `translateY(-${offset}px)`;
@@ -174,10 +192,69 @@ function wireDuetDrag() {
   userBubble.addEventListener("lostpointercapture", cancel);
 }
 
+function setDrawerOpen(open: boolean) {
+  applyDrawerProgress(open ? 1 : 0, { commit: true });
+}
+
 function addHistory(role: HistoryItem["role"], text: string) {
   duetState.history.push({ role, text });
   renderDuetHistory();
   updateDuetBubbles();
+}
+
+function setupHistoryDrawerUi() {
+  const shell = document.getElementById("duet-shell");
+  const stage = document.querySelector(".duet-stage");
+  if (!shell || !stage) return;
+
+  if (!historyOverlay) {
+    historyOverlay = document.createElement("div");
+    historyOverlay.className = "history-overlay";
+    historyOverlay.setAttribute("aria-hidden", "true");
+    historyOverlay.addEventListener("click", () => setDrawerOpen(false));
+    historyOverlay.addEventListener(
+      "touchmove",
+      (ev) => {
+        ev.preventDefault();
+      },
+      { passive: false },
+    );
+    historyOverlay.addEventListener(
+      "wheel",
+      (ev) => {
+        ev.preventDefault();
+      },
+      { passive: false },
+    );
+    shell.appendChild(historyOverlay);
+  }
+
+  if (!historyToggle) {
+    historyToggle = document.createElement("button");
+    historyToggle.id = "duet-history-toggle";
+    historyToggle.type = "button";
+    historyToggle.className = "icon-btn history-toggle";
+    historyToggle.setAttribute("aria-label", "Toggle history drawer");
+    historyToggle.setAttribute("aria-controls", "duet-history");
+    historyToggle.setAttribute("aria-expanded", "false");
+    historyToggle.textContent = "🕑";
+    historyToggle.addEventListener("click", () => setDrawerOpen(!duetState.drawerOpen));
+    historyToggle.addEventListener("keydown", (ev) => {
+      if (ev.key === "Enter" || ev.key === " ") {
+        ev.preventDefault();
+        setDrawerOpen(!duetState.drawerOpen);
+      }
+    });
+    stage.appendChild(historyToggle);
+  }
+}
+
+function wireHistoryHotkeys() {
+  document.addEventListener("keydown", (ev) => {
+    if (ev.key === "Escape" && duetState.drawerOpen) {
+      setDrawerOpen(false);
+    }
+  });
 }
 
 async function doGet(path: string) {
@@ -277,6 +354,8 @@ function wire() {
   });
 
   wireDuetComposer();
+  setupHistoryDrawerUi();
+  wireHistoryHotkeys();
   wireDuetDrag();
   applyDrawerProgress(duetState.drawerOpen ? 1 : 0, { commit: true });
   renderDuetHistory();

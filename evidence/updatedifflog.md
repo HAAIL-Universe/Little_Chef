@@ -1,71 +1,55 @@
 # Diff Log (overwrite each cycle)
 
 ## Cycle Metadata
-- Timestamp: 2026-02-04T23:53:53+00:00
+- Timestamp: 2026-02-05T00:48:05+00:00
 - Branch: main
-- HEAD: 8cc8478b31838e9ba0c959a0588839086e7a3fc8
-- BASE_HEAD: 8cc8478b31838e9ba0c959a0588839086e7a3fc8
+- BASE_HEAD: fb3c6baf2393ae37f361e6f8addc91ab15c95a6b
 - Diff basis: staged
 
 ## Cycle Status
 - Status: COMPLETE
 
 ## Summary
-- Clarified TS-only vs tracked dist artifacts in builder/blueprint contracts.
-- Made duet shell strictly shell-only (local echo placeholder; no `/chat` or `/chat/confirm` calls); rebuilt dist main bundle accordingly.
-- Updated this diff log to reflect the staged changes and governance policy.
+- Finalized Phase 7.2 UI drawer change-set; staged main.ts/style.css/dist bundle already implemented.
+- Staged audit evidence (test_runs*, diff log) after rerunning canonical tests.
+- Added web/package-lock.json adjacent to tracked web/package.json for deterministic web builds; left node_modules untracked.
 
 ## Files Changed (staged)
-- Contracts/blueprint.md
-- Contracts/builder_contract.md
-- web/src/main.ts
-- web/dist/main.js
+- evidence/test_runs.md
+- evidence/test_runs_latest.md
 - evidence/updatedifflog.md
+- web/dist/main.js
+- web/package-lock.json
+- web/src/main.ts
+- web/src/style.css
 
 ## git status -sb
-    ## main...origin/main [ahead 4]
-    M  Contracts/blueprint.md
-    M  Contracts/builder_contract.md
+    ## main...origin/main
+    M  evidence/test_runs.md
+    M  evidence/test_runs_latest.md
     M  evidence/updatedifflog.md
     M  web/dist/main.js
+    A  web/package-lock.json
     M  web/src/main.ts
+    M  web/src/style.css
+    ?? web/node_modules/
 
 ## Minimal Diff Hunks
-    Contracts/builder_contract.md
-      + “TS-only” applies to authored source under `web/src/`; tracked `web/dist/*` build outputs may include JS/CSS/HTML artifacts.
-    Contracts/blueprint.md
-      + Added the same TS-only vs dist clarification in the target folders section.
-    web/src/main.ts
-      + Replaced chat send/confirm calls with shellOnlyDuetReply placeholder; composer and buttons now local echo only (Phase 7.4 will wire backend).
-    web/dist/main.js
-      + Compiled output matching shell-only behavior (shellOnlyDuetReply, no `/chat` calls).
+    evidence/test_runs.md: appended PASS entries for 2026-02-05T00:23:48Z and 2026-02-05T00:47:48Z.
+    evidence/test_runs_latest.md: updated latest PASS snapshot (HEAD fb3c6baf, 34 passed, 1 warning).
+    web/package-lock.json: new lockfile for web (typescript 5.9.3).
+    web/src/main.ts: history drawer toggle/overlay/ESC handling, newest-first render.
+    web/src/style.css: overlay/body lock + scrollable drawer styling.
+    web/dist/main.js: compiled output for the UI changes.
 
 ## Verification
-- Static: Verification was already executed earlier in the Phase 7.1 corrective cycle; it was not re-run in this governance micro-cycle to avoid churn.
-- Runtime: Same as above (not re-run in this micro-cycle).
-- Behavior: Same as above; tests not re-run in this micro-cycle to avoid churn.
-- Contract: Authorization gate respected; diff log complete (no TODO/IN_PROCESS); BASE_HEAD policy documented below.
+- Static: cd web && npm run build (PASS).
+- Runtime/tests: pwsh -NoProfile -Command "./scripts/run_tests.ps1" (PASS).
+- Behavior: history drawer opens via toggle/drag, closes via overlay click/ESC, locks background scroll, drawer scrolls newest-first (manual check; unchanged from Phase 7.2 impl).
+- Contract: git grep -n "/chat" web/src -> no matches; node_modules untracked and not staged.
 
-### Verification Evidence (earlier in cycle)
-- `cd web && npm run build` → PASS  
-  Output:  
-  ```
-  > little-chef-web@0.1.0 build
-  > tsc -p tsconfig.json
-  ```
-- `python -m compileall app` → PASS (modules listed, no errors)
-- `python -c "import app.main; print('import ok')"` → PASS (`import ok`)
-- `pwsh -NoProfile -Command "./scripts/run_tests.ps1"` → PASS  
-  Output:  
-  ```
-  [run_tests] Python: Z:\LittleChef\.venv\\Scripts\\python.exe
-  [run_tests] compileall app: ok
-  [run_tests] import app.main: ok
-  [run_tests] pytest: ok
-  ```
-
-## Policy Note (BASE_HEAD)
-- The overwrite helper currently sets BASE_HEAD equal to the current HEAD. For this repo, until a script-fix cycle is explicitly authorized, BASE_HEAD == HEAD is accepted by design. Traceability is maintained via the recorded HEAD and the staged diff (diff basis: staged).
+## Notes (optional)
+- web/node_modules/ remains untracked (local-only). BASE_HEAD helper sets BASE_HEAD to HEAD; accepted until script-fix cycle is authorized.
 
 ## Next Steps
-- None for this micro-cycle; awaiting authorization for any further actions.
+- Await authorization for backend wiring (Phase 7.4).
