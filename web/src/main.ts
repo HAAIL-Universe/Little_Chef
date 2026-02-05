@@ -190,27 +190,19 @@ async function doPost(path: string, body: any) {
   return { status: res.status, json: await res.json().catch(() => null) };
 }
 
-async function sendChat(body: any) {
-  const resp = await doPost("/chat", body);
-  handleChatResponse(resp);
-  if (resp.json?.thread_id) {
-    duetState.threadId = resp.json.thread_id;
-    updateThreadLabel();
-  }
-  return resp;
-}
-
-function handleChatResponse(resp: { status: number; json: any }) {
+function shellOnlyDuetReply(userText: string) {
+  const thread = duetState.threadId ?? "shell-local";
+  duetState.threadId = thread;
+  updateThreadLabel();
+  const replyText = "(Shell) Phase 7.1: backend wiring lands in Phase 7.4.";
+  const resp = { status: 200, json: { reply_text: replyText, confirmation_required: false, thread_id: thread } };
   state.chatReply = resp;
   setText("chat-reply", resp);
-  if (resp.json?.confirmation_required && resp.json?.proposal_id) {
-    state.proposalId = resp.json.proposal_id;
-    state.proposedActions = resp.json.proposed_actions || [];
-    renderProposal();
-  }
-  if (resp.status >= 400) {
-    setChatError(`Chat failed (${resp.status}): ${resp.json?.message || "error"}`);
-  }
+  addHistory("assistant", replyText);
+  renderDuetHistory();
+  updateDuetBubbles();
+  setDuetStatus("Shell-only: local echo shown; backend wiring arrives in Phase 7.4.");
+  return resp;
 }
 
 function wire() {
@@ -226,10 +218,11 @@ function wire() {
     const msg = (document.getElementById("chat-input") as HTMLTextAreaElement).value;
     clearProposal();
     setChatError("");
-    try {
-      const resp = await sendChat({ mode: "ask", message: msg, include_user_library: true });
-    } catch (e: any) {
-      setChatError(`Chat error: ${e?.message || e}`);
+    if (msg?.trim()) {
+      addHistory("user", msg.trim());
+      shellOnlyDuetReply(msg.trim());
+    } else {
+      setChatError("Shell-only: enter a message to preview duet shell response.");
     }
   });
 
@@ -268,22 +261,18 @@ function wire() {
   document.getElementById("btn-confirm")?.addEventListener("click", async () => {
     if (!state.proposalId) return;
     setChatError("");
-    const resp = await doPost("/chat/confirm", { proposal_id: state.proposalId, confirm: true });
-    setText("chat-reply", resp);
-    if (resp.status >= 400) {
-      setChatError(`Confirm failed (${resp.status}): ${resp.json?.message || ""}`);
-    }
+    setChatError("Shell-only: confirmations land in Phase 7.4.");
+    setDuetStatus("Shell-only: confirmations deferred to Phase 7.4.");
+    setText("chat-reply", { status: 0, json: { message: "Shell-only confirmation stub (Phase 7.4 wires backend)" } });
     clearProposal();
   });
 
   document.getElementById("btn-cancel")?.addEventListener("click", async () => {
     if (!state.proposalId) return;
     setChatError("");
-    const resp = await doPost("/chat/confirm", { proposal_id: state.proposalId, confirm: false });
-    setText("chat-reply", resp);
-    if (resp.status >= 400) {
-      setChatError(`Cancel failed (${resp.status}): ${resp.json?.message || ""}`);
-    }
+    setChatError("Shell-only: decline stubbed until Phase 7.4.");
+    setDuetStatus("Shell-only: confirmations deferred to Phase 7.4.");
+    setText("chat-reply", { status: 0, json: { message: "Shell-only decline stub (Phase 7.4 wires backend)" } });
     clearProposal();
   });
 
@@ -307,34 +296,17 @@ function wireDuetComposer() {
     sendBtn.disabled = input.value.trim().length === 0;
   };
 
-  const send = async () => {
+  const send = () => {
     const text = input.value.trim();
     if (!text) return;
     clearProposal();
     setChatError("");
     addHistory("user", text);
-    setDuetStatus("Sending…");
+    setDuetStatus("Shell-only: preparing local reply…");
     syncButtons();
-    try {
-      const payload: Record<string, any> = { mode: "ask", message: text, include_user_library: true };
-      if (duetState.threadId) payload.thread_id = duetState.threadId;
-      const resp = await sendChat(payload);
-      input.value = "";
-      syncButtons();
-      const replyText = resp.json?.reply_text || resp.json?.message;
-      if (replyText) addHistory("assistant", replyText);
-      renderDuetHistory();
-      updateDuetBubbles();
-      if (resp.status >= 400) {
-        setDuetStatus(`Error ${resp.status}: ${resp.json?.message || "chat failed"}`, true);
-      } else if (resp.json?.confirmation_required) {
-        setDuetStatus("Proposal pending: confirm or decline.", false);
-      } else {
-        setDuetStatus("Reply received.");
-      }
-    } catch (e: any) {
-      setDuetStatus(`Send failed: ${e?.message || e}`, true);
-    }
+    shellOnlyDuetReply(text);
+    input.value = "";
+    syncButtons();
   };
 
   input.addEventListener("input", syncButtons);

@@ -184,28 +184,20 @@ async function doPost(path, body) {
     const res = await fetch(path, { method: "POST", headers: headers(), body: JSON.stringify(body) });
     return { status: res.status, json: await res.json().catch(() => null) };
 }
-async function sendChat(body) {
+function shellOnlyDuetReply(userText) {
     var _a;
-    const resp = await doPost("/chat", body);
-    handleChatResponse(resp);
-    if ((_a = resp.json) === null || _a === void 0 ? void 0 : _a.thread_id) {
-        duetState.threadId = resp.json.thread_id;
-        updateThreadLabel();
-    }
-    return resp;
-}
-function handleChatResponse(resp) {
-    var _a, _b, _c;
+    const thread = (_a = duetState.threadId) !== null && _a !== void 0 ? _a : "shell-local";
+    duetState.threadId = thread;
+    updateThreadLabel();
+    const replyText = "(Shell) Phase 7.1: backend wiring lands in Phase 7.4.";
+    const resp = { status: 200, json: { reply_text: replyText, confirmation_required: false, thread_id: thread } };
     state.chatReply = resp;
     setText("chat-reply", resp);
-    if (((_a = resp.json) === null || _a === void 0 ? void 0 : _a.confirmation_required) && ((_b = resp.json) === null || _b === void 0 ? void 0 : _b.proposal_id)) {
-        state.proposalId = resp.json.proposal_id;
-        state.proposedActions = resp.json.proposed_actions || [];
-        renderProposal();
-    }
-    if (resp.status >= 400) {
-        setChatError(`Chat failed (${resp.status}): ${((_c = resp.json) === null || _c === void 0 ? void 0 : _c.message) || "error"}`);
-    }
+    addHistory("assistant", replyText);
+    renderDuetHistory();
+    updateDuetBubbles();
+    setDuetStatus("Shell-only: local echo shown; backend wiring arrives in Phase 7.4.");
+    return resp;
 }
 function wire() {
     var _a, _b, _c, _d, _e, _f, _g, _h;
@@ -220,11 +212,12 @@ function wire() {
         const msg = document.getElementById("chat-input").value;
         clearProposal();
         setChatError("");
-        try {
-            const resp = await sendChat({ mode: "ask", message: msg, include_user_library: true });
+        if (msg === null || msg === void 0 ? void 0 : msg.trim()) {
+            addHistory("user", msg.trim());
+            shellOnlyDuetReply(msg.trim());
         }
-        catch (e) {
-            setChatError(`Chat error: ${(e === null || e === void 0 ? void 0 : e.message) || e}`);
+        else {
+            setChatError("Shell-only: enter a message to preview duet shell response.");
         }
     });
     (_c = document.getElementById("btn-prefs-get")) === null || _c === void 0 ? void 0 : _c.addEventListener("click", async () => {
@@ -256,27 +249,21 @@ function wire() {
         setText("shopping-out", resp);
     });
     (_g = document.getElementById("btn-confirm")) === null || _g === void 0 ? void 0 : _g.addEventListener("click", async () => {
-        var _a;
         if (!state.proposalId)
             return;
         setChatError("");
-        const resp = await doPost("/chat/confirm", { proposal_id: state.proposalId, confirm: true });
-        setText("chat-reply", resp);
-        if (resp.status >= 400) {
-            setChatError(`Confirm failed (${resp.status}): ${((_a = resp.json) === null || _a === void 0 ? void 0 : _a.message) || ""}`);
-        }
+        setChatError("Shell-only: confirmations land in Phase 7.4.");
+        setDuetStatus("Shell-only: confirmations deferred to Phase 7.4.");
+        setText("chat-reply", { status: 0, json: { message: "Shell-only confirmation stub (Phase 7.4 wires backend)" } });
         clearProposal();
     });
     (_h = document.getElementById("btn-cancel")) === null || _h === void 0 ? void 0 : _h.addEventListener("click", async () => {
-        var _a;
         if (!state.proposalId)
             return;
         setChatError("");
-        const resp = await doPost("/chat/confirm", { proposal_id: state.proposalId, confirm: false });
-        setText("chat-reply", resp);
-        if (resp.status >= 400) {
-            setChatError(`Cancel failed (${resp.status}): ${((_a = resp.json) === null || _a === void 0 ? void 0 : _a.message) || ""}`);
-        }
+        setChatError("Shell-only: decline stubbed until Phase 7.4.");
+        setDuetStatus("Shell-only: confirmations deferred to Phase 7.4.");
+        setText("chat-reply", { status: 0, json: { message: "Shell-only decline stub (Phase 7.4 wires backend)" } });
         clearProposal();
     });
     wireDuetComposer();
@@ -296,41 +283,18 @@ function wireDuetComposer() {
     const syncButtons = () => {
         sendBtn.disabled = input.value.trim().length === 0;
     };
-    const send = async () => {
-        var _a, _b, _c, _d;
+    const send = () => {
         const text = input.value.trim();
         if (!text)
             return;
         clearProposal();
         setChatError("");
         addHistory("user", text);
-        setDuetStatus("Sending…");
+        setDuetStatus("Shell-only: preparing local reply…");
         syncButtons();
-        try {
-            const payload = { mode: "ask", message: text, include_user_library: true };
-            if (duetState.threadId)
-                payload.thread_id = duetState.threadId;
-            const resp = await sendChat(payload);
-            input.value = "";
-            syncButtons();
-            const replyText = ((_a = resp.json) === null || _a === void 0 ? void 0 : _a.reply_text) || ((_b = resp.json) === null || _b === void 0 ? void 0 : _b.message);
-            if (replyText)
-                addHistory("assistant", replyText);
-            renderDuetHistory();
-            updateDuetBubbles();
-            if (resp.status >= 400) {
-                setDuetStatus(`Error ${resp.status}: ${((_c = resp.json) === null || _c === void 0 ? void 0 : _c.message) || "chat failed"}`, true);
-            }
-            else if ((_d = resp.json) === null || _d === void 0 ? void 0 : _d.confirmation_required) {
-                setDuetStatus("Proposal pending: confirm or decline.", false);
-            }
-            else {
-                setDuetStatus("Reply received.");
-            }
-        }
-        catch (e) {
-            setDuetStatus(`Send failed: ${(e === null || e === void 0 ? void 0 : e.message) || e}`, true);
-        }
+        shellOnlyDuetReply(text);
+        input.value = "";
+        syncButtons();
     };
     input.addEventListener("input", syncButtons);
     sendBtn.addEventListener("click", send);

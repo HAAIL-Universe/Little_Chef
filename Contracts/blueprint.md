@@ -230,6 +230,7 @@ Target folders (to keep things findable/auditable):
 - `app/config/` (env/settings)
 - `db/` (schema/migrations)
 - `web/` (vanilla TS UI)
+- TS-only applies to authored source under `web/src/` (no `.js` sources). If the repo tracks `web/dist/*`, those files are generated build outputs and may include `.js/.css/.html` artifacts that can be committed.
 - `Contracts/physics.yaml` (canonical API contract; OpenAPI format)
 - `Contracts/ui_style.md` (authoritative UI look/feel for v0.1)
 

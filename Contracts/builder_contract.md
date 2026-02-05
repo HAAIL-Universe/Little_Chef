@@ -194,6 +194,7 @@ The builder must:
 
 ### 9.3 Drift guardrails (UI/TS + evidence discipline)
 - UI work must remain TypeScript-only (no new `.js` sources); mobile-first per `Contracts/ui_style.md`.
+- “TS-only” applies to authored source under `web/src/` (no `.js` sources there). If the repo tracks `web/dist/*`, those files are generated build outputs and may include `.js/.css/.html` artifacts that can be committed.
 - Physics-first: no new routes without updating `Contracts/physics.yaml` first.
 - Minimal diffs per cycle; no refactors unless the contract forces it.
 - Every cycle overwrites `evidence/updatedifflog.md` with verification: static → runtime → behavior → contract.
