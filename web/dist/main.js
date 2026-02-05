@@ -9,9 +9,9 @@ const state = {
 };
 const flowOptions = [
     { key: "general", label: "General", placeholder: "Ask or fill..." },
-    { key: "inventory", label: "Inventory", placeholder: "Ask about inventory, stock, or adjustments…" },
-    { key: "mealplan", label: "Meal Plan", placeholder: "Plan meals or ask for ideas…" },
-    { key: "prefs", label: "Preferences", placeholder: "Update dislikes, allergies, or servings…" },
+    { key: "inventory", label: "Inventory", placeholder: "Ask about inventory, stock, or adjustments..." },
+    { key: "mealplan", label: "Meal Plan", placeholder: "Plan meals or ask for ideas..." },
+    { key: "prefs", label: "Preferences", placeholder: "Update dislikes, allergies, or servings..." },
 ];
 const duetState = {
     threadId: null,
@@ -23,6 +23,12 @@ let historyOverlay = null;
 let historyToggle = null;
 let currentFlowKey = flowOptions[0].key;
 let composerBusy = false;
+let inventoryOverlay = null;
+let inventoryStatusEl = null;
+let inventoryLowList = null;
+let inventorySummaryList = null;
+let inventoryLoading = false;
+let inventoryHasLoaded = false;
 function headers() {
     var _a;
     const h = { "Content-Type": "application/json" };
@@ -47,6 +53,73 @@ function hide(id) {
 function show(id) {
     var _a;
     (_a = document.getElementById(id)) === null || _a === void 0 ? void 0 : _a.classList.remove("hidden");
+}
+function moveGroupIntoDevPanel(ids, panel, moved) {
+    const scopes = ["section", "fieldset", ".panel", ".card", ".debug", "div"];
+    let target = null;
+    for (const id of ids) {
+        const el = document.getElementById(id);
+        if (!el)
+            continue;
+        for (const scope of scopes) {
+            const candidate = el.closest(scope);
+            if (!candidate)
+                continue;
+            const tag = candidate.tagName.toLowerCase();
+            if (tag === "body" || tag === "main")
+                continue;
+            if (candidate.id === "duet-shell")
+                continue;
+            target = candidate;
+            break;
+        }
+        if (target)
+            break;
+    }
+    if (target) {
+        if (!moved.has(target)) {
+            moved.add(target);
+            panel.appendChild(target);
+        }
+        return;
+    }
+    const wrapper = document.createElement("div");
+    wrapper.className = "dev-panel-group";
+    ids.forEach((id) => {
+        const el = document.getElementById(id);
+        if (el) {
+            wrapper.appendChild(el);
+        }
+    });
+    if (wrapper.childElementCount) {
+        panel.appendChild(wrapper);
+    }
+}
+function setupDevPanel() {
+    const shell = document.getElementById("duet-shell");
+    const host = shell || document.querySelector("main.container");
+    if (!host || document.getElementById("dev-panel"))
+        return;
+    const panel = document.createElement("details");
+    panel.id = "dev-panel";
+    panel.className = "dev-panel";
+    panel.open = false;
+    const summary = document.createElement("summary");
+    summary.textContent = "Dev Panel";
+    panel.appendChild(summary);
+    const content = document.createElement("div");
+    content.className = "dev-panel-content";
+    panel.appendChild(content);
+    host.appendChild(panel);
+    const moved = new Set();
+    const groups = [
+        ["btn-auth", "jwt", "auth-out"],
+        ["btn-chat", "chat-input", "chat-reply", "chat-error", "chat-proposal"],
+        ["btn-prefs-get", "btn-prefs-put", "prefs-servings", "prefs-meals", "prefs-out"],
+        ["btn-plan-gen", "plan-out"],
+        ["btn-shopping", "shopping-out"],
+    ];
+    groups.forEach((ids) => moveGroupIntoDevPanel(ids, content, moved));
 }
 function renderProposal() {
     const container = document.getElementById("chat-proposal");
@@ -102,7 +175,7 @@ function updateThreadLabel() {
     const label = document.getElementById("duet-thread-label");
     if (!label)
         return;
-    label.textContent = `Thread: ${(_a = duetState.threadId) !== null && _a !== void 0 ? _a : "—"}`;
+    label.textContent = `Thread: ${(_a = duetState.threadId) !== null && _a !== void 0 ? _a : "-"}`;
 }
 function syncHistoryUi() {
     const open = duetState.drawerOpen;
@@ -142,7 +215,7 @@ function updateDuetBubbles() {
     const lastAssistant = [...duetState.history].reverse().find((h) => h.role === "assistant");
     const lastUser = [...duetState.history].reverse().find((h) => h.role === "user");
     if (assistant)
-        assistant.textContent = (_a = lastAssistant === null || lastAssistant === void 0 ? void 0 : lastAssistant.text) !== null && _a !== void 0 ? _a : "Hi — how can I help?";
+        assistant.textContent = (_a = lastAssistant === null || lastAssistant === void 0 ? void 0 : lastAssistant.text) !== null && _a !== void 0 ? _a : "Hi - how can I help?";
     if (user)
         user.textContent = (_b = lastUser === null || lastUser === void 0 ? void 0 : lastUser.text) !== null && _b !== void 0 ? _b : "Tap mic or type to start";
 }
@@ -263,6 +336,147 @@ function wireHistoryHotkeys() {
         }
     });
 }
+function formatQuantity(quantity, unit, approx) {
+    const safe = Number.isFinite(quantity) ? quantity : 0;
+    const rounded = Math.abs(safe) >= 10 ? safe.toFixed(1) : safe.toString();
+    const trimmed = rounded.replace(/\.0+$/, "").replace(/(\.\d*[1-9])0+$/, "$1");
+    const prefix = approx ? "~" : "";
+    return `${prefix}${trimmed} ${unit}`;
+}
+function setInventoryStatus(text) {
+    if (inventoryStatusEl) {
+        inventoryStatusEl.textContent = text;
+    }
+}
+function renderInventoryLists(low, summary) {
+    const lowList = inventoryLowList;
+    if (lowList) {
+        lowList.innerHTML = "";
+        if (!low || !low.length) {
+            const li = document.createElement("li");
+            li.className = "inventory-empty";
+            li.textContent = "No low stock items.";
+            lowList.appendChild(li);
+        }
+        else {
+            low.forEach((item) => {
+                const li = document.createElement("li");
+                const reason = item.reason ? ` - ${item.reason}` : "";
+                li.textContent = `${item.item_name} - ${formatQuantity(item.quantity, item.unit)} (threshold ${item.threshold})${reason}`;
+                lowList.appendChild(li);
+            });
+        }
+    }
+    const summaryList = inventorySummaryList;
+    if (summaryList) {
+        summaryList.innerHTML = "";
+        if (!summary || !summary.length) {
+            const li = document.createElement("li");
+            li.className = "inventory-empty";
+            li.textContent = "No items.";
+            summaryList.appendChild(li);
+        }
+        else {
+            summary.forEach((item) => {
+                const li = document.createElement("li");
+                li.textContent = `${item.item_name} - ${formatQuantity(item.quantity, item.unit, item.approx)}`;
+                summaryList.appendChild(li);
+            });
+        }
+    }
+}
+async function refreshInventoryOverlay(force = false) {
+    var _a, _b;
+    if (!inventoryOverlay)
+        return;
+    if (inventoryLoading && !force)
+        return;
+    inventoryLoading = true;
+    setInventoryStatus("Loading...");
+    try {
+        const [summaryResp, lowResp] = await Promise.all([doGet("/inventory/summary"), doGet("/inventory/low-stock")]);
+        if (summaryResp.status === 401 || lowResp.status === 401) {
+            setInventoryStatus("Unauthorized (set token in Dev Panel)");
+            renderInventoryLists([], []);
+            inventoryHasLoaded = true;
+            return;
+        }
+        const summaryItems = Array.isArray((_a = summaryResp.json) === null || _a === void 0 ? void 0 : _a.items) ? summaryResp.json.items : [];
+        const lowItems = Array.isArray((_b = lowResp.json) === null || _b === void 0 ? void 0 : _b.items) ? lowResp.json.items : [];
+        renderInventoryLists(lowItems, summaryItems);
+        const hasAny = lowItems.length > 0 || summaryItems.length > 0;
+        setInventoryStatus(hasAny ? "Read-only snapshot" : "No items yet.");
+        inventoryHasLoaded = true;
+    }
+    catch (err) {
+        setInventoryStatus("Network error. Try refresh.");
+        renderInventoryLists([], []);
+        console.error(err);
+    }
+    finally {
+        inventoryLoading = false;
+    }
+}
+function updateInventoryOverlayVisibility() {
+    if (!inventoryOverlay)
+        return;
+    const visible = currentFlowKey === "inventory";
+    inventoryOverlay.classList.toggle("hidden", !visible);
+    if (visible && (!inventoryHasLoaded || !(inventoryLowList === null || inventoryLowList === void 0 ? void 0 : inventoryLowList.childElementCount))) {
+        refreshInventoryOverlay();
+    }
+}
+function setupInventoryGhostOverlay() {
+    const shell = document.getElementById("duet-shell");
+    const stage = shell === null || shell === void 0 ? void 0 : shell.querySelector(".duet-stage");
+    if (!shell || !stage || document.getElementById("inventory-ghost"))
+        return;
+    const overlay = document.createElement("div");
+    overlay.id = "inventory-ghost";
+    overlay.className = "inventory-ghost hidden";
+    const header = document.createElement("div");
+    header.className = "inventory-ghost-header";
+    const title = document.createElement("span");
+    title.textContent = "Inventory";
+    const refresh = document.createElement("button");
+    refresh.type = "button";
+    refresh.className = "ghost-refresh";
+    refresh.textContent = "Refresh";
+    refresh.addEventListener("click", () => refreshInventoryOverlay(true));
+    header.appendChild(title);
+    header.appendChild(refresh);
+    const status = document.createElement("div");
+    status.id = "inventory-ghost-status";
+    status.className = "inventory-ghost-status";
+    status.textContent = "Select Inventory to load.";
+    const lowSection = document.createElement("div");
+    lowSection.className = "inventory-ghost-section";
+    const lowTitle = document.createElement("div");
+    lowTitle.className = "inventory-ghost-title";
+    lowTitle.textContent = "Low stock";
+    const lowList = document.createElement("ul");
+    lowList.id = "inventory-low-list";
+    lowSection.appendChild(lowTitle);
+    lowSection.appendChild(lowList);
+    const summarySection = document.createElement("div");
+    summarySection.className = "inventory-ghost-section";
+    const summaryTitle = document.createElement("div");
+    summaryTitle.className = "inventory-ghost-title";
+    summaryTitle.textContent = "In stock";
+    const summaryList = document.createElement("ul");
+    summaryList.id = "inventory-summary-list";
+    summarySection.appendChild(summaryTitle);
+    summarySection.appendChild(summaryList);
+    overlay.appendChild(header);
+    overlay.appendChild(status);
+    overlay.appendChild(lowSection);
+    overlay.appendChild(summarySection);
+    stage.appendChild(overlay);
+    inventoryOverlay = overlay;
+    inventoryStatusEl = status;
+    inventoryLowList = lowList;
+    inventorySummaryList = summaryList;
+}
 async function doGet(path) {
     const res = await fetch(path, { headers: headers() });
     return { status: res.status, json: await res.json().catch(() => null) };
@@ -290,8 +504,8 @@ async function sendAsk(message, opts) {
     const flowLabel = opts === null || opts === void 0 ? void 0 : opts.flowLabel;
     const displayText = flowLabel ? `[${flowLabel}] ${message}` : message;
     const userIndex = addHistory("user", displayText);
-    const thinkingIndex = addHistory("assistant", "…");
-    setDuetStatus("Contacting backend…");
+    const thinkingIndex = addHistory("assistant", "...");
+    setDuetStatus("Contacting backend...");
     setComposerBusy(true);
     try {
         const res = await fetch("/chat", {
@@ -342,6 +556,10 @@ function wire() {
         clearProposal();
         const result = await doGet("/auth/me");
         setText("auth-out", result);
+        inventoryHasLoaded = false;
+        if (currentFlowKey === "inventory") {
+            refreshInventoryOverlay(true);
+        }
     });
     (_b = document.getElementById("btn-chat")) === null || _b === void 0 ? void 0 : _b.addEventListener("click", async () => {
         var _a;
@@ -403,10 +621,13 @@ function wire() {
         clearProposal();
     });
     setupFlowChips();
+    setupInventoryGhostOverlay();
+    setupDevPanel();
     wireDuetComposer();
     setupHistoryDrawerUi();
     wireHistoryHotkeys();
     wireDuetDrag();
+    updateInventoryOverlayVisibility();
     applyDrawerProgress(duetState.drawerOpen ? 1 : 0, { commit: true });
     renderDuetHistory();
     updateDuetBubbles();
@@ -430,7 +651,7 @@ function wireDuetComposer() {
         clearProposal();
         setChatError("");
         const flow = (_a = flowOptions.find((f) => f.key === currentFlowKey)) !== null && _a !== void 0 ? _a : flowOptions[0];
-        setDuetStatus("Sending to backend…");
+        setDuetStatus("Sending to backend...");
         syncButtons();
         sendAsk(text, { flowLabel: flow.label });
         input.value = "";
@@ -494,4 +715,8 @@ function selectFlow(key) {
         chip.setAttribute("aria-pressed", active ? "true" : "false");
     });
     setComposerPlaceholder();
+    updateInventoryOverlayVisibility();
+    if (currentFlowKey === "inventory") {
+        refreshInventoryOverlay(true);
+    }
 }
