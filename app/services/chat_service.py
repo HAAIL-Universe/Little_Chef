@@ -14,7 +14,7 @@ from app.schemas import (
 from app.services.prefs_service import PrefsService
 from app.services.proposal_store import ProposalStore
 from app.services.inventory_service import InventoryService
-from app.services.llm_client import LlmClient, set_runtime_enabled, set_runtime_model
+from app.services.llm_client import LlmClient, set_runtime_enabled
 
 
 class ChatService:
@@ -46,17 +46,13 @@ class ChatService:
         if message.startswith("/llm"):
             parts = message.split()
             action = parts[1] if len(parts) > 1 else ""
-            reply = "LLM status: use /llm on, /llm off, or /llm model <name>."
+            reply = "LLM status: use /llm on or /llm off. Model is taken from OPENAI_MODEL env."
             if action in {"on", "enable"}:
                 set_runtime_enabled(True)
-                reply = "LLM enabled (requires OPENAI_MODEL=gpt-5*-mini or gpt-5*-nano)."
+                reply = "LLM enabled (model from OPENAI_MODEL env)."
             elif action in {"off", "disable"}:
                 set_runtime_enabled(False)
                 reply = "LLM disabled for this session."
-            elif action == "model" and len(parts) > 2:
-                model_name = parts[2]
-                set_runtime_model(model_name)
-                reply = f"LLM model set to {model_name} for this session."
             return ChatResponse(
                 reply_text=reply,
                 confirmation_required=False,
