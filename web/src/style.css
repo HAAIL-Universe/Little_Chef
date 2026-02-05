@@ -44,10 +44,10 @@ main.container {
   max-height: 100dvh;
   margin: 0 auto;
   padding: 16px;
-  display: grid;
+  display: flex;
+  flex-direction: column;
   gap: 14px;
   min-width: 0;
-  align-content: start;
   overflow: hidden;
 }
 
@@ -217,9 +217,10 @@ pre {
   flex-direction: column;
   gap: 12px;
   position: relative;
-  overflow: hidden;
+  overflow: visible;
   flex: 1 1 auto;
-  min-height: min(60vh, 100%);
+  min-height: 0;
+  height: 100%;
   min-width: 0;
 }
 
@@ -229,6 +230,8 @@ pre {
   display: flex;
   justify-content: flex-start;
   align-items: center;
+  flex: 0 0 auto;
+  z-index: 120;
 }
 
 .flow-menu-btn {
@@ -264,6 +267,8 @@ pre {
   position: absolute;
   top: calc(100% + 6px);
   left: 0;
+  right: auto;
+  bottom: auto;
   background: var(--card-strong);
   border: 1px solid var(--glass-border);
   border-radius: 12px;
@@ -274,9 +279,9 @@ pre {
   min-width: 180px;
   opacity: 0;
   pointer-events: none;
-  transform: translateY(-4px);
-  transition: opacity 140ms ease, transform 140ms ease;
-  z-index: 60;
+  transform: translateY(0);
+  transition: opacity 140ms ease;
+  z-index: 80;
 }
 
 .flow-menu-dropdown.open {
@@ -306,14 +311,19 @@ pre {
   background: rgba(255, 255, 255, 0.1);
 }
 
+#flow-menu-trigger {
+  flex: 0 0 auto;
+}
+
 .duet-stage {
   position: relative;
   flex: 1 1 auto;
-  min-height: min(240px, 100%);
+  min-height: 0;
   border-radius: 14px;
   background: linear-gradient(145deg, rgba(255, 255, 255, 0.05), rgba(127, 164, 255, 0.08));
   border: 1px solid var(--glass-border);
-  overflow: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
   min-width: 0;
   width: 100%;
 }
@@ -328,8 +338,12 @@ pre {
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
   padding: 12px;
-  display: grid;
-  gap: 10px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: calc(100% - 0px);
+  gap: 14px;
   z-index: 25;
   max-width: calc(100% - 20px);
   max-height: calc(100% - 20px);
@@ -347,11 +361,13 @@ pre {
   gap: 8px;
   font-weight: 700;
   letter-spacing: 0.02em;
+  width: min(520px, 100%);
 }
 
 .inventory-ghost-status {
   font-size: 13px;
   opacity: 0.85;
+  width: min(520px, 100%);
 }
 
 .inventory-ghost-section {
@@ -360,6 +376,7 @@ pre {
   border-radius: 10px;
   padding: 8px 10px;
   min-width: 0;
+  width: min(520px, 100%);
 }
 
 .inventory-ghost-title {
@@ -473,8 +490,12 @@ pre {
 
 .duet-history {
   --drawer-progress: 0;
+  --history-closed-offset: 200%;
   position: absolute;
-  inset: 12px;
+  left: 12px;
+  right: 12px;
+  top: auto;
+  bottom: 12px;
   padding: 12px;
   background: var(--card-strong);
   border: 1px solid var(--glass-border);
@@ -485,7 +506,7 @@ pre {
   grid-template-rows: auto 1fr auto;
   min-height: 0;
   z-index: 40;
-  transform: translateY(calc(55% * (1 - var(--drawer-progress))));
+  transform: translateY(calc((1 - var(--drawer-progress)) * var(--history-closed-offset)));
   opacity: calc(0.25 + 0.75 * var(--drawer-progress));
   pointer-events: none;
   transition: transform 140ms ease, opacity 140ms ease;
@@ -549,6 +570,7 @@ pre {
 }
 
 .duet-composer {
+  flex: 0 0 auto;
   display: grid;
   grid-template-columns: auto 1fr auto;
   gap: 8px;
@@ -596,6 +618,19 @@ pre {
 
 .duet-status.error {
   color: #ffb3b3;
+}
+
+.duet-dock {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: auto;
+  width: 100%;
+  overflow: visible;
+}
+
+.dev-panel.hidden {
+  display: none;
 }
 
 @media (min-width: 768px) {

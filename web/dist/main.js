@@ -28,6 +28,7 @@ let flowMenuDropdown = null;
 let flowMenuButton = null;
 let flowMenuOpen = false;
 let flowMenuListenersBound = false;
+let devPanelVisible = false;
 let inventoryOverlay = null;
 let inventoryStatusEl = null;
 let inventoryLowList = null;
@@ -115,6 +116,7 @@ function setupDevPanel() {
     const content = document.createElement("div");
     content.className = "dev-panel-content";
     panel.appendChild(content);
+    panel.classList.add("hidden");
     host.appendChild(panel);
     const moved = new Set();
     const groups = [
@@ -192,6 +194,9 @@ function setFlowMenuOpen(open) {
     if (flowMenuDropdown) {
         flowMenuDropdown.style.display = open ? "grid" : "none";
         flowMenuDropdown.classList.toggle("open", open);
+        if (open) {
+            positionFlowMenuDropdown();
+        }
     }
     flowMenuButton === null || flowMenuButton === void 0 ? void 0 : flowMenuButton.setAttribute("aria-expanded", open ? "true" : "false");
 }
@@ -213,6 +218,16 @@ function renderFlowMenu() {
         });
         dropdown.appendChild(item);
     });
+    const devItem = document.createElement("button");
+    devItem.type = "button";
+    devItem.className = "flow-menu-item";
+    devItem.textContent = "Dev Panel";
+    devItem.setAttribute("role", "menuitem");
+    devItem.addEventListener("click", () => {
+        toggleDevPanel();
+        setFlowMenuOpen(false);
+    });
+    dropdown.appendChild(devItem);
     const currentLabel = flowDisplayLabel(currentFlowKey);
     trigger.innerHTML = "";
     const title = document.createElement("span");
@@ -223,6 +238,14 @@ function renderFlowMenu() {
     trigger.appendChild(title);
     trigger.appendChild(mode);
     trigger.setAttribute("aria-label", `Options (current: ${currentLabel})`);
+}
+function toggleDevPanel() {
+    const panel = document.getElementById("dev-panel");
+    if (!panel)
+        return;
+    devPanelVisible = !devPanelVisible;
+    panel.classList.toggle("hidden", !devPanelVisible);
+    panel.open = devPanelVisible;
 }
 function updateThreadLabel() {
     var _a;
@@ -274,21 +297,25 @@ function updateDuetBubbles() {
         user.textContent = (_b = lastUser === null || lastUser === void 0 ? void 0 : lastUser.text) !== null && _b !== void 0 ? _b : "Tap mic or type to start";
 }
 function applyDrawerProgress(progress, opts) {
+    var _a;
     const history = document.getElementById("duet-history");
     const userBubble = document.getElementById("duet-user-bubble");
     if (!history || !userBubble)
         return;
+    ensureHistoryClosedOffset(history);
     const clamped = Math.max(0, Math.min(1, progress));
     duetState.drawerProgress = clamped;
     history.style.setProperty("--drawer-progress", clamped.toString());
+    const shouldShow = ((_a = opts === null || opts === void 0 ? void 0 : opts.dragging) !== null && _a !== void 0 ? _a : false) || clamped > 0;
+    history.style.display = shouldShow ? "grid" : "none";
+    history.style.pointerEvents = shouldShow ? "auto" : "none";
     history.classList.toggle("dragging", !!(opts === null || opts === void 0 ? void 0 : opts.dragging));
     if (opts === null || opts === void 0 ? void 0 : opts.commit) {
         duetState.drawerOpen = clamped > 0.35;
         history.classList.toggle("open", duetState.drawerOpen);
         syncHistoryUi();
     }
-    const offset = clamped * 70;
-    userBubble.style.transform = `translateY(-${offset}px)`;
+    userBubble.style.transform = "";
 }
 function wireDuetDrag() {
     const userBubble = document.getElementById("duet-user-bubble");
@@ -332,6 +359,22 @@ function wireDuetDrag() {
 }
 function setDrawerOpen(open) {
     applyDrawerProgress(open ? 1 : 0, { commit: true });
+}
+function ensureHistoryClosedOffset(historyEl) {
+    var _a;
+    const stage = document.querySelector(".duet-stage");
+    const stageHeight = (_a = stage === null || stage === void 0 ? void 0 : stage.offsetHeight) !== null && _a !== void 0 ? _a : 0;
+    const historyHeight = historyEl.offsetHeight || 0;
+    const offset = Math.max(historyHeight, stageHeight) + 200; // larger buffer to force fully off-screen
+    historyEl.style.setProperty("--history-closed-offset", `${offset}px`);
+}
+function bindResizeForHistoryOffset() {
+    const history = document.getElementById("duet-history");
+    if (!history)
+        return;
+    const recalc = () => ensureHistoryClosedOffset(history);
+    window.addEventListener("resize", recalc);
+    recalc();
 }
 function addHistory(role, text) {
     duetState.history.push({ role, text });
@@ -488,6 +531,16 @@ function setupInventoryGhostOverlay() {
     const overlay = document.createElement("div");
     overlay.id = "inventory-ghost";
     overlay.className = "inventory-ghost hidden";
+    overlay.style.flexDirection = "column";
+    overlay.style.justifyContent = "center";
+    overlay.style.alignItems = "center";
+    overlay.style.gap = "14px";
+    const content = document.createElement("div");
+    content.style.display = "grid";
+    content.style.gap = "12px";
+    content.style.width = "100%";
+    content.style.maxWidth = "520px";
+    content.style.margin = "0 auto";
     const header = document.createElement("div");
     header.className = "inventory-ghost-header";
     const title = document.createElement("span");
@@ -505,6 +558,7 @@ function setupInventoryGhostOverlay() {
     status.textContent = "Select Inventory to load.";
     const lowSection = document.createElement("div");
     lowSection.className = "inventory-ghost-section";
+    lowSection.style.width = "100%";
     const lowTitle = document.createElement("div");
     lowTitle.className = "inventory-ghost-title";
     lowTitle.textContent = "Low stock";
@@ -514,6 +568,7 @@ function setupInventoryGhostOverlay() {
     lowSection.appendChild(lowList);
     const summarySection = document.createElement("div");
     summarySection.className = "inventory-ghost-section";
+    summarySection.style.width = "100%";
     const summaryTitle = document.createElement("div");
     summaryTitle.className = "inventory-ghost-title";
     summaryTitle.textContent = "In stock";
@@ -521,10 +576,11 @@ function setupInventoryGhostOverlay() {
     summaryList.id = "inventory-summary-list";
     summarySection.appendChild(summaryTitle);
     summarySection.appendChild(summaryList);
-    overlay.appendChild(header);
-    overlay.appendChild(status);
-    overlay.appendChild(lowSection);
-    overlay.appendChild(summarySection);
+    content.appendChild(header);
+    content.appendChild(status);
+    content.appendChild(lowSection);
+    content.appendChild(summarySection);
+    overlay.appendChild(content);
     stage.appendChild(overlay);
     inventoryOverlay = overlay;
     inventoryStatusEl = status;
@@ -676,17 +732,19 @@ function wire() {
         clearProposal();
     });
     setupFlowChips();
+    setupDock();
+    bindResizeForHistoryOffset();
     setupInventoryGhostOverlay();
     setupDevPanel();
     wireDuetComposer();
     setupHistoryDrawerUi();
     wireHistoryHotkeys();
-    wireDuetDrag();
     updateInventoryOverlayVisibility();
     applyDrawerProgress(duetState.drawerOpen ? 1 : 0, { commit: true });
     renderDuetHistory();
     updateDuetBubbles();
     updateThreadLabel();
+    applyDrawerProgress(0, { commit: true });
 }
 document.addEventListener("DOMContentLoaded", wire);
 function wireDuetComposer() {
@@ -735,7 +793,6 @@ function setupFlowChips() {
         flowMenuContainer = document.createElement("div");
         flowMenuContainer.id = "flow-chips";
         flowMenuContainer.className = "flow-menu";
-        shell.insertBefore(flowMenuContainer, composer);
     }
     else {
         flowMenuContainer.innerHTML = "";
@@ -781,6 +838,11 @@ function enforceViewportLock() {
     const html = document.documentElement;
     const body = document.body;
     const main = document.querySelector("main.container");
+    const shell = document.getElementById("duet-shell");
+    const stage = shell === null || shell === void 0 ? void 0 : shell.querySelector(".duet-stage");
+    const composer = document.getElementById("duet-composer");
+    const trigger = document.getElementById("flow-menu-trigger");
+    const dock = document.getElementById("duet-dock");
     html.style.height = "100%";
     html.style.overscrollBehavior = "none";
     html.style.maxWidth = "100vw";
@@ -795,6 +857,32 @@ function enforceViewportLock() {
         main.style.maxHeight = "100dvh";
         main.style.overflow = "hidden";
     }
+    if (shell) {
+        shell.style.display = "flex";
+        shell.style.flexDirection = "column";
+        shell.style.flex = "1 1 auto";
+        shell.style.minHeight = "0";
+        shell.style.height = "100%";
+    }
+    if (stage) {
+        stage.style.flex = "1 1 auto";
+        stage.style.minHeight = "0";
+        stage.style.overflowY = "auto";
+        stage.style.overscrollBehavior = "contain";
+    }
+    if (trigger) {
+        trigger.style.flex = "0 0 auto";
+    }
+    if (composer) {
+        composer.style.flex = "0 0 auto";
+    }
+    if (dock) {
+        dock.style.display = "flex";
+        dock.style.flexDirection = "column";
+        dock.style.gap = "10px";
+        dock.style.marginTop = "auto";
+        dock.style.width = "100%";
+    }
 }
 function selectFlow(key) {
     if (!flowOptions.find((f) => f.key === key))
@@ -807,4 +895,52 @@ function selectFlow(key) {
     if (currentFlowKey === "inventory") {
         refreshInventoryOverlay(true);
     }
+}
+function setupDock() {
+    const shell = document.getElementById("duet-shell");
+    const composer = document.getElementById("duet-composer");
+    if (!shell || !composer)
+        return;
+    let dock = document.getElementById("duet-dock");
+    if (!dock) {
+        dock = document.createElement("div");
+        dock.id = "duet-dock";
+        dock.className = "duet-dock";
+        shell.appendChild(dock);
+    }
+    if (flowMenuContainer && flowMenuContainer.parentElement !== dock) {
+        dock.appendChild(flowMenuContainer);
+    }
+    if (composer.parentElement !== dock) {
+        dock.appendChild(composer);
+    }
+    enforceViewportLock();
+}
+function positionFlowMenuDropdown() {
+    const dropdown = flowMenuDropdown;
+    const trigger = flowMenuButton;
+    if (!dropdown || !trigger)
+        return;
+    const prevDisplay = dropdown.style.display;
+    const prevVisibility = dropdown.style.visibility;
+    dropdown.style.visibility = "hidden";
+    dropdown.style.display = "grid";
+    const dropdownHeight = dropdown.getBoundingClientRect().height || dropdown.offsetHeight || 0;
+    const triggerRect = trigger.getBoundingClientRect();
+    const viewportHeight = window.innerHeight;
+    const spaceBelow = viewportHeight - triggerRect.bottom;
+    const spaceAbove = triggerRect.top;
+    dropdown.style.top = "";
+    dropdown.style.bottom = "";
+    if (spaceBelow >= dropdownHeight + 8) {
+        dropdown.style.top = `${trigger.offsetHeight + 6}px`;
+    }
+    else if (spaceAbove >= dropdownHeight + 8) {
+        dropdown.style.bottom = `${trigger.offsetHeight + 6}px`;
+    }
+    else {
+        dropdown.style.top = `${Math.max(6, spaceBelow - 2)}px`;
+    }
+    dropdown.style.display = prevDisplay;
+    dropdown.style.visibility = prevVisibility;
 }

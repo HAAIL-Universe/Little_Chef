@@ -2973,3 +2973,837 @@ MM web/src/style.css
  2 files changed, 57 insertions(+), 2 deletions(-)
 ```
 
+## Test Run 2026-02-05T17:49:58Z
+- Status: PASS
+- Start: 2026-02-05T17:49:58Z
+- End: 2026-02-05T17:50:02Z
+- Python: Z:\LittleChef\.venv\\Scripts\\python.exe
+- Branch: main
+- HEAD: b6b7410bb157f0a66fe27970ab3d151f8fab2d74
+- compileall exit: 0
+- import app.main exit: 0
+- pytest exit: 0
+- pytest summary: 35 passed, 1 warning in 2.09s
+- git status -sb:
+```
+## main...origin/main [ahead 2]
+ M web/dist/main.js
+ M web/src/main.ts
+ M web/src/style.css
+?? evidence/orchestration_system_snapshot.md
+?? web/node_modules/
+```
+- git diff --stat:
+```
+ web/dist/main.js  | 41 ++++++++++++++++++++++++++++++++++++++++-
+ web/src/main.ts   | 41 ++++++++++++++++++++++++++++++++++++++++-
+ web/src/style.css | 22 +++++++++++++++++-----
+ 3 files changed, 97 insertions(+), 7 deletions(-)
+```
+
+## Test Run 2026-02-05T18:03:48Z
+- Status: PASS
+- Start: 2026-02-05T18:03:48Z
+- End: 2026-02-05T18:03:52Z
+- Python: Z:\LittleChef\.venv\\Scripts\\python.exe
+- Branch: main
+- HEAD: b6b7410bb157f0a66fe27970ab3d151f8fab2d74
+- compileall exit: 0
+- import app.main exit: 0
+- pytest exit: 0
+- pytest summary: 35 passed, 1 warning in 1.97s
+- git status -sb:
+```
+## main...origin/main [ahead 2]
+M  evidence/test_runs.md
+M  evidence/test_runs_latest.md
+MM evidence/updatedifflog.md
+MM web/dist/main.js
+MM web/src/main.ts
+MM web/src/style.css
+?? evidence/orchestration_system_snapshot.md
+?? web/node_modules/
+```
+- git diff --stat:
+```
+ evidence/updatedifflog.md | 449 +++++++++++++++++++++++++++++++++++++++++++---
+ web/dist/main.js          |  32 ++++
+ web/src/main.ts           |  33 +++-
+ web/src/style.css         |  10 +-
+ 4 files changed, 493 insertions(+), 31 deletions(-)
+```
+
+## Test Run 2026-02-05T18:09:36Z
+- Status: PASS
+- Start: 2026-02-05T18:09:36Z
+- End: 2026-02-05T18:09:41Z
+- Python: Z:\LittleChef\.venv\\Scripts\\python.exe
+- Branch: main
+- HEAD: b6b7410bb157f0a66fe27970ab3d151f8fab2d74
+- compileall exit: 0
+- import app.main exit: 0
+- pytest exit: 0
+- pytest summary: 35 passed, 1 warning in 2.07s
+- git status -sb:
+```
+## main...origin/main [ahead 2]
+M  evidence/test_runs.md
+M  evidence/test_runs_latest.md
+M  evidence/updatedifflog.md
+M  web/dist/main.js
+M  web/src/main.ts
+MM web/src/style.css
+?? evidence/orchestration_system_snapshot.md
+?? web/node_modules/
+```
+- git diff --stat:
+```
+ web/src/style.css | 5 +++--
+ 1 file changed, 3 insertions(+), 2 deletions(-)
+```
+
+## Test Run 2026-02-05T18:11:06Z
+- Status: PASS
+- Start: 2026-02-05T18:11:06Z
+- End: 2026-02-05T18:11:11Z
+- Python: Z:\LittleChef\.venv\\Scripts\\python.exe
+- Branch: main
+- HEAD: b6b7410bb157f0a66fe27970ab3d151f8fab2d74
+- compileall exit: 0
+- import app.main exit: 0
+- pytest exit: 0
+- pytest summary: 35 passed, 1 warning in 1.34s
+- git status -sb:
+```
+## main...origin/main [ahead 2]
+M  evidence/test_runs.md
+M  evidence/test_runs_latest.md
+M  evidence/updatedifflog.md
+M  web/dist/main.js
+M  web/src/main.ts
+MM web/src/style.css
+?? evidence/orchestration_system_snapshot.md
+?? web/node_modules/
+```
+- git diff --stat:
+```
+ web/src/style.css | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+```
+
+## Test Run 2026-02-05T18:14:23Z
+- Status: PASS
+- Start: 2026-02-05T18:14:23Z
+- End: 2026-02-05T18:14:28Z
+- Python: Z:\LittleChef\.venv\\Scripts\\python.exe
+- Branch: main
+- HEAD: b6b7410bb157f0a66fe27970ab3d151f8fab2d74
+- compileall exit: 0
+- import app.main exit: 0
+- pytest exit: 0
+- pytest summary: 35 passed, 1 warning in 1.37s
+- git status -sb:
+```
+## main...origin/main [ahead 2]
+M  evidence/test_runs.md
+M  evidence/test_runs_latest.md
+M  evidence/updatedifflog.md
+M  web/dist/main.js
+M  web/src/main.ts
+MM web/src/style.css
+?? evidence/orchestration_system_snapshot.md
+?? web/node_modules/
+```
+- git diff --stat:
+```
+ web/src/style.css | 1 +
+ 1 file changed, 1 insertion(+)
+```
+
+## Test Run 2026-02-05T18:18:36Z
+- Status: PASS
+- Start: 2026-02-05T18:18:36Z
+- End: 2026-02-05T18:18:41Z
+- Python: Z:\LittleChef\.venv\\Scripts\\python.exe
+- Branch: main
+- HEAD: b6b7410bb157f0a66fe27970ab3d151f8fab2d74
+- compileall exit: 0
+- import app.main exit: 0
+- pytest exit: 0
+- pytest summary: 35 passed, 1 warning in 1.86s
+- git status -sb:
+```
+## main...origin/main [ahead 2]
+M  evidence/test_runs.md
+M  evidence/test_runs_latest.md
+M  evidence/updatedifflog.md
+MM web/dist/main.js
+MM web/src/main.ts
+MM web/src/style.css
+?? evidence/orchestration_system_snapshot.md
+?? web/node_modules/
+```
+- git diff --stat:
+```
+ web/dist/main.js  | 31 +++++++++++++++++++++++++++++++
+ web/src/main.ts   | 32 ++++++++++++++++++++++++++++++++
+ web/src/style.css | 10 ++++++----
+ 3 files changed, 69 insertions(+), 4 deletions(-)
+```
+
+## Test Run 2026-02-05T18:23:52Z
+- Status: PASS
+- Start: 2026-02-05T18:23:52Z
+- End: 2026-02-05T18:23:57Z
+- Python: Z:\LittleChef\.venv\\Scripts\\python.exe
+- Branch: main
+- HEAD: b6b7410bb157f0a66fe27970ab3d151f8fab2d74
+- compileall exit: 0
+- import app.main exit: 0
+- pytest exit: 0
+- pytest summary: 35 passed, 1 warning in 1.53s
+- git status -sb:
+```
+## main...origin/main [ahead 2]
+M  evidence/test_runs.md
+M  evidence/test_runs_latest.md
+M  evidence/updatedifflog.md
+M  web/dist/main.js
+M  web/src/main.ts
+MM web/src/style.css
+?? evidence/orchestration_system_snapshot.md
+?? web/node_modules/
+```
+- git diff --stat:
+```
+ web/src/style.css | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+```
+
+## Test Run 2026-02-05T18:26:31Z
+- Status: PASS
+- Start: 2026-02-05T18:26:31Z
+- End: 2026-02-05T18:26:35Z
+- Python: Z:\LittleChef\.venv\\Scripts\\python.exe
+- Branch: main
+- HEAD: b6b7410bb157f0a66fe27970ab3d151f8fab2d74
+- compileall exit: 0
+- import app.main exit: 0
+- pytest exit: 0
+- pytest summary: 35 passed, 1 warning in 1.79s
+- git status -sb:
+```
+## main...origin/main [ahead 2]
+M  evidence/test_runs.md
+M  evidence/test_runs_latest.md
+M  evidence/updatedifflog.md
+M  web/dist/main.js
+M  web/src/main.ts
+MM web/src/style.css
+?? evidence/orchestration_system_snapshot.md
+?? web/node_modules/
+```
+- git diff --stat:
+```
+ web/src/style.css | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+```
+
+## Test Run 2026-02-05T18:29:40Z
+- Status: PASS
+- Start: 2026-02-05T18:29:40Z
+- End: 2026-02-05T18:29:44Z
+- Python: Z:\LittleChef\.venv\\Scripts\\python.exe
+- Branch: main
+- HEAD: b6b7410bb157f0a66fe27970ab3d151f8fab2d74
+- compileall exit: 0
+- import app.main exit: 0
+- pytest exit: 0
+- pytest summary: 35 passed, 1 warning in 1.41s
+- git status -sb:
+```
+## main...origin/main [ahead 2]
+M  evidence/test_runs.md
+M  evidence/test_runs_latest.md
+M  evidence/updatedifflog.md
+M  web/dist/main.js
+M  web/src/main.ts
+MM web/src/style.css
+?? evidence/orchestration_system_snapshot.md
+?? web/node_modules/
+```
+- git diff --stat:
+```
+ web/src/style.css | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+```
+
+## Test Run 2026-02-05T18:31:30Z
+- Status: PASS
+- Start: 2026-02-05T18:31:30Z
+- End: 2026-02-05T18:31:34Z
+- Python: Z:\LittleChef\.venv\\Scripts\\python.exe
+- Branch: main
+- HEAD: b6b7410bb157f0a66fe27970ab3d151f8fab2d74
+- compileall exit: 0
+- import app.main exit: 0
+- pytest exit: 0
+- pytest summary: 35 passed, 1 warning in 1.39s
+- git status -sb:
+```
+## main...origin/main [ahead 2]
+M  evidence/test_runs.md
+M  evidence/test_runs_latest.md
+M  evidence/updatedifflog.md
+M  web/dist/main.js
+M  web/src/main.ts
+MM web/src/style.css
+?? evidence/orchestration_system_snapshot.md
+?? web/node_modules/
+```
+- git diff --stat:
+```
+ web/src/style.css | 7 +++++--
+ 1 file changed, 5 insertions(+), 2 deletions(-)
+```
+
+## Test Run 2026-02-05T18:35:16Z
+- Status: PASS
+- Start: 2026-02-05T18:35:16Z
+- End: 2026-02-05T18:35:21Z
+- Python: Z:\LittleChef\.venv\\Scripts\\python.exe
+- Branch: main
+- HEAD: b6b7410bb157f0a66fe27970ab3d151f8fab2d74
+- compileall exit: 0
+- import app.main exit: 0
+- pytest exit: 0
+- pytest summary: 35 passed, 1 warning in 1.90s
+- git status -sb:
+```
+## main...origin/main [ahead 2]
+M  evidence/test_runs.md
+M  evidence/test_runs_latest.md
+M  evidence/updatedifflog.md
+MM web/dist/main.js
+MM web/src/main.ts
+MM web/src/style.css
+?? evidence/orchestration_system_snapshot.md
+?? web/node_modules/
+```
+- git diff --stat:
+```
+ web/dist/main.js  | 18 ++++++++++++++++++
+ web/src/main.ts   | 18 ++++++++++++++++++
+ web/src/style.css |  3 ++-
+ 3 files changed, 38 insertions(+), 1 deletion(-)
+```
+
+## Test Run 2026-02-05T18:36:39Z
+- Status: PASS
+- Start: 2026-02-05T18:36:39Z
+- End: 2026-02-05T18:36:43Z
+- Python: Z:\LittleChef\.venv\\Scripts\\python.exe
+- Branch: main
+- HEAD: b6b7410bb157f0a66fe27970ab3d151f8fab2d74
+- compileall exit: 0
+- import app.main exit: 0
+- pytest exit: 0
+- pytest summary: 35 passed, 1 warning in 1.37s
+- git status -sb:
+```
+## main...origin/main [ahead 2]
+M  evidence/test_runs.md
+M  evidence/test_runs_latest.md
+M  evidence/updatedifflog.md
+MM web/dist/main.js
+MM web/src/main.ts
+M  web/src/style.css
+?? evidence/orchestration_system_snapshot.md
+?? web/node_modules/
+```
+- git diff --stat:
+```
+ web/dist/main.js | 2 +-
+ web/src/main.ts  | 2 +-
+ 2 files changed, 2 insertions(+), 2 deletions(-)
+```
+
+## Test Run 2026-02-05T18:38:21Z
+- Status: PASS
+- Start: 2026-02-05T18:38:21Z
+- End: 2026-02-05T18:38:25Z
+- Python: Z:\LittleChef\.venv\\Scripts\\python.exe
+- Branch: main
+- HEAD: b6b7410bb157f0a66fe27970ab3d151f8fab2d74
+- compileall exit: 0
+- import app.main exit: 0
+- pytest exit: 0
+- pytest summary: 35 passed, 1 warning in 1.49s
+- git status -sb:
+```
+## main...origin/main [ahead 2]
+MM evidence/test_runs.md
+MM evidence/test_runs_latest.md
+M  evidence/updatedifflog.md
+MM web/dist/main.js
+MM web/src/main.ts
+M  web/src/style.css
+?? evidence/orchestration_system_snapshot.md
+?? web/node_modules/
+```
+- git diff --stat:
+```
+ evidence/test_runs.md        | 30 ++++++++++++++++++++++++++++++
+ evidence/test_runs_latest.md | 15 +++++++--------
+ web/dist/main.js             | 11 ++++++++++-
+ web/src/main.ts              | 10 +++++++++-
+ 4 files changed, 56 insertions(+), 10 deletions(-)
+```
+
+## Test Run 2026-02-05T18:41:04Z
+- Status: PASS
+- Start: 2026-02-05T18:41:04Z
+- End: 2026-02-05T18:41:10Z
+- Python: Z:\LittleChef\.venv\\Scripts\\python.exe
+- Branch: main
+- HEAD: b6b7410bb157f0a66fe27970ab3d151f8fab2d74
+- compileall exit: 0
+- import app.main exit: 0
+- pytest exit: 0
+- pytest summary: 35 passed, 1 warning in 2.29s
+- git status -sb:
+```
+## main...origin/main [ahead 2]
+M  evidence/test_runs.md
+M  evidence/test_runs_latest.md
+M  evidence/updatedifflog.md
+MM web/dist/main.js
+MM web/src/main.ts
+M  web/src/style.css
+?? evidence/orchestration_system_snapshot.md
+?? web/node_modules/
+```
+- git diff --stat:
+```
+ web/dist/main.js | 12 ++++--------
+ web/src/main.ts  | 10 +++-------
+ 2 files changed, 7 insertions(+), 15 deletions(-)
+```
+
+## Test Run 2026-02-05T18:46:27Z
+- Status: PASS
+- Start: 2026-02-05T18:46:27Z
+- End: 2026-02-05T18:46:32Z
+- Python: Z:\LittleChef\.venv\\Scripts\\python.exe
+- Branch: main
+- HEAD: b6b7410bb157f0a66fe27970ab3d151f8fab2d74
+- compileall exit: 0
+- import app.main exit: 0
+- pytest exit: 0
+- pytest summary: 35 passed, 1 warning in 1.87s
+- git status -sb:
+```
+## main...origin/main [ahead 2]
+M  evidence/test_runs.md
+M  evidence/test_runs_latest.md
+M  evidence/updatedifflog.md
+MM web/dist/main.js
+MM web/src/main.ts
+M  web/src/style.css
+?? evidence/orchestration_system_snapshot.md
+?? web/node_modules/
+```
+- git diff --stat:
+```
+ web/dist/main.js | 1 -
+ web/src/main.ts  | 1 -
+ 2 files changed, 2 deletions(-)
+```
+
+## Test Run 2026-02-05T18:49:32Z
+- Status: PASS
+- Start: 2026-02-05T18:49:32Z
+- End: 2026-02-05T18:49:36Z
+- Python: Z:\LittleChef\.venv\\Scripts\\python.exe
+- Branch: main
+- HEAD: b6b7410bb157f0a66fe27970ab3d151f8fab2d74
+- compileall exit: 0
+- import app.main exit: 0
+- pytest exit: 0
+- pytest summary: 35 passed, 1 warning in 1.43s
+- git status -sb:
+```
+## main...origin/main [ahead 2]
+M  evidence/test_runs.md
+M  evidence/test_runs_latest.md
+M  evidence/updatedifflog.md
+MM web/dist/main.js
+MM web/src/main.ts
+M  web/src/style.css
+?? evidence/orchestration_system_snapshot.md
+?? web/node_modules/
+```
+- git diff --stat:
+```
+ web/dist/main.js | 3 +--
+ web/src/main.ts  | 3 +--
+ 2 files changed, 2 insertions(+), 4 deletions(-)
+```
+
+## Test Run 2026-02-05T18:52:49Z
+- Status: PASS
+- Start: 2026-02-05T18:52:49Z
+- End: 2026-02-05T18:52:54Z
+- Python: Z:\LittleChef\.venv\\Scripts\\python.exe
+- Branch: main
+- HEAD: b6b7410bb157f0a66fe27970ab3d151f8fab2d74
+- compileall exit: 0
+- import app.main exit: 0
+- pytest exit: 0
+- pytest summary: 35 passed, 1 warning in 1.61s
+- git status -sb:
+```
+## main...origin/main [ahead 2]
+M  evidence/test_runs.md
+M  evidence/test_runs_latest.md
+M  evidence/updatedifflog.md
+M  web/dist/main.js
+M  web/src/main.ts
+MM web/src/style.css
+?? evidence/orchestration_system_snapshot.md
+?? web/node_modules/
+```
+- git diff --stat:
+```
+ web/src/style.css | 10 ++++++++--
+ 1 file changed, 8 insertions(+), 2 deletions(-)
+```
+
+## Test Run 2026-02-05T18:59:53Z
+- Status: PASS
+- Start: 2026-02-05T18:59:53Z
+- End: 2026-02-05T18:59:57Z
+- Python: Z:\LittleChef\.venv\\Scripts\\python.exe
+- Branch: main
+- HEAD: b6b7410bb157f0a66fe27970ab3d151f8fab2d74
+- compileall exit: 0
+- import app.main exit: 0
+- pytest exit: 0
+- pytest summary: 35 passed, 1 warning in 1.88s
+- git status -sb:
+```
+## main...origin/main [ahead 2]
+M  evidence/test_runs.md
+M  evidence/test_runs_latest.md
+M  evidence/updatedifflog.md
+MM web/dist/main.js
+MM web/src/main.ts
+M  web/src/style.css
+?? evidence/orchestration_system_snapshot.md
+?? web/node_modules/
+```
+- git diff --stat:
+```
+ web/dist/main.js | 21 +++++++++++++++++----
+ web/src/main.ts  | 22 ++++++++++++++++++----
+ 2 files changed, 35 insertions(+), 8 deletions(-)
+```
+
+## Test Run 2026-02-05T19:00:28Z
+- Status: PASS
+- Start: 2026-02-05T19:00:28Z
+- End: 2026-02-05T19:00:32Z
+- Python: Z:\LittleChef\.venv\\Scripts\\python.exe
+- Branch: main
+- HEAD: b6b7410bb157f0a66fe27970ab3d151f8fab2d74
+- compileall exit: 0
+- import app.main exit: 0
+- pytest exit: 0
+- pytest summary: 35 passed, 1 warning in 1.39s
+- git status -sb:
+```
+## main...origin/main [ahead 2]
+MM evidence/test_runs.md
+MM evidence/test_runs_latest.md
+M  evidence/updatedifflog.md
+MM web/dist/main.js
+MM web/src/main.ts
+M  web/src/style.css
+?? evidence/orchestration_system_snapshot.md
+?? web/node_modules/
+```
+- git diff --stat:
+```
+ evidence/test_runs.md        | 30 ++++++++++++++++++++++++++++++
+ evidence/test_runs_latest.md | 17 +++++++++--------
+ web/dist/main.js             | 21 +++++++++++++++++----
+ web/src/main.ts              | 22 ++++++++++++++++++----
+ 4 files changed, 74 insertions(+), 16 deletions(-)
+```
+
+
+## Test Run 2026-02-05T19:00:27Z
+- Status: PASS
+- Start: 2026-02-05T19:00:27Z
+- End: 2026-02-05T19:00:32Z
+- Python: Z:\\LittleChef\\.venv\\\\Scripts\\\\python.exe
+- Branch: main
+- HEAD: b6b7410bb157f0a66fe27970ab3d151f8fab2d74
+- compileall exit: 0
+- import app.main exit: 0
+- pytest exit: 0
+- pytest summary: ok (scripts/run_tests.ps1)
+- git status -sb:
+```
+## main...origin/main [ahead 2]
+MM evidence/test_runs.md
+MM evidence/test_runs_latest.md
+M  evidence/updatedifflog.md
+MM web/dist/main.js
+MM web/src/main.ts
+M  web/src/style.css
+?? evidence/orchestration_system_snapshot.md
+?? web/node_modules/
+```
+- git diff --stat:
+```
+(none)
+```
+## Test Run 2026-02-05T19:10:27Z
+- Status: PASS
+- Start: 2026-02-05T19:10:27Z
+- End: 2026-02-05T19:10:31Z
+- Python: Z:\LittleChef\.venv\\Scripts\\python.exe
+- Branch: main
+- HEAD: b6b7410bb157f0a66fe27970ab3d151f8fab2d74
+- compileall exit: 0
+- import app.main exit: 0
+- pytest exit: 0
+- pytest summary: 35 passed, 1 warning in 1.44s
+- git status -sb:
+```
+## main...origin/main
+M  evidence/test_runs.md
+M  evidence/test_runs_latest.md
+M  evidence/updatedifflog.md
+MM web/dist/main.js
+MM web/src/main.ts
+M  web/src/style.css
+?? evidence/orchestration_system_snapshot.md
+?? web/node_modules/
+```
+- git diff --stat:
+```
+ web/dist/main.js | 1 -
+ web/src/main.ts  | 1 -
+ 2 files changed, 2 deletions(-)
+```
+
+
+## Test Run 2026-02-05T19:06:00Z
+- Status: PASS
+- Start: 2026-02-05T19:06:00Z
+- End: 2026-02-05T19:06:05Z
+- Python: Z:\\LittleChef\\.venv\\Scripts\\python.exe
+- Branch: main
+- HEAD: b6b7410bb157f0a66fe27970ab3d151f8fab2d74
+- compileall exit: 0
+- import app.main exit: 0
+- pytest exit: 0
+- pytest summary: ok (scripts/run_tests.ps1)
+- git status -sb:
+```
+## main...origin/main [ahead 2]
+M  evidence/test_runs.md
+M  evidence/test_runs_latest.md
+M  evidence/updatedifflog.md
+M  web/dist/main.js
+M  web/src/main.ts
+M  web/src/style.css
+?? evidence/orchestration_system_snapshot.md
+?? web/node_modules/
+```
+- git diff --stat:
+```
+(none)
+```
+## Test Run 2026-02-05T19:13:46Z
+- Status: PASS
+- Start: 2026-02-05T19:13:46Z
+- End: 2026-02-05T19:13:51Z
+- Python: Z:\LittleChef\.venv\\Scripts\\python.exe
+- Branch: main
+- HEAD: b6b7410bb157f0a66fe27970ab3d151f8fab2d74
+- compileall exit: 0
+- import app.main exit: 0
+- pytest exit: 0
+- pytest summary: 35 passed, 1 warning in 1.87s
+- git status -sb:
+```
+## main...origin/main
+M  evidence/test_runs.md
+M  evidence/test_runs_latest.md
+M  evidence/updatedifflog.md
+MM web/dist/main.js
+MM web/src/main.ts
+M  web/src/style.css
+?? evidence/orchestration_system_snapshot.md
+?? web/node_modules/
+```
+- git diff --stat:
+```
+ web/dist/main.js | 1 +
+ web/src/main.ts  | 1 +
+ 2 files changed, 2 insertions(+)
+```
+
+
+## Test Run 2026-02-05T19:08:20Z
+- Status: PASS
+- Start: 2026-02-05T19:08:20Z
+- End: 2026-02-05T19:08:25Z
+- Python: Z:\\LittleChef\\.venv\\Scripts\\python.exe
+- Branch: main
+- HEAD: b6b7410bb157f0a66fe27970ab3d151f8fab2d74
+- compileall exit: 0
+- import app.main exit: 0
+- pytest exit: 0
+- pytest summary: ok (scripts/run_tests.ps1)
+- git status -sb:
+```
+## main...origin/main
+M  evidence/test_runs.md
+M  evidence/test_runs_latest.md
+M  evidence/updatedifflog.md
+M  web/dist/main.js
+M  web/src/main.ts
+M  web/src/style.css
+?? evidence/orchestration_system_snapshot.md
+?? web/node_modules/
+```
+- git diff --stat:
+```
+(none)
+```
+## Test Run 2026-02-05T19:17:42Z
+- Status: PASS
+- Start: 2026-02-05T19:17:42Z
+- End: 2026-02-05T19:17:46Z
+- Python: Z:\LittleChef\.venv\\Scripts\\python.exe
+- Branch: main
+- HEAD: b6b7410bb157f0a66fe27970ab3d151f8fab2d74
+- compileall exit: 0
+- import app.main exit: 0
+- pytest exit: 0
+- pytest summary: 35 passed, 1 warning in 1.50s
+- git status -sb:
+```
+## main...origin/main
+MM evidence/test_runs.md
+MM evidence/test_runs_latest.md
+M  evidence/updatedifflog.md
+MM web/dist/main.js
+MM web/src/main.ts
+MM web/src/style.css
+?? evidence/orchestration_system_snapshot.md
+?? web/node_modules/
+```
+- git diff --stat:
+```
+ evidence/test_runs.md        | 58 ++++++++++++++++++++++++++++++++++++++++++++
+ evidence/test_runs_latest.md |  6 ++---
+ web/dist/main.js             |  1 +
+ web/src/main.ts              |  1 +
+ web/src/style.css            |  7 +++---
+ 5 files changed, 66 insertions(+), 7 deletions(-)
+```
+
+
+## Test Run 2026-02-05T19:10:15Z
+- Status: PASS
+- Start: 2026-02-05T19:10:15Z
+- End: 2026-02-05T19:10:20Z
+- Python: Z:\\LittleChef\\.venv\\Scripts\\python.exe
+- Branch: main
+- HEAD: b6b7410bb157f0a66fe27970ab3d151f8fab2d74
+- compileall exit: 0
+- import app.main exit: 0
+- pytest exit: 0
+- pytest summary: ok (scripts/run_tests.ps1)
+- git status -sb:
+```
+## main...origin/main
+M  evidence/test_runs.md
+M  evidence/test_runs_latest.md
+M  evidence/updatedifflog.md
+M  web/dist/main.js
+M  web/src/main.ts
+M  web/src/style.css
+?? evidence/orchestration_system_snapshot.md
+?? web/node_modules/
+```
+- git diff --stat:
+```
+(none)
+```
+## Test Run 2026-02-05T19:21:10Z
+- Status: PASS
+- Start: 2026-02-05T19:21:10Z
+- End: 2026-02-05T19:21:15Z
+- Python: Z:\LittleChef\.venv\\Scripts\\python.exe
+- Branch: main
+- HEAD: b6b7410bb157f0a66fe27970ab3d151f8fab2d74
+- compileall exit: 0
+- import app.main exit: 0
+- pytest exit: 0
+- pytest summary: 35 passed, 1 warning in 1.38s
+- git status -sb:
+```
+## main...origin/main
+MM evidence/test_runs.md
+MM evidence/test_runs_latest.md
+M  evidence/updatedifflog.md
+MM web/dist/main.js
+MM web/src/main.ts
+MM web/src/style.css
+?? evidence/orchestration_system_snapshot.md
+?? web/node_modules/
+```
+- git diff --stat:
+```
+ evidence/test_runs.md        | 119 +++++++++++++++++++++++++++++++++++++++++++
+ evidence/test_runs_latest.md |   6 +--
+ web/dist/main.js             |   1 +
+ web/src/main.ts              |   1 +
+ web/src/style.css            |   1 +
+ 5 files changed, 125 insertions(+), 3 deletions(-)
+```
+
+
+## Test Run 2026-02-05T19:12:05Z
+- Status: PASS
+- Start: 2026-02-05T19:12:05Z
+- End: 2026-02-05T19:12:10Z
+- Python: Z:\\LittleChef\\.venv\\Scripts\\python.exe
+- Branch: main
+- HEAD: b6b7410bb157f0a66fe27970ab3d151f8fab2d74
+- compileall exit: 0
+- import app.main exit: 0
+- pytest exit: 0
+- pytest summary: ok (scripts/run_tests.ps1)
+- git status -sb:
+```
+## main...origin/main
+MM evidence/test_runs.md
+MM evidence/test_runs_latest.md
+M  evidence/updatedifflog.md
+MM web/dist/main.js
+MM web/src/main.ts
+MM web/src/style.css
+?? evidence/orchestration_system_snapshot.md
+?? web/node_modules/
+```
+- git diff --stat:
+```
+(none)
+```
