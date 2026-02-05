@@ -27,6 +27,7 @@ const duetState = {
 let historyOverlay: HTMLDivElement | null = null;
 let historyToggle: HTMLButtonElement | null = null;
 let currentFlowKey = flowOptions[0].key;
+let composerBusy = false;
 
 function headers() {
   const h: Record<string, string> = { "Content-Type": "application/json" };
@@ -216,6 +217,14 @@ function addHistory(role: HistoryItem["role"], text: string) {
   duetState.history.push({ role, text });
   renderDuetHistory();
   updateDuetBubbles();
+  return duetState.history.length - 1;
+}
+
+function updateHistory(index: number, text: string) {
+  if (index < 0 || index >= duetState.history.length) return;
+  duetState.history[index] = { ...duetState.history[index], text };
+  renderDuetHistory();
+  updateDuetBubbles();
 }
 
 function setupHistoryDrawerUi() {
@@ -298,6 +307,52 @@ function shellOnlyDuetReply(userText: string) {
   return resp;
 }
 
+async function sendAsk(message: string, opts?: { flowLabel?: string; updateChatPanel?: boolean }) {
+  const flowLabel = opts?.flowLabel;
+  const displayText = flowLabel ? `[${flowLabel}] ${message}` : message;
+  const userIndex = addHistory("user", displayText);
+  const thinkingIndex = addHistory("assistant", "…");
+  setDuetStatus("Contacting backend…");
+  setComposerBusy(true);
+  try {
+    const res = await fetch("/chat", {
+      method: "POST",
+      headers: headers(),
+      body: JSON.stringify({
+        mode: "ask",
+        message,
+        include_user_library: true,
+      }),
+    });
+    const json = await res.json().catch(() => null);
+    if (!res.ok || !json || typeof json.reply_text !== "string") {
+      throw new Error(json?.message || `ASK failed (status ${res.status})`);
+    }
+    updateHistory(thinkingIndex, json.reply_text);
+    if (opts?.updateChatPanel) {
+      setText("chat-reply", { status: res.status, json });
+    }
+    setDuetStatus("Reply received.");
+  } catch (err) {
+    updateHistory(thinkingIndex, "Network error. Try again.");
+    if (opts?.updateChatPanel) {
+      setChatError("Network error. Try again.");
+    }
+    console.error(err);
+  } finally {
+    setComposerBusy(false);
+  }
+  return { userIndex, thinkingIndex };
+}
+
+function setComposerBusy(busy: boolean) {
+  composerBusy = busy;
+  const input = document.getElementById("duet-input") as HTMLInputElement | null;
+  const sendBtn = document.getElementById("duet-send") as HTMLButtonElement | null;
+  if (sendBtn) sendBtn.disabled = busy || !!(input && input.value.trim().length === 0);
+  if (input) input.readOnly = busy;
+}
+
 function wire() {
   const jwtInput = document.getElementById("jwt") as HTMLInputElement;
   document.getElementById("btn-auth")?.addEventListener("click", async () => {
@@ -312,10 +367,10 @@ function wire() {
     clearProposal();
     setChatError("");
     if (msg?.trim()) {
-      addHistory("user", msg.trim());
-      shellOnlyDuetReply(msg.trim());
+      const flow = flowOptions.find((f) => f.key === currentFlowKey) ?? flowOptions[0];
+      await sendAsk(msg.trim(), { flowLabel: flow.label, updateChatPanel: true });
     } else {
-      setChatError("Shell-only: enter a message to preview duet shell response.");
+      setChatError("Enter a message to send.");
     }
   });
 
@@ -389,19 +444,18 @@ function wireDuetComposer() {
   if (!input || !sendBtn) return;
 
   const syncButtons = () => {
-    sendBtn.disabled = input.value.trim().length === 0;
+    sendBtn.disabled = composerBusy || input.value.trim().length === 0;
   };
 
   const send = () => {
     const text = input.value.trim();
-    if (!text) return;
+    if (!text || composerBusy) return;
     clearProposal();
     setChatError("");
     const flow = flowOptions.find((f) => f.key === currentFlowKey) ?? flowOptions[0];
-    addHistory("user", `[${flow.label}] ${text}`);
-    setDuetStatus("Shell-only: preparing local reply…");
+    setDuetStatus("Sending to backend…");
     syncButtons();
-    shellOnlyDuetReply(text);
+    sendAsk(text, { flowLabel: flow.label });
     input.value = "";
     syncButtons();
   };

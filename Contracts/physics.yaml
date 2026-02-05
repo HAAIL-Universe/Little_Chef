@@ -505,46 +505,36 @@ components:
         - $ref: "#/components/schemas/ProposedUpsertPrefsAction"
         - $ref: "#/components/schemas/ProposedInventoryEventAction"
 
-  ChatRequest:
-    type: object
-    required: [mode, message]
-    properties:
-      mode:
-        $ref: "#/components/schemas/ChatMode"
-      message:
-        type: string
-        minLength: 1
-      include_user_library:
-        type: boolean
-        default: true
-      thread_id:
-        type: string
-        nullable: true
-        description: |
-          Optional conversation thread id. If omitted, server continues the current thread or starts a new one.
-          Exactly one active proposal is maintained per thread; starting a clean thread makes prior proposals inaccessible via UI.
+    ChatRequest:
+      type: object
+      required: [mode, message]
+      properties:
+        mode:
+          $ref: "#/components/schemas/ChatMode"
+        message:
+          type: string
+          minLength: 1
+        include_user_library:
+          type: boolean
+          default: true
 
-  ChatResponse:
-    type: object
-    required: [reply_text, confirmation_required]
-    properties:
-      reply_text:
-        type: string
-      confirmation_required:
-        type: boolean
-      proposal_id:
-        type: string
-        nullable: true
-        description: Present when confirmation_required is true.
-      thread_id:
-        type: string
-        description: |
-          Thread id for this chat turn. Clients should persist it; starting a new thread supersedes prior active proposals.
-      proposed_actions:
-        type: array
-        items: { $ref: "#/components/schemas/ProposedAction" }
-        default: []
-      suggested_next_questions:
+    ChatResponse:
+      type: object
+      required: [reply_text, confirmation_required]
+      properties:
+        reply_text:
+          type: string
+        confirmation_required:
+          type: boolean
+        proposal_id:
+          type: string
+          nullable: true
+          description: Present when confirmation_required is true.
+        proposed_actions:
+          type: array
+          items: { $ref: "#/components/schemas/ProposedAction" }
+          default: []
+        suggested_next_questions:
           type: array
           items: { type: string }
           default: []
