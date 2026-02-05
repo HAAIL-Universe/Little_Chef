@@ -4081,3 +4081,282 @@ E   ModuleNotFoundError: No module named 'openai'
  6 files changed, 140 insertions(+), 22 deletions(-)
 ```
 
+## Test Run 2026-02-05T20:35:26Z
+- Status: FAIL
+- Start: 2026-02-05T20:35:26Z
+- End: 2026-02-05T20:35:32Z
+- Python: Z:\LittleChef\.venv\\Scripts\\python.exe
+- Branch: main
+- HEAD: 6627d6dfe28dde346ce21f867a592ba450d5e346
+- compileall exit: 0
+- import app.main exit: 0
+- pytest exit: 1
+- pytest summary: 1 failed, 38 passed, 1 warning in 1.70s
+- git status -sb:
+```
+## main...origin/main [ahead 3]
+ M app/services/chat_service.py
+ M app/services/llm_client.py
+ M tests/test_chat_llm.py
+?? evidence/orchestration_system_snapshot.md
+?? web/node_modules/
+```
+- git diff --stat:
+```
+ app/services/chat_service.py | 21 ++++++++++++++++++++-
+ app/services/llm_client.py   | 22 ++++++++++++++++++++--
+ tests/test_chat_llm.py       | 25 +++++++++++++++++++++++++
+ 3 files changed, 65 insertions(+), 3 deletions(-)
+```
+- Failure payload:
+```
+=== pytest (exit 1) ===
+.............F.........................                                  [100%]
+================================== FAILURES ===================================
+____________________________ test_chat_llm_toggle _____________________________
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x0000014EC9E9ECF0>
+authed_client = <starlette.testclient.TestClient object at 0x0000014EC9E9FA10>
+
+    def test_chat_llm_toggle(monkeypatch, authed_client):
+        monkeypatch.setenv("OPENAI_MODEL", "gpt-5.1-mini")
+        import app.api.routers.chat as chat_router
+        import app.services.llm_client as llm_client
+    
+        chat_router.reset_chat_state_for_tests()
+        monkeypatch.setattr(llm_client.LlmClient, "generate_reply", staticmethod(lambda s, u: "live reply"))
+    
+        # start disabled by default (LLM_ENABLED unset)
+        resp = authed_client.post("/chat", json={"mode": "ask", "message": "hello"})
+>       assert "LLM disabled" in resp.json()["reply_text"]
+E       AssertionError: assert 'LLM disabled' in 'live reply'
+
+tests\test_chat_llm.py:60: AssertionError
+============================== warnings summary ===============================
+.venv\Lib\site-packages\starlette\formparsers.py:12
+  Z:\LittleChef\.venv\Lib\site-packages\starlette\formparsers.py:12: PendingDeprecationWarning: Please use `import python_multipart` instead.
+    import multipart
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED tests/test_chat_llm.py::test_chat_llm_toggle - AssertionError: assert ...
+1 failed, 38 passed, 1 warning in 1.70s
+```
+
+## Test Run 2026-02-05T20:36:13Z
+- Status: FAIL
+- Start: 2026-02-05T20:36:13Z
+- End: 2026-02-05T20:36:19Z
+- Python: Z:\LittleChef\.venv\\Scripts\\python.exe
+- Branch: main
+- HEAD: 6627d6dfe28dde346ce21f867a592ba450d5e346
+- compileall exit: 0
+- import app.main exit: 0
+- pytest exit: 1
+- pytest summary: 1 failed, 38 passed, 1 warning in 1.80s
+- git status -sb:
+```
+## main...origin/main [ahead 3]
+ M app/services/chat_service.py
+ M app/services/llm_client.py
+ M evidence/test_runs.md
+ M evidence/test_runs_latest.md
+ M tests/test_chat_llm.py
+?? evidence/orchestration_system_snapshot.md
+?? web/node_modules/
+```
+- git diff --stat:
+```
+ app/services/chat_service.py | 21 ++++++++++++-
+ app/services/llm_client.py   | 22 ++++++++++++--
+ evidence/test_runs.md        | 62 ++++++++++++++++++++++++++++++++++++++
+ evidence/test_runs_latest.md | 71 +++++++++++++++++++++++++++++++-------------
+ tests/test_chat_llm.py       | 26 ++++++++++++++++
+ 5 files changed, 178 insertions(+), 24 deletions(-)
+```
+- Failure payload:
+```
+=== pytest (exit 1) ===
+.............F.........................                                  [100%]
+================================== FAILURES ===================================
+____________________________ test_chat_llm_toggle _____________________________
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x0000024373AAAC30>
+authed_client = <starlette.testclient.TestClient object at 0x0000024373AA81D0>
+
+    def test_chat_llm_toggle(monkeypatch, authed_client):
+        monkeypatch.setenv("OPENAI_MODEL", "gpt-5.1-mini")
+        monkeypatch.setenv("LLM_ENABLED", "0")
+        import app.api.routers.chat as chat_router
+        import app.services.llm_client as llm_client
+    
+        chat_router.reset_chat_state_for_tests()
+        monkeypatch.setattr(llm_client.LlmClient, "generate_reply", staticmethod(lambda s, u: "live reply"))
+    
+        # start disabled by default (LLM_ENABLED unset)
+        resp = authed_client.post("/chat", json={"mode": "ask", "message": "hello"})
+>       assert "LLM disabled" in resp.json()["reply_text"]
+E       AssertionError: assert 'LLM disabled' in 'live reply'
+
+tests\test_chat_llm.py:61: AssertionError
+============================== warnings summary ===============================
+.venv\Lib\site-packages\starlette\formparsers.py:12
+  Z:\LittleChef\.venv\Lib\site-packages\starlette\formparsers.py:12: PendingDeprecationWarning: Please use `import python_multipart` instead.
+    import multipart
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED tests/test_chat_llm.py::test_chat_llm_toggle - AssertionError: assert ...
+1 failed, 38 passed, 1 warning in 1.80s
+```
+
+## Test Run 2026-02-05T20:36:53Z
+- Status: FAIL
+- Start: 2026-02-05T20:36:53Z
+- End: 2026-02-05T20:36:58Z
+- Python: Z:\LittleChef\.venv\\Scripts\\python.exe
+- Branch: main
+- HEAD: 6627d6dfe28dde346ce21f867a592ba450d5e346
+- compileall exit: 0
+- import app.main exit: 0
+- pytest exit: 1
+- pytest summary: 1 failed, 38 passed, 1 warning in 1.75s
+- git status -sb:
+```
+## main...origin/main [ahead 3]
+ M app/services/chat_service.py
+ M app/services/llm_client.py
+ M evidence/test_runs.md
+ M evidence/test_runs_latest.md
+ M tests/test_chat_llm.py
+?? evidence/orchestration_system_snapshot.md
+?? web/node_modules/
+```
+- git diff --stat:
+```
+ app/services/chat_service.py |  21 ++++++-
+ app/services/llm_client.py   |  22 +++++++-
+ evidence/test_runs.md        | 129 +++++++++++++++++++++++++++++++++++++++++++
+ evidence/test_runs_latest.md |  72 +++++++++++++++++-------
+ tests/test_chat_llm.py       |  26 +++++++++
+ 5 files changed, 248 insertions(+), 22 deletions(-)
+```
+- Failure payload:
+```
+=== pytest (exit 1) ===
+.............F.........................                                  [100%]
+================================== FAILURES ===================================
+____________________________ test_chat_llm_toggle _____________________________
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x00000280CE1FF7A0>
+authed_client = <starlette.testclient.TestClient object at 0x00000280CE224C20>
+
+    def test_chat_llm_toggle(monkeypatch, authed_client):
+        monkeypatch.setenv("OPENAI_MODEL", "gpt-5.1-mini")
+        monkeypatch.setenv("LLM_ENABLED", "0")
+        import app.api.routers.chat as chat_router
+        import app.services.llm_client as llm_client
+    
+        chat_router.reset_chat_state_for_tests()
+        # start disabled by default (LLM_ENABLED unset)
+        resp = authed_client.post("/chat", json={"mode": "ask", "message": "hello"})
+        assert "LLM disabled" in resp.json()["reply_text"]
+    
+        resp = authed_client.post("/chat", json={"mode": "ask", "message": "/llm on"})
+        assert "enabled" in resp.json()["reply_text"].lower()
+    
+        monkeypatch.setattr(llm_client.LlmClient, "generate_reply", staticmethod(lambda s, u: "live reply"))
+    
+        resp = authed_client.post("/chat", json={"mode": "ask", "message": "hello"})
+        assert resp.json()["reply_text"] == "live reply"
+    
+        resp = authed_client.post("/chat", json={"mode": "ask", "message": "/llm off"})
+        assert "disabled" in resp.json()["reply_text"].lower()
+    
+        resp = authed_client.post("/chat", json={"mode": "ask", "message": "hello"})
+>       assert "LLM disabled" in resp.json()["reply_text"]
+E       AssertionError: assert 'LLM disabled' in 'live reply'
+
+tests\test_chat_llm.py:73: AssertionError
+============================== warnings summary ===============================
+.venv\Lib\site-packages\starlette\formparsers.py:12
+  Z:\LittleChef\.venv\Lib\site-packages\starlette\formparsers.py:12: PendingDeprecationWarning: Please use `import python_multipart` instead.
+    import multipart
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED tests/test_chat_llm.py::test_chat_llm_toggle - AssertionError: assert ...
+1 failed, 38 passed, 1 warning in 1.75s
+```
+
+## Test Run 2026-02-05T20:37:38Z
+- Status: PASS
+- Start: 2026-02-05T20:37:38Z
+- End: 2026-02-05T20:37:44Z
+- Python: Z:\LittleChef\.venv\\Scripts\\python.exe
+- Branch: main
+- HEAD: 6627d6dfe28dde346ce21f867a592ba450d5e346
+- compileall exit: 0
+- import app.main exit: 0
+- pytest exit: 0
+- pytest summary: 39 passed, 1 warning in 1.58s
+- git status -sb:
+```
+## main...origin/main [ahead 3]
+ M app/services/chat_service.py
+ M app/services/llm_client.py
+ M evidence/test_runs.md
+ M evidence/test_runs_latest.md
+ M tests/test_chat_llm.py
+?? evidence/orchestration_system_snapshot.md
+?? web/node_modules/
+```
+- git diff --stat:
+```
+ app/services/chat_service.py |  21 ++++-
+ app/services/llm_client.py   |  22 ++++-
+ evidence/test_runs.md        | 208 +++++++++++++++++++++++++++++++++++++++++++
+ evidence/test_runs_latest.md |  84 +++++++++++++----
+ tests/test_chat_llm.py       |  29 ++++++
+ 5 files changed, 342 insertions(+), 22 deletions(-)
+```
+
+
+## Test Run 2026-02-05T20:37:24Z
+- Status: PASS
+- Start: 2026-02-05T20:37:24Z
+- End: 2026-02-05T20:37:29Z
+- Python: Z:\\LittleChef\\.venv\\Scripts\\python.exe
+- Branch: main
+- HEAD: 75701f2a184165d6a2b51bfcc63155a9e5e6bcdc
+- compileall exit: 0
+- import app.main exit: 0
+- pytest exit: 0
+- pytest summary: 39 passed, 1 warning in 2.36s
+- git status -sb:
+```
+## main...origin/main [ahead 3]
+M  app/api/routers/chat.py
+M  app/services/chat_service.py
+M  evidence/test_runs.md
+M  evidence/test_runs_latest.md
+M  evidence/updatedifflog.md
+M  requirements.txt
+M  tests/conftest.py
+A  app/services/llm_client.py
+A  tests/test_chat_llm.py
+?? evidence/orchestration_system_snapshot.md
+?? web/node_modules/
+```
+- git diff --stat:
+```
+app/api/routers/chat.py      |  8 ++++--
+app/services/chat_service.py | 27 +++++++++++++++----
+app/services/llm_client.py   | 86 +++++++++++++++++++++++++++++++++++++++++++++
+evidence/test_runs.md        | 90 ++++++++++++++++++++++++++++++++++++++++++++++++
+evidence/test_runs_latest.md | 17 +++++-----
+requirements.txt             |  1 +
+tests/conftest.py            |  4 +--
+tests/test_chat_llm.py       | 45 ++++++++++++++++++++++++
+8 files changed, 251 insertions(+), 27 deletions(-)
+```

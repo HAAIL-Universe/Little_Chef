@@ -14,7 +14,7 @@ from app.schemas import (
 from app.services.prefs_service import PrefsService
 from app.services.proposal_store import ProposalStore
 from app.services.inventory_service import InventoryService
-from app.services.llm_client import LlmClient
+from app.services.llm_client import LlmClient, set_runtime_enabled
 
 
 class ChatService:
@@ -42,6 +42,25 @@ class ChatService:
         mode = request.mode
         message = request.message.lower()
         user_id = user.user_id
+
+        if message.startswith("/llm"):
+            parts = message.split()
+            action = parts[1] if len(parts) > 1 else ""
+            if action in {"on", "enable"}:
+                set_runtime_enabled(True)
+                reply = "LLM enabled (requires OPENAI_MODEL=gpt-5*-mini)."
+            elif action in {"off", "disable"}:
+                set_runtime_enabled(False)
+                reply = "LLM disabled for this session."
+            else:
+                reply = "LLM status: use /llm on or /llm off."
+            return ChatResponse(
+                reply_text=reply,
+                confirmation_required=False,
+                proposal_id=None,
+                proposed_actions=[],
+                suggested_next_questions=[],
+            )
 
         if mode == "ask":
             ask_reply = self._handle_ask(user_id, message)

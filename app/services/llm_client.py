@@ -6,6 +6,8 @@ from openai import OpenAI
 
 logger = logging.getLogger(__name__)
 
+_runtime_enabled: Optional[bool] = None
+
 
 def _is_truthy(value: Optional[str]) -> bool:
     if value is None:
@@ -20,18 +22,34 @@ def _valid_model(model: Optional[str]) -> bool:
     return lower.startswith("gpt-5") and "-mini" in lower
 
 
+def set_runtime_enabled(enabled: bool) -> None:
+    global _runtime_enabled
+    _runtime_enabled = enabled
+
+
+def reset_runtime_enabled() -> None:
+    global _runtime_enabled
+    _runtime_enabled = None
+
+
+def runtime_enabled(default_env_enabled: bool) -> bool:
+    if _runtime_enabled is None:
+        return default_env_enabled
+    return _runtime_enabled
+
+
 class LlmClient:
     DISABLED_REPLY = "LLM disabled; set LLM_ENABLED=1 and a gpt-5*-mini model to enable replies."
     INVALID_MODEL_REPLY = "Set OPENAI_MODEL to a valid gpt-5*-mini model (e.g., gpt-5.1-mini) to enable LLM replies."
     ERROR_REPLY = "LLM temporarily unavailable; please try again."
 
     def __init__(self) -> None:
-        self.enabled = _is_truthy(os.getenv("LLM_ENABLED"))
+        self.env_enabled = _is_truthy(os.getenv("LLM_ENABLED"))
         self.model = os.getenv("OPENAI_MODEL")
         self.timeout = float(os.getenv("OPENAI_TIMEOUT_S", "30"))
 
     def generate_reply(self, system_prompt: str, user_text: str) -> str:
-        if not self.enabled:
+        if not runtime_enabled(self.env_enabled):
             return self.DISABLED_REPLY
         if not _valid_model(self.model):
             return self.INVALID_MODEL_REPLY
