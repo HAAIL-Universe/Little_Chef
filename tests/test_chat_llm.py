@@ -28,7 +28,7 @@ def test_chat_llm_invalid_model(monkeypatch, authed_client):
 
 def test_chat_llm_uses_mock(monkeypatch, authed_client):
     monkeypatch.setenv("LLM_ENABLED", "1")
-    monkeypatch.setenv("OPENAI_MODEL", "gpt-5.1-mini")
+    monkeypatch.setenv("OPENAI_MODEL", "gpt-5-nano")
 
     def fake_reply(system_prompt: str, user_text: str) -> str:  # pragma: no cover - deterministic path
         return "mocked llm reply"
@@ -48,7 +48,7 @@ def test_chat_llm_uses_mock(monkeypatch, authed_client):
 
 
 def test_chat_llm_toggle(monkeypatch, authed_client):
-    monkeypatch.setenv("OPENAI_MODEL", "gpt-5.1-mini")
+    monkeypatch.setenv("OPENAI_MODEL", "gpt-5-nano")
     monkeypatch.setenv("LLM_ENABLED", "0")
     import app.api.routers.chat as chat_router
     import app.services.llm_client as llm_client

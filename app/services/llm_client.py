@@ -19,7 +19,7 @@ def _valid_model(model: Optional[str]) -> bool:
     if not model:
         return False
     lower = model.strip().lower()
-    return lower.startswith("gpt-5") and "-mini" in lower
+    return lower.startswith("gpt-5") and ("-mini" in lower or "-nano" in lower)
 
 
 def set_runtime_enabled(enabled: bool) -> None:
@@ -39,8 +39,8 @@ def runtime_enabled(default_env_enabled: bool) -> bool:
 
 
 class LlmClient:
-    DISABLED_REPLY = "LLM disabled; set LLM_ENABLED=1 and a gpt-5*-mini model to enable replies."
-    INVALID_MODEL_REPLY = "Set OPENAI_MODEL to a valid gpt-5*-mini model (e.g., gpt-5.1-mini) to enable LLM replies."
+    DISABLED_REPLY = "LLM disabled; set LLM_ENABLED=1 and a gpt-5*-mini or gpt-5*-nano model to enable replies."
+    INVALID_MODEL_REPLY = "Set OPENAI_MODEL to a valid gpt-5*-mini or gpt-5*-nano model (e.g., gpt-5.1-mini or gpt-5-nano) to enable LLM replies."
     ERROR_REPLY = "LLM temporarily unavailable; please try again."
 
     def __init__(self) -> None:
