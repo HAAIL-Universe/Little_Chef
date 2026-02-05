@@ -104,7 +104,7 @@ function moveGroupIntoDevPanel(ids: string[], panel: HTMLElement, moved: Set<HTM
 
 function setupDevPanel() {
   const shell = document.getElementById("duet-shell");
-  const host = shell?.parentElement || document.querySelector("main.container");
+  const host = shell || document.querySelector("main.container");
   if (!host || document.getElementById("dev-panel")) return;
 
   const panel = document.createElement("details");
@@ -120,12 +120,7 @@ function setupDevPanel() {
   content.className = "dev-panel-content";
   panel.appendChild(content);
 
-  const insertBefore = shell?.nextElementSibling ?? null;
-  if (insertBefore && insertBefore.parentElement === host) {
-    host.insertBefore(panel, insertBefore);
-  } else {
-    host.appendChild(panel);
-  }
+  host.appendChild(panel);
 
   const moved = new Set<HTMLElement>();
   const groups: string[][] = [
