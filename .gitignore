@@ -6,3 +6,8 @@ __pycache__/
 
 .pytest_cache/
 data/recipe_books/
+
+# Local evidence snapshot
+/evidence/orchestration_system_snapshot.md
+/web/node_modules/
+
