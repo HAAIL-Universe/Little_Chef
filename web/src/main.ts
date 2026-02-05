@@ -202,7 +202,10 @@ function flowMenuCandidates(): FlowOption[] {
 
 function setFlowMenuOpen(open: boolean) {
   flowMenuOpen = open;
-  flowMenuDropdown?.classList.toggle("open", open);
+  if (flowMenuDropdown) {
+    flowMenuDropdown.style.display = open ? "grid" : "none";
+    flowMenuDropdown.classList.toggle("open", open);
+  }
   flowMenuButton?.setAttribute("aria-expanded", open ? "true" : "false");
 }
 
@@ -633,6 +636,7 @@ function setComposerBusy(busy: boolean) {
 }
 
 function wire() {
+  enforceViewportLock();
   const jwtInput = document.getElementById("jwt") as HTMLInputElement;
   document.getElementById("btn-auth")?.addEventListener("click", async () => {
     state.token = jwtInput.value.trim();
@@ -789,6 +793,10 @@ function setupFlowChips() {
   const dropdown = document.createElement("div");
   dropdown.className = "flow-menu-dropdown";
   dropdown.setAttribute("role", "menu");
+  dropdown.style.display = "none";
+  dropdown.style.position = "absolute";
+  dropdown.style.top = "calc(100% + 6px)";
+  dropdown.style.left = "0";
 
   flowMenuContainer.appendChild(trigger);
   flowMenuContainer.appendChild(dropdown);
@@ -810,6 +818,26 @@ function setupFlowChips() {
       }
     });
     flowMenuListenersBound = true;
+  }
+}
+
+function enforceViewportLock() {
+  const html = document.documentElement;
+  const body = document.body;
+  const main = document.querySelector("main.container") as HTMLElement | null;
+  html.style.height = "100%";
+  html.style.overscrollBehavior = "none";
+  html.style.maxWidth = "100vw";
+  html.style.overflow = "hidden";
+  body.style.height = "100%";
+  body.style.minHeight = "100dvh";
+  body.style.maxWidth = "100vw";
+  body.style.overflow = "hidden";
+  body.style.overscrollBehavior = "none";
+  if (main) {
+    main.style.height = "100dvh";
+    main.style.maxHeight = "100dvh";
+    main.style.overflow = "hidden";
   }
 }
 
