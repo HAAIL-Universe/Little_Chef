@@ -4666,3 +4666,327 @@ tests/test_chat_llm.py       |  6 +++---
  2 files changed, 8 insertions(+), 3 deletions(-)
 ```
 
+## Test Run 2026-02-05T21:28:18Z
+- Status: PASS
+- Start: 2026-02-05T21:28:18Z
+- End: 2026-02-05T21:28:23Z
+- Python: Z:\LittleChef\.venv\\Scripts\\python.exe
+- Branch: main
+- HEAD: 11cdc88c0951c0e32cce01c0e17198d7bab03abc
+- compileall exit: 0
+- import app.main exit: 0
+- pytest exit: 0
+- pytest summary: 39 passed, 1 warning in 1.54s
+- git status -sb:
+```
+## main...origin/main [ahead 10]
+ M app/services/chat_service.py
+ M app/services/llm_client.py
+?? evidence/orchestration_system_snapshot.md
+?? web/node_modules/
+```
+- git diff --stat:
+```
+ app/services/chat_service.py | 14 +++++++++++---
+ app/services/llm_client.py   | 18 +++++++++++++++++-
+ 2 files changed, 28 insertions(+), 4 deletions(-)
+```
+
+## Test Run 2026-02-05T22:12:41Z
+- Status: PASS
+- Start: 2026-02-05T22:12:41Z
+- End: 2026-02-05T22:12:47Z
+- Python: Z:\LittleChef\.venv\\Scripts\\python.exe
+- Branch: main
+- HEAD: 11cdc88c0951c0e32cce01c0e17198d7bab03abc
+- compileall exit: 0
+- import app.main exit: 0
+- pytest exit: 0
+- pytest summary: 39 passed, 1 warning in 2.02s
+- git status -sb:
+```
+## main...origin/main [ahead 10]
+ M app/services/chat_service.py
+ M app/services/llm_client.py
+ M evidence/test_runs.md
+ M evidence/test_runs_latest.md
+ M evidence/updatedifflog.md
+?? evidence/orchestration_system_snapshot.md
+?? web/node_modules/
+```
+- git diff --stat:
+```
+ app/services/chat_service.py |  14 ++++--
+ app/services/llm_client.py   |  18 ++++++-
+ evidence/test_runs.md        |  26 +++++++++++
+ evidence/test_runs_latest.md |  16 +++----
+ evidence/updatedifflog.md    | 109 +++++++++----------------------------------
+ 5 files changed, 84 insertions(+), 99 deletions(-)
+```
+
+## Test Run 2026-02-05T22:46:32Z
+- Status: FAIL
+- Start: 2026-02-05T22:46:32Z
+- End: 2026-02-05T22:46:38Z
+- Python: Z:\LittleChef\.venv\\Scripts\\python.exe
+- Branch: main
+- HEAD: 11cdc88c0951c0e32cce01c0e17198d7bab03abc
+- compileall exit: 0
+- import app.main exit: 0
+- pytest exit: 1
+- pytest summary: 1 failed, 41 passed, 1 warning in 2.27s
+- git status -sb:
+```
+## main...origin/main
+M  Contracts/phases_7_plus.md
+ M app/schemas.py
+ M app/services/chat_service.py
+ M app/services/llm_client.py
+A  evidence/phases_7.6.md
+M  evidence/test_runs.md
+M  evidence/test_runs_latest.md
+M  evidence/updatedifflog.md
+?? app/services/inventory_normalizer.py
+?? app/services/inventory_parse_service.py
+?? evidence/orchestration_system_snapshot.md
+?? tests/test_inventory_proposals.py
+?? web/node_modules/
+```
+- git diff --stat:
+```
+ app/schemas.py               |   1 +
+ app/services/chat_service.py | 121 +++++++++++++++++++++++++++++++++++++++++--
+ app/services/llm_client.py   |  96 +++++++++++++++++++++++++++++++++-
+ 3 files changed, 214 insertions(+), 4 deletions(-)
+```
+- Failure payload:
+```
+=== pytest (exit 1) ===
+.......................F..................                               [100%]
+================================== FAILURES ===================================
+_________________________ test_confirm_writes_events __________________________
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x000001A8E311E300>
+
+    def test_confirm_writes_events(monkeypatch):
+        import app.services.inventory_parse_service as parse
+        import app.services.inventory_normalizer as norm
+    
+        monkeypatch.setattr(parse, "extract_new_draft", lambda text, llm: [{"name_raw": "cereal", "quantity_raw": "2", "unit_raw": "count", "expires_raw": None, "notes_raw": None}, {"name_raw": "flour", "quantity_raw": "1", "unit_raw": "kg", "expires_raw": None, "notes_raw": None}])
+        monkeypatch.setattr(norm, "normalize_items", lambda raw, loc: [
+            {"item": {"item_key": "cereal", "quantity": 2, "unit": "count", "notes": None, "expires_on": None, "base_name": "cereal"}, "warnings": []},
+            {"item": {"item_key": "flour", "quantity": 1000, "unit": "g", "notes": None, "expires_on": None, "base_name": "flour"}, "warnings": []},
+        ])
+    
+        svc, inv = make_service(monkeypatch, llm=None)
+        user = UserMe(user_id="u1", provider_subject="s", email=None)
+    
+        resp1 = svc.handle_chat(user, ChatRequest(mode="fill", message="add cereal", include_user_library=True, location="pantry"))
+        pid = resp1.proposal_id
+        applied, evs = svc.confirm(user, pid, confirm=True)
+>       assert applied is True
+E       assert False is True
+
+tests\test_inventory_proposals.py:81: AssertionError
+============================== warnings summary ===============================
+.venv\Lib\site-packages\starlette\formparsers.py:12
+  Z:\LittleChef\.venv\Lib\site-packages\starlette\formparsers.py:12: PendingDeprecationWarning: Please use `import python_multipart` instead.
+    import multipart
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED tests/test_inventory_proposals.py::test_confirm_writes_events - assert...
+1 failed, 41 passed, 1 warning in 2.27s
+```
+
+## Test Run 2026-02-05T22:47:47Z
+- Status: FAIL
+- Start: 2026-02-05T22:47:47Z
+- End: 2026-02-05T22:47:53Z
+- Python: Z:\LittleChef\.venv\\Scripts\\python.exe
+- Branch: main
+- HEAD: 11cdc88c0951c0e32cce01c0e17198d7bab03abc
+- compileall exit: 0
+- import app.main exit: 0
+- pytest exit: 1
+- pytest summary: 1 failed, 41 passed, 1 warning in 1.71s
+- git status -sb:
+```
+## main...origin/main
+M  Contracts/phases_7_plus.md
+ M app/schemas.py
+ M app/services/chat_service.py
+ M app/services/llm_client.py
+A  evidence/phases_7.6.md
+MM evidence/test_runs.md
+MM evidence/test_runs_latest.md
+M  evidence/updatedifflog.md
+?? app/services/inventory_normalizer.py
+?? app/services/inventory_parse_service.py
+?? evidence/orchestration_system_snapshot.md
+?? tests/test_inventory_proposals.py
+?? web/node_modules/
+```
+- git diff --stat:
+```
+ app/schemas.py               |   1 +
+ app/services/chat_service.py | 149 ++++++++++++++++++++++++++++++++++++++-----
+ app/services/llm_client.py   |  96 +++++++++++++++++++++++++++-
+ evidence/test_runs.md        |  75 ++++++++++++++++++++++
+ evidence/test_runs_latest.md |  76 +++++++++++++++++-----
+ 5 files changed, 365 insertions(+), 32 deletions(-)
+```
+- Failure payload:
+```
+=== pytest (exit 1) ===
+.......................F..................                               [100%]
+================================== FAILURES ===================================
+_________________________ test_confirm_writes_events __________________________
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x000001F1DDCCB080>
+
+    def test_confirm_writes_events(monkeypatch):
+        import app.services.inventory_parse_service as parse
+        import app.services.inventory_normalizer as norm
+    
+        monkeypatch.setattr(parse, "extract_new_draft", lambda text, llm: [{"name_raw": "cereal", "quantity_raw": "2", "unit_raw": "count", "expires_raw": None, "notes_raw": None}, {"name_raw": "flour", "quantity_raw": "1", "unit_raw": "kg", "expires_raw": None, "notes_raw": None}])
+        monkeypatch.setattr(norm, "normalize_items", lambda raw, loc: [
+            {"item": {"item_key": "cereal", "quantity": 2, "unit": "count", "notes": None, "expires_on": None, "base_name": "cereal"}, "warnings": []},
+            {"item": {"item_key": "flour", "quantity": 1000, "unit": "g", "notes": None, "expires_on": None, "base_name": "flour"}, "warnings": []},
+        ])
+    
+        svc, inv = make_service(monkeypatch, llm=None)
+        user = UserMe(user_id="u1", provider_subject="s", email=None)
+    
+        resp1 = svc.handle_chat(user, ChatRequest(mode="fill", message="add cereal", include_user_library=True, location="pantry"))
+        pid = resp1.proposal_id
+        applied, evs = svc.confirm(user, pid, confirm=True)
+>       assert applied is True
+E       assert False is True
+
+tests\test_inventory_proposals.py:81: AssertionError
+============================== warnings summary ===============================
+.venv\Lib\site-packages\starlette\formparsers.py:12
+  Z:\LittleChef\.venv\Lib\site-packages\starlette\formparsers.py:12: PendingDeprecationWarning: Please use `import python_multipart` instead.
+    import multipart
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED tests/test_inventory_proposals.py::test_confirm_writes_events - assert...
+1 failed, 41 passed, 1 warning in 1.71s
+```
+
+## Test Run 2026-02-05T23:00:18Z
+- Status: PASS
+- Start: 2026-02-05T23:00:18Z
+- End: 2026-02-05T23:00:24Z
+- Python: Z:\LittleChef\.venv\\Scripts\\python.exe
+- Branch: main
+- HEAD: 11cdc88c0951c0e32cce01c0e17198d7bab03abc
+- compileall exit: 0
+- import app.main exit: 0
+- pytest exit: 0
+- pytest summary: 42 passed, 1 warning in 2.10s
+- git status -sb:
+```
+## main...origin/main
+M  Contracts/phases_7_plus.md
+ M app/schemas.py
+ M app/services/chat_service.py
+ M app/services/llm_client.py
+A  evidence/phases_7.6.md
+MM evidence/test_runs.md
+MM evidence/test_runs_latest.md
+M  evidence/updatedifflog.md
+?? app/services/inventory_normalizer.py
+?? app/services/inventory_parse_service.py
+?? evidence/orchestration_system_snapshot.md
+?? tests/test_inventory_proposals.py
+?? web/node_modules/
+```
+- git diff --stat:
+```
+ app/schemas.py               |   1 +
+ app/services/chat_service.py | 162 ++++++++++++++++++++++++++++++++++++++-----
+ app/services/llm_client.py   |  96 ++++++++++++++++++++++++-
+ evidence/test_runs.md        | 152 ++++++++++++++++++++++++++++++++++++++++
+ evidence/test_runs_latest.md |  78 +++++++++++++++++----
+ 5 files changed, 456 insertions(+), 33 deletions(-)
+```
+
+## Test Run 2026-02-05T23:01:12Z
+- Status: PASS
+- Start: 2026-02-05T23:01:12Z
+- End: 2026-02-05T23:01:18Z
+- Python: Z:\LittleChef\.venv\\Scripts\\python.exe
+- Branch: main
+- HEAD: 11cdc88c0951c0e32cce01c0e17198d7bab03abc
+- compileall exit: 0
+- import app.main exit: 0
+- pytest exit: 0
+- pytest summary: 42 passed, 1 warning in 1.63s
+- git status -sb:
+```
+## main...origin/main
+M  Contracts/phases_7_plus.md
+ M app/schemas.py
+ M app/services/chat_service.py
+ M app/services/llm_client.py
+A  evidence/phases_7.6.md
+MM evidence/test_runs.md
+MM evidence/test_runs_latest.md
+M  evidence/updatedifflog.md
+?? app/services/inventory_normalizer.py
+?? app/services/inventory_parse_service.py
+?? evidence/orchestration_system_snapshot.md
+?? tests/test_inventory_proposals.py
+?? web/node_modules/
+```
+- git diff --stat:
+```
+ app/schemas.py               |   1 +
+ app/services/chat_service.py | 162 ++++++++++++++++++++++++++++++++----
+ app/services/llm_client.py   |  96 +++++++++++++++++++++-
+ evidence/test_runs.md        | 190 +++++++++++++++++++++++++++++++++++++++++++
+ evidence/test_runs_latest.md |  32 +++++---
+ 5 files changed, 450 insertions(+), 31 deletions(-)
+```
+
+## Test Run 2026-02-05T23:01:11Z
+- Status: PASS
+- Start: 2026-02-05T23:01:11.8288038Z
+- End: 2026-02-05T23:01:18.2188013Z
+- Python: Z:\LittleChef\.venv\\Scripts\\python.exe
+- Branch: main
+- HEAD: 11cdc88c0951c0e32cce01c0e17198d7bab03abc
+- compileall exit: 0
+- import app.main exit: 0
+- pytest exit: 0
+- pytest summary: 42 passed, 1 warning in 1.63s
+- git status -sb:
+```
+## main...origin/main
+M  Contracts/phases_7_plus.md
+ M app/schemas.py
+ M app/services/chat_service.py
+ M app/services/llm_client.py
+A  evidence/phases_7.6.md
+MM evidence/test_runs.md
+ M evidence/test_runs_latest.md
+M  evidence/updatedifflog.md
+?? app/services/inventory_normalizer.py
+?? app/services/inventory_parse_service.py
+?? evidence/orchestration_system_snapshot.md
+?? tests/test_inventory_proposals.py
+?? web/node_modules/
+```
+- git diff --stat:
+```
+ app/schemas.py               |   1 +
+ app/services/chat_service.py | 162 ++++++++++++++++++++++++++----
+ app/services/llm_client.py   |  96 +++++++++++++++++-
+ evidence/test_runs.md        | 228 +++++++++++++++++++++++++++++++++++++++++++
+ evidence/test_runs_latest.md |  13 +++
+ 5 files changed, 491 insertions(+), 9 deletions(-)
+```
+

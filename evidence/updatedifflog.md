@@ -1,104 +1,82 @@
 # Diff Log (overwrite each cycle)
 
 ## Cycle Metadata
-- Timestamp: 2026-02-05T20:37:40Z
+- Timestamp: 2026-02-05T23:02:00Z
 - Branch: main
-- BASE_HEAD: 6627d6d6ac4c4a0fcf11a7c49cd1d6e2d0470cec
-- Diff basis: staged
+- BASE_HEAD: 11cdc88c0951c0e32cce01c0e17198d7bab03abc
+- Diff basis: working tree (fix failing test_confirm_writes_events)
 
 ## Cycle Status
 - Status: COMPLETE_AWAITING_AUTHORIZATION
 
 ## Summary
-- Added OpenAI dependency (openai==1.54.1) and a new LLM wrapper pp/services/llm_client.py with runtime gating: LLM_ENABLED truthy, OPENAI_MODEL must start with gpt-5 and include -mini; timeout via OPENAI_TIMEOUT_S; safe fallbacks for disabled/invalid/error.
-- ChatService now supports /llm on|off|status command to toggle LLM at runtime and returns a temporary Little Chef notification; ASK fallback routes to LLM reply when enabled and model valid; propose/confirm flows unchanged.
-- Router and test reset helpers rebuild ChatService with LLM client; runtime toggle state is resettable.
-- Added deterministic tests for LLM disabled/invalid/model, mocked replies, and /llm toggle behavior; conftest uses reset helper.
-- Environment guidance: set LLM_ENABLED=1 and OPENAI_MODEL=gpt-5*-mini to activate; otherwise replies fall back with instructions.
+- Fixed failing `test_confirm_writes_events` by aligning monkeypatch targets with ChatService’s imported inventory helpers.
+- No runtime behavior changes; kept proposal state machine intact.
+- Refreshed test run evidence after full suite passed via `scripts/run_tests.ps1`.
 
-## Files Changed (staged)
-- app/api/routers/chat.py
-- app/services/chat_service.py
-- app/services/llm_client.py
-- requirements.txt
-- tests/conftest.py
-- tests/test_chat_llm.py
+## Files Changed (to stage)
+- tests/test_inventory_proposals.py
 - evidence/test_runs.md
 - evidence/test_runs_latest.md
 - evidence/updatedifflog.md
 
-## Evidence bundle
+## Evidence bundle (verbatim)
 - git status -sb:
-`
-## main...origin/main [ahead 3]
- M app/api/routers/chat.py
+```
+## main...origin/main
+M  Contracts/phases_7_plus.md
+ M app/schemas.py
  M app/services/chat_service.py
- M evidence/test_runs.md
+ M app/services/llm_client.py
+A  evidence/phases_7.6.md
+MM evidence/test_runs.md
  M evidence/test_runs_latest.md
- M evidence/updatedifflog.md
- M requirements.txt
- M tests/conftest.py
-A  app/services/llm_client.py
-A  tests/test_chat_llm.py
+M  evidence/updatedifflog.md
+?? app/services/inventory_normalizer.py
+?? app/services/inventory_parse_service.py
 ?? evidence/orchestration_system_snapshot.md
+?? tests/test_inventory_proposals.py
 ?? web/node_modules/
-`
+```
 - git rev-parse HEAD:
-`
-6627d6d6ac4c4a0fcf11a7c49cd1d6e2d0470cec
-`
+```
+11cdc88c0951c0e32cce01c0e17198d7bab03abc
+```
 - git log -1 --oneline:
-`
-6627d6d Add LLM-gated replies for /chat with OpenAI wrapper
-`
+```
+11cdc88 Show env model in /llm status/enable response
+```
 - git diff --name-only:
-`
-app/api/routers/chat.py
+```
+app/schemas.py
 app/services/chat_service.py
+app/services/llm_client.py
 evidence/test_runs.md
 evidence/test_runs_latest.md
-requirements.txt
-tests/conftest.py
-app/services/llm_client.py
-tests/test_chat_llm.py
-evidence/updatedifflog.md
-`
+```
 - git diff --staged --name-only:
-`
-app/api/routers/chat.py
-app/services/chat_service.py
-app/services/llm_client.py
-evidence/test_runs.md
-evidence/test_runs_latest.md
-evidence/updatedifflog.md
-requirements.txt
-tests/conftest.py
-tests/test_chat_llm.py
-`
-- scripts/run_tests.ps1 present: OK; Test-Path True
-- Evidence files present: evidence/test_runs.md, evidence/test_runs_latest.md
-
-## Minimal diff hunks (high level)
-- chat.py: ChatService now constructed with llm_client; reset helper rebuilds with llm client.
-- chat_service.py: accepts llm_client; supports /llm on|off|status commands returning immediate notification; ASK fallback calls llm_client.generate_reply when enabled; other modes unchanged.
-- llm_client.py: new wrapper with env gating, runtime toggle, model policy, OpenAI Responses call, and fallbacks.
-- requirements.txt: add openai==1.54.1.
-- tests: conftest uses reset_chat_state_for_tests; new test_chat_llm for gating/mocking/toggle coverage.
+```
+(none)
+```
+- scripts/run_tests.ps1 present: OK (git + filesystem)
+- Python executable: Z:\LittleChef\.venv\\Scripts\\python.exe
+- Test-Path evidence/: True
 
 ## Verification
 - python -m compileall app -> PASS
 - python -c "import app.main; print('import ok')" -> PASS
-- pwsh -NoProfile -Command "./scripts/run_tests.ps1" -> PASS (39 passed, 1 warning)
-- physics.yaml unchanged; contracts untouched
+- pwsh -NoProfile -Command "./scripts/run_tests.ps1" -> PASS (42 passed, 1 warning)
+- physics.yaml unchanged
 
-## Environment model policy (HARD)
-- LLM_ENABLED must be truthy (1/true/yes/on)
-- OPENAI_MODEL must match gpt-5*-mini (e.g., gpt-5.1-mini)
-- OPENAI_TIMEOUT_S optional (default 30s)
-- Disabled => "LLM disabled; set LLM_ENABLED=1 and a gpt-5*-mini model to enable replies."
-- Invalid model => "Set OPENAI_MODEL to a valid gpt-5*-mini model..."
-- Errors => "LLM temporarily unavailable; please try again."
+## Root Cause
+- ChatService imports `extract_new_draft`/`extract_edit_ops`/`normalize_items` by value; tests were monkeypatching the source modules instead, leaving ChatService using the original functions (LLM-disabled → empty draft/actions), so confirm had no actions to apply.
 
-## Next steps
-- Await AUTHORIZED before committing staged changes.
-- After deploy, set LLM_ENABLED=1 and OPENAI_MODEL=gpt-5*-mini; use /llm on/off in chat for runtime toggle notifications.
+## Fix
+- In `tests/test_inventory_proposals.py`, monkeypatch ChatService’s imported helpers directly, ensuring proposals/actions are populated during tests; no production logic change.
+
+## Minimal Diff Hunks
+- tests/test_inventory_proposals.py: monkeypatch targets switched to `chat_service.extract_new_draft`, `chat_service.extract_edit_ops`, `chat_service.normalize_items`.
+- evidence/test_runs*.md: updated with latest passing run (start 2026-02-05T23:01:11.8288038Z, end 2026-02-05T23:01:18.2188013Z).
+
+## Next Steps
+- Stage allowed files and await AUTHORIZED before committing/pushing.
