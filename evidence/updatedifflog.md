@@ -1,111 +1,115 @@
 # Diff Log (overwrite each cycle)
 
 ## Cycle Metadata
-- Timestamp: 2026-02-05T20:04:09.8546384+00:00
+- Timestamp: 2026-02-05T20:23:50Z
 - Branch: main
-- BASE_HEAD: 7acbf37ed84b146ada0ea854d3fc6a1b1ec5de01
-- Diff basis: unstaged (status-only)
+- BASE_HEAD: 75701f2a184165d6a2b51bfcc63155a9e5e6bcdc
+- Diff basis: staged
 
 ## Cycle Status
-- Status: COMPLETE_STATUS_REPORT
+- Status: COMPLETE_AWAITING_AUTHORIZATION
 
 ## Resolved contract paths
 - Contracts/blueprint.md
 - Contracts/builder_contract.md
 - Contracts/manifesto.md
 - Contracts/physics.yaml
+- Contracts/ui_style.md
 - evidence/updatedifflog.md
 - Contracts/directive.md: NOT PRESENT (expected)
 
 ## Evidence bundle (verbatim)
 - git status -sb:
 `
-## main...origin/main [ahead 1]
+## main...origin/main [ahead 2]
+ M app/api/routers/chat.py
+ M app/services/chat_service.py
  M evidence/test_runs.md
  M evidence/test_runs_latest.md
- M evidence/updatedifflog.md
- M web/dist/main.js
- M web/src/main.ts
+ M requirements.txt
+ M tests/conftest.py
+?? app/services/llm_client.py
 ?? evidence/orchestration_system_snapshot.md
+?? tests/test_chat_llm.py
 ?? web/node_modules/
 `
 - git rev-parse HEAD:
 `
-7acbf37ed84b146ada0ea854d3fc6a1b1ec5de01
+75701f2a184165d6a2b51bfcc63155a9e5e6bcdc
 `
 - git log -1 --oneline:
 `
-7acbf37 Center inventory overlay and scope visibility
+75701f2 Center inventory overlay and scope visibility
 `
 - git diff --name-only:
 `
+app/api/routers/chat.py
+app/services/chat_service.py
 evidence/test_runs.md
 evidence/test_runs_latest.md
-evidence/updatedifflog.md
-web/dist/main.js
-web/src/main.ts
+requirements.txt
+tests/conftest.py
 `
 - git diff --staged --name-only:
 `
 (none)
-`
-- git status --porcelain:
-`
- M evidence/test_runs.md
- M evidence/test_runs_latest.md
- M evidence/updatedifflog.md
- M web/dist/main.js
- M web/src/main.ts
-?? evidence/orchestration_system_snapshot.md
-?? web/node_modules/
 `
 - scripts/run_tests.ps1 present:
 `
 scripts/run_tests.ps1
 Test-Path .\scripts\run_tests.ps1 => True
 `
+- evidence/test_runs files exist:
+`
+git ls-files: evidence/test_runs.md, evidence/test_runs_latest.md
+Test-Path evidence/test_runs.md => True
+Test-Path evidence/test_runs_latest.md => True
+`
 
-## Forensics A — /chat implementation
-- Route definitions (app/api/routers/chat.py):
-  - lines 25-34: @router.post("/chat", response_model=ChatResponse) -> chat(request: ChatRequest, current_user: UserMe) returns _chat_service.handle_chat(...).
-  - lines 37-52: @router.post("/chat/confirm", response_model=ConfirmProposalResponse) -> chat_confirm(request: ConfirmProposalRequest, current_user: UserMe); raises BadRequestError if proposal missing when confirm=True; otherwise returns ConfirmProposalResponse.
-- Chat service logic (app/services/chat_service.py):
-  - line 25: handle_chat routes modes.
-  - mode "ask": answers from prefs/inventory data; canned fallback text.
-  - mode "fill": regex parses inventory events or prefs; builds proposal_id, stores in ProposalStore, returns ChatResponse with confirmation_required accordingly.
-  - line 87: confirm pops proposal and applies prefs/inventory update; no LLM calls anywhere.
-- Schemas (app/schemas.py lines ~211): ChatRequest{mode,message}, ChatResponse{reply_text, confirmation_required, proposal_id, proposed_actions, suggested_next_questions}.
+## Forensics (chat + LLM wiring)
+- /chat handler: app/api/routers/chat.py lines 25-34 POST /chat -> ChatService.handle_chat; /chat/confirm lines 37-52.
+- ChatService entry: app/services/chat_service.py line 25; uses prefs_service, inventory_service, proposal_store, llm_client.
+- Reply builder: handle_chat ASK fallback now calls llm_client.generate_reply(system_prompt, user text) when no rule-based reply; FILL path unchanged (propose/confirm only).
+- LLM wrapper: new app/services/llm_client.py; gates on env LLM_ENABLED (truthy 1/true/yes/on); enforces OPENAI_MODEL startswith gpt-5 and contains -mini; uses OpenAI Responses API; timeout via OPENAI_TIMEOUT_S (default 30); fallbacks: disabled -> "LLM disabled..."; invalid model -> instruct to set gpt-5*-mini; errors -> "LLM temporarily unavailable".
+- Dependency added: requirements.txt now pins openai==1.54.1 (no other deps changed).
 
-## Forensics A2 — app entrypoint & wiring
-- FastAPI instance: app/main.py line 16-34 (create_app) creates FastAPI(title "Little Chef"); includes routers health, auth, prefs, chat, inventory, recipes, shopping, mealplan.
-- Static UI served from app/main.py: index/static from web/dist.
-- Server script: scripts/run_local.ps1 lines ~200 start uvicorn app.main:app on http://127.0.0.1:<port> (default 8000) with --reload; pure HTTP (no TLS).
+## Tests added
+- tests/test_chat_llm.py:
+  - LLM disabled -> reply text contains "LLM disabled".
+  - LLM enabled + invalid model -> reply instructs to set gpt-5*-mini.
+  - LLM enabled + valid model -> mocked generate_reply returns used reply.
+- conftest resets chat state via chat_router.reset_chat_state_for_tests() to respect per-test env.
 
-## Forensics B — LLM/OpenAI presence
-- Code search for openai/LLM/ChatCompletion: no matches in repo.
-- Dependencies: requirements.txt contains fastapi, uvicorn, pytest, requests, python-dotenv, psycopg; **no openai package**.
-- Env var search for OPENAI/API_KEY: none in code. Env loader (app/config/env.py) only loads dotenv.
-- Conclusion: NO LLM CLIENT FOUND; chat logic is rule-based string parsing only.
-
-## Forensics C — “invalid HTTP request received” symptom
-- Server run script exposes HTTP on http://127.0.0.1:<port> via uvicorn; no HTTPS listener. Hitting with HTTPS or wrong port would trigger uvicorn's "Invalid HTTP request received" (likely Julius sent TLS to HTTP). No local server run in this cycle to preserve state; inference based on run_local.ps1 and default uvicorn behavior.
-
-## Where we stand (required)
-1) /chat status: Implemented in app/api/routers/chat.py lines 25-34; returns ChatResponse via ChatService. /chat/confirm implemented lines 37-52.
-2) LLM status: No OpenAI/LLM client or wrapper present; requirements lack openai; code contains no LLM calls.
-3) Wiring: /chat calls ChatService which performs regex/int parsing and proposals; no model invocation; ProposalStore in-memory.
-4) Likely reason for Julius’ "invalid HTTP request received": server listens HTTP on uvicorn (run_local.ps1) while request likely sent as HTTPS or to mismatched port; uvicorn logs that when TLS bytes are sent to HTTP.
-
-## Verification (tests run this cycle)
+## Verification
 - python -m compileall app -> PASS
-- python -c "import app.main; print('import ok')" -> import ok
-- pwsh -NoProfile -Command "./scripts/run_tests.ps1" -> PASS
+- python -c "import app.main; print('import ok')" -> PASS
+- pwsh -NoProfile -Command "./scripts/run_tests.ps1" -> PASS (38 passed, 1 warning)
 - Contracts unchanged (physics.yaml untouched)
 
-## Files changed (this cycle)
-- evidence/updatedifflog.md
+## Minimal diff hunks (high level)
+- app/api/routers/chat.py: inject llm_client into ChatService; reset helper rebuilds ChatService with llm_client.
+- app/services/chat_service.py: accept llm_client; ASK fallback routes to llm_client.generate_reply with system prompt; other modes unchanged.
+- app/services/llm_client.py: new wrapper enforcing LLM_ENABLED + OPENAI_MODEL policy; OpenAI Responses API call with timeout; safe fallbacks.
+- requirements.txt: add openai==1.54.1.
+- tests/conftest.py: reset chat state using helper (recreates llm_client per test env).
+- tests/test_chat_llm.py: new deterministic LLM gating/mocking coverage.
+
+## Environment / model policy (HARD)
+- Env vars: LLM_ENABLED (truthy: 1/true/yes/on), OPENAI_MODEL (must start with gpt-5 and include -mini), OPENAI_TIMEOUT_S (default 30s).
+- Disabled: returns "LLM disabled; set LLM_ENABLED=1 and a gpt-5*-mini model to enable replies." (no network).
+- Invalid model: returns "Set OPENAI_MODEL to a valid gpt-5*-mini model (e.g., gpt-5.1-mini) to enable LLM replies." (no network).
+- Enabled + valid model: uses OpenAI Responses API for reply_text; errors fall back to "LLM temporarily unavailable; please try again."
+
+## Files changed (allowed set)
+- app/api/routers/chat.py
+- app/services/chat_service.py
+- app/services/llm_client.py (new)
+- requirements.txt
+- tests/conftest.py
+- tests/test_chat_llm.py
 - evidence/test_runs.md
 - evidence/test_runs_latest.md
 
-## Notes
-- Untracked left untouched: evidence/orchestration_system_snapshot.md, web/node_modules/.
+## Next steps
+- Stage allowed files and await AUTHORIZED before committing.
+- Ensure OPENAI_MODEL is set to gpt-5*-mini and LLM_ENABLED=1 in deployment to activate LLM replies.

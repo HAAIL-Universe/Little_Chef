@@ -12,6 +12,7 @@ import app.api.routers.recipes as recipes_router
 from app.services.recipe_service import get_recipe_service, reset_recipe_service_cache
 from app.services.shopping_service import reset_shopping_service_cache
 from app.services.mealplan_service import reset_mealplan_service_cache
+from app.services.llm_client import get_llm_client
 import os
 
 
@@ -32,8 +33,7 @@ def app_instance():
     reset_recipe_service_cache()
     reset_shopping_service_cache()
     reset_mealplan_service_cache()
-    chat_router._proposal_store.clear()
-    chat_router._chat_service = ChatService(get_prefs_service(), get_inventory_service(), chat_router._proposal_store)
+    chat_router.reset_chat_state_for_tests()
     recipes_router.reset_recipes_for_tests()
     return create_app()
 

@@ -3985,3 +3985,99 @@ MM web/src/style.css
 ```
 (none)
 ```
+## Test Run 2026-02-05T20:21:47Z
+- Status: FAIL
+- Start: 2026-02-05T20:21:47Z
+- End: 2026-02-05T20:21:49Z
+- Python: Z:\LittleChef\.venv\\Scripts\\python.exe
+- Branch: main
+- HEAD: 75701f2a184165d6a2b51bfcc63155a9e5e6bcdc
+- compileall exit: 0
+- import app.main exit: 1
+- pytest exit: 4
+- pytest summary: (not run)
+- git status -sb:
+```
+## main...origin/main [ahead 2]
+ M app/api/routers/chat.py
+ M app/services/chat_service.py
+ M requirements.txt
+ M tests/conftest.py
+?? app/services/llm_client.py
+?? evidence/orchestration_system_snapshot.md
+?? tests/test_chat_llm.py
+?? web/node_modules/
+```
+- git diff --stat:
+```
+ app/api/routers/chat.py      |  5 +++--
+ app/services/chat_service.py | 25 +++++++++++++++++++++++--
+ requirements.txt             |  1 +
+ tests/conftest.py            |  4 ++--
+ 4 files changed, 29 insertions(+), 6 deletions(-)
+```
+- Failure payload:
+```
+=== import app.main (exit 1) ===
+Traceback (most recent call last):
+  File "<string>", line 1, in <module>
+  File "Z:\LittleChef\app\main.py", line 6, in <module>
+    from app.api.routers import health, auth, prefs, chat, inventory, recipes, shopping, mealplan
+  File "Z:\LittleChef\app\api\routers\chat.py", line 12, in <module>
+    from app.services.chat_service import ChatService
+  File "Z:\LittleChef\app\services\chat_service.py", line 17, in <module>
+    from app.services.llm_client import LlmClient
+  File "Z:\LittleChef\app\services\llm_client.py", line 5, in <module>
+    from openai import OpenAI
+ModuleNotFoundError: No module named 'openai'
+=== pytest (exit 4) ===
+ImportError while loading conftest 'Z:\LittleChef\tests\conftest.py'.
+tests\conftest.py:4: in <module>
+    from app.main import create_app
+app\main.py:6: in <module>
+    from app.api.routers import health, auth, prefs, chat, inventory, recipes, shopping, mealplan
+app\api\routers\chat.py:12: in <module>
+    from app.services.chat_service import ChatService
+app\services\chat_service.py:17: in <module>
+    from app.services.llm_client import LlmClient
+app\services\llm_client.py:5: in <module>
+    from openai import OpenAI
+E   ModuleNotFoundError: No module named 'openai'
+```
+
+## Test Run 2026-02-05T20:22:46Z
+- Status: PASS
+- Start: 2026-02-05T20:22:46Z
+- End: 2026-02-05T20:22:52Z
+- Python: Z:\LittleChef\.venv\\Scripts\\python.exe
+- Branch: main
+- HEAD: 75701f2a184165d6a2b51bfcc63155a9e5e6bcdc
+- compileall exit: 0
+- import app.main exit: 0
+- pytest exit: 0
+- pytest summary: 38 passed, 1 warning in 2.35s
+- git status -sb:
+```
+## main...origin/main [ahead 2]
+ M app/api/routers/chat.py
+ M app/services/chat_service.py
+ M evidence/test_runs.md
+ M evidence/test_runs_latest.md
+ M requirements.txt
+ M tests/conftest.py
+?? app/services/llm_client.py
+?? evidence/orchestration_system_snapshot.md
+?? tests/test_chat_llm.py
+?? web/node_modules/
+```
+- git diff --stat:
+```
+ app/api/routers/chat.py      |  5 ++--
+ app/services/chat_service.py | 25 +++++++++++++++--
+ evidence/test_runs.md        | 60 +++++++++++++++++++++++++++++++++++++++
+ evidence/test_runs_latest.md | 67 +++++++++++++++++++++++++++++++++-----------
+ requirements.txt             |  1 +
+ tests/conftest.py            |  4 +--
+ 6 files changed, 140 insertions(+), 22 deletions(-)
+```
+

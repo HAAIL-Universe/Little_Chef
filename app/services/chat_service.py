@@ -14,13 +14,29 @@ from app.schemas import (
 from app.services.prefs_service import PrefsService
 from app.services.proposal_store import ProposalStore
 from app.services.inventory_service import InventoryService
+from app.services.llm_client import LlmClient
 
 
 class ChatService:
-    def __init__(self, prefs_service: PrefsService, inventory_service: InventoryService, proposal_store: ProposalStore) -> None:
+    def __init__(
+        self,
+        prefs_service: PrefsService,
+        inventory_service: InventoryService,
+        proposal_store: ProposalStore,
+        llm_client: LlmClient | None = None,
+    ) -> None:
         self.prefs_service = prefs_service
         self.inventory_service = inventory_service
         self.proposal_store = proposal_store
+        self.llm_client = llm_client
+
+    @property
+    def _system_prompt(self) -> str:
+        return (
+            "You are Little Chef, a concise culinary assistant. "
+            "Answer briefly (1-3 sentences) and stay helpful about cooking, ingredients, or meals. "
+            "Do not ask the user to confirm actions; just provide guidance."
+        )
 
     def handle_chat(self, user: UserMe, request: ChatRequest) -> ChatResponse:
         mode = request.mode
@@ -31,8 +47,13 @@ class ChatService:
             ask_reply = self._handle_ask(user_id, message)
             if ask_reply:
                 return ask_reply
+            reply_text = "I can help set preferences or inventory. Try FILL mode with details."
+            if self.llm_client:
+                llm_text = self.llm_client.generate_reply(self._system_prompt, request.message)
+                if llm_text:
+                    reply_text = llm_text
             return ChatResponse(
-                reply_text="I can help set preferences or inventory. Try FILL mode with details.",
+                reply_text=reply_text,
                 confirmation_required=False,
                 proposal_id=None,
                 proposed_actions=[],
