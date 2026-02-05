@@ -44,20 +44,21 @@ class LlmClient:
     ERROR_REPLY = "LLM temporarily unavailable; please try again."
 
     def __init__(self) -> None:
-        self.env_enabled = _is_truthy(os.getenv("LLM_ENABLED"))
-        self.model = os.getenv("OPENAI_MODEL")
         self.timeout = float(os.getenv("OPENAI_TIMEOUT_S", "30"))
 
     def generate_reply(self, system_prompt: str, user_text: str) -> str:
-        if not runtime_enabled(self.env_enabled):
+        env_enabled = _is_truthy(os.getenv("LLM_ENABLED"))
+        model = os.getenv("OPENAI_MODEL")
+
+        if not runtime_enabled(env_enabled):
             return self.DISABLED_REPLY
-        if not _valid_model(self.model):
+        if not _valid_model(model):
             return self.INVALID_MODEL_REPLY
 
         try:
             client = OpenAI(timeout=self.timeout)
             response = client.responses.create(
-                model=self.model,
+                model=model,
                 input=[
                     {"role": "system", "content": system_prompt},
                     {"role": "user", "content": user_text},
