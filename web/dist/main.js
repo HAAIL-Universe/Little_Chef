@@ -23,6 +23,11 @@ let historyOverlay = null;
 let historyToggle = null;
 let currentFlowKey = flowOptions[0].key;
 let composerBusy = false;
+let flowMenuContainer = null;
+let flowMenuDropdown = null;
+let flowMenuButton = null;
+let flowMenuOpen = false;
+let flowMenuListenersBound = false;
 let inventoryOverlay = null;
 let inventoryStatusEl = null;
 let inventoryLowList = null;
@@ -169,6 +174,52 @@ function setComposerPlaceholder() {
         return;
     const flow = (_a = flowOptions.find((f) => f.key === currentFlowKey)) !== null && _a !== void 0 ? _a : flowOptions[0];
     input.placeholder = flow.placeholder;
+}
+function flowDisplayLabel(key) {
+    const flow = flowOptions.find((f) => f.key === key);
+    if (!flow)
+        return "Unknown";
+    return flow.key === "general" ? "Home" : flow.label;
+}
+function flowMenuCandidates() {
+    if (currentFlowKey === "general") {
+        return flowOptions.filter((f) => f.key !== "general");
+    }
+    return flowOptions.filter((f) => f.key !== currentFlowKey).map((f) => (f.key === "general" ? { ...f, label: "Home" } : f));
+}
+function setFlowMenuOpen(open) {
+    flowMenuOpen = open;
+    flowMenuDropdown === null || flowMenuDropdown === void 0 ? void 0 : flowMenuDropdown.classList.toggle("open", open);
+    flowMenuButton === null || flowMenuButton === void 0 ? void 0 : flowMenuButton.setAttribute("aria-expanded", open ? "true" : "false");
+}
+function renderFlowMenu() {
+    const dropdown = flowMenuDropdown;
+    const trigger = flowMenuButton;
+    if (!dropdown || !trigger)
+        return;
+    dropdown.innerHTML = "";
+    flowMenuCandidates().forEach((flow) => {
+        const item = document.createElement("button");
+        item.type = "button";
+        item.className = "flow-menu-item";
+        item.textContent = flow.key === "general" ? "Home" : flow.label;
+        item.setAttribute("role", "menuitem");
+        item.addEventListener("click", () => {
+            selectFlow(flow.key);
+            setFlowMenuOpen(false);
+        });
+        dropdown.appendChild(item);
+    });
+    const currentLabel = flowDisplayLabel(currentFlowKey);
+    trigger.innerHTML = "";
+    const title = document.createElement("span");
+    title.textContent = "Options";
+    const mode = document.createElement("span");
+    mode.className = "current-label";
+    mode.textContent = `Mode: ${currentLabel}`;
+    trigger.appendChild(title);
+    trigger.appendChild(mode);
+    trigger.setAttribute("aria-label", `Options (current: ${currentLabel})`);
 }
 function updateThreadLabel() {
     var _a;
@@ -676,44 +727,54 @@ function setupFlowChips() {
     const composer = document.getElementById("duet-composer");
     if (!shell || !composer)
         return;
-    let container = document.getElementById("flow-chips");
-    if (!container) {
-        container = document.createElement("div");
-        container.id = "flow-chips";
-        container.className = "flow-chips";
-        shell.insertBefore(container, composer);
+    if (!flowMenuContainer) {
+        flowMenuContainer = document.createElement("div");
+        flowMenuContainer.id = "flow-chips";
+        flowMenuContainer.className = "flow-menu";
+        shell.insertBefore(flowMenuContainer, composer);
     }
-    container.innerHTML = "";
-    flowOptions.forEach((flow) => {
-        const btn = document.createElement("button");
-        btn.type = "button";
-        btn.className = "flow-chip";
-        btn.textContent = flow.label;
-        btn.setAttribute("data-key", flow.key);
-        btn.setAttribute("aria-pressed", flow.key === currentFlowKey ? "true" : "false");
-        if (flow.key === currentFlowKey) {
-            btn.classList.add("active");
-        }
-        btn.addEventListener("click", () => selectFlow(flow.key));
-        btn.addEventListener("keydown", (ev) => {
-            if (ev.key === "Enter" || ev.key === " ") {
-                ev.preventDefault();
-                selectFlow(flow.key);
+    else {
+        flowMenuContainer.innerHTML = "";
+        flowMenuContainer.className = "flow-menu";
+    }
+    const trigger = document.createElement("button");
+    trigger.type = "button";
+    trigger.id = "flow-menu-trigger";
+    trigger.className = "flow-menu-btn";
+    trigger.setAttribute("aria-haspopup", "true");
+    trigger.setAttribute("aria-expanded", "false");
+    trigger.addEventListener("click", () => setFlowMenuOpen(!flowMenuOpen));
+    const dropdown = document.createElement("div");
+    dropdown.className = "flow-menu-dropdown";
+    dropdown.setAttribute("role", "menu");
+    flowMenuContainer.appendChild(trigger);
+    flowMenuContainer.appendChild(dropdown);
+    flowMenuButton = trigger;
+    flowMenuDropdown = dropdown;
+    setFlowMenuOpen(false);
+    renderFlowMenu();
+    if (!flowMenuListenersBound) {
+        document.addEventListener("click", (ev) => {
+            if (!flowMenuOpen || !flowMenuContainer)
+                return;
+            if (ev.target instanceof Node && flowMenuContainer.contains(ev.target))
+                return;
+            setFlowMenuOpen(false);
+        });
+        document.addEventListener("keydown", (ev) => {
+            if (ev.key === "Escape" && flowMenuOpen) {
+                setFlowMenuOpen(false);
             }
         });
-        container.appendChild(btn);
-    });
+        flowMenuListenersBound = true;
+    }
 }
 function selectFlow(key) {
     if (!flowOptions.find((f) => f.key === key))
         return;
     currentFlowKey = key;
-    const chips = Array.from(document.querySelectorAll("#flow-chips .flow-chip"));
-    chips.forEach((chip) => {
-        const active = chip.getAttribute("data-key") === key;
-        chip.classList.toggle("active", active);
-        chip.setAttribute("aria-pressed", active ? "true" : "false");
-    });
+    renderFlowMenu();
+    setFlowMenuOpen(false);
     setComposerPlaceholder();
     updateInventoryOverlayVisibility();
     if (currentFlowKey === "inventory") {

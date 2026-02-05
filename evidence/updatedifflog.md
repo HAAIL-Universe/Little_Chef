@@ -1,54 +1,65 @@
 # Diff Log (overwrite each cycle)
 
 ## Cycle Metadata
-- Timestamp: 2026-02-05T15:05:00+00:00
+- Timestamp: 2026-02-05T17:06:21+00:00
 - Branch: main
-- BASE_HEAD: 9d7a97e0d2c4f5f7d5f6c0e4a7c8c3d2b1a0f9e8
+- BASE_HEAD: 3a9300965cc6a97ecc732dade17172d225da51c5
 - Diff basis: staged
 
 ## Cycle Status
 - Status: COMPLETE_AWAITING_AUTHORIZATION
 
 ## Summary
-- Read gate resolved contracts: Contracts/builder_contract.md, Contracts/blueprint.md, Contracts/manifesto.md, Contracts/physics.yaml, Contracts/ui_style.md, Contracts/phases_7_plus.md; Contracts/directive.md NOT PRESENT (expected); diff log path evidence/updatedifflog.md.
-- Forensics: app/main.py lines 36-55 mount / and /static from dist_dir = web/dist (FastAPI FileResponse); Test-Path web/dist = True.
-- Hashes: web/dist/main.js SHA256 7F915C375D79...; web/src/main.ts 599245D1...; web/src/style.css AD7674BF....
-- Frontend build script discovered (web/package.json: “build”: “tsc -p tsconfig.json”); npm run build executed (tsc) to keep dist in sync.
-- Test suite re-run via scripts/run_tests.ps1 (compileall/import/pytest PASS).
-- Dist note: web/dist/main.js remains modified vs HEAD and will be staged (generated); dist/index.html/style.css unchanged.
+- Read gate resolved Contracts/builder_contract.md, Contracts/blueprint.md, Contracts/manifesto.md, Contracts/physics.yaml, Contracts/ui_style.md; Contracts/directive.md NOT PRESENT (expected); canonical log path evidence/updatedifflog.md.
+- CSS: html/body locked to 100dvh with overflow + overscroll disabled; main.container fills the viewport; duet shell/history parents adjusted so only the history list scrolls.
+- UX: replaced four flow chips with one `Options` dropdown overlay (contextual items; Home label when returning to General) that switches mode without clearing thread/context.
+- Static mount confirmed: app/main.py serves `/` and `/static/{path}` from `web/dist`; ran `npm --prefix web run build` to regenerate `web/dist/main.js`.
+- Tests: python compileall, import sanity, and `./scripts/run_tests.ps1` (compileall/import/pytest) all PASS; Contracts/physics.yaml untouched.
 
 ## Files Changed (staged)
+- evidence/updatedifflog.md
 - evidence/test_runs.md
 - evidence/test_runs_latest.md
-- evidence/updatedifflog.md
 - web/dist/main.js
+- web/src/main.ts
+- web/src/style.css
 
 ## git status -sb
-    ## main...origin/main [ahead 2]
-    M  evidence/test_runs.md
-    M  evidence/test_runs_latest.md
-    M  evidence/updatedifflog.md
-    M  web/dist/main.js
-    ?? evidence/orchestration_system_snapshot.md
-    ?? web/node_modules/
+```
+## main...origin/main
+M  evidence/test_runs.md
+M  evidence/test_runs_latest.md
+M  evidence/updatedifflog.md
+M  web/dist/main.js
+M  web/src/main.ts
+M  web/src/style.css
+?? evidence/orchestration_system_snapshot.md
+?? web/node_modules/
+```
 
 ## Minimal Diff Hunks
-- web/dist/main.js: regenerated via `npm run build` (tsc) to align with web/src; contents updated vs HEAD.
-- evidence/test_runs*.md: appended PASS run from scripts/run_tests.ps1.
-- evidence/updatedifflog.md: rewritten with forensic evidence, verification, and staging set.
-- Static mount (app/main.py):
-  - app/main.py:36: dist_dir = (Path(__file__).resolve().parent.parent / "web" / "dist").resolve()
-  - app/main.py:48-55: `/static/{path}` handler guards path within dist_dir, 404 on missing, returns FileResponse(target).
+- web/src/style.css: lock root chain to 100dvh with overflow hidden; main container pinned to viewport; history parents get min-height/1fr grid so only history list scrolls; new flow-menu/dropdown styling replaces chip row.
+- web/src/main.ts: add flow menu state/helpers; Options dropdown overlays, contextual items, closes on selection/outside/escape without touching chat history.
+- web/dist/main.js: rebuilt via `npm --prefix web run build` to match src changes.
+- evidence/test_runs*.md: appended PASS run logged by scripts/run_tests.ps1.
 
 ## Verification
-- Static: `python -m compileall app` (PASS).
-- Runtime import: `python -c "import app.main; print('import ok')"` (PASS).
-- Behavior/tests: `pwsh -NoProfile -Command "./scripts/run_tests.ps1"` (PASS: compileall/import/pytest ok).
-- Contract: No contract files changed; physics.yaml untouched.
-- Runtime fetch of /static/main.js not run (not required; mount + hash evidence used).
+- python -m compileall app → PASS.
+- python -c "import app.main; print('import ok')" → import ok.
+- pwsh -NoProfile -Command "./scripts/run_tests.ps1" → PASS (compileall/import/pytest all ok).
+- Contract check: no changes to Contracts/physics.yaml or other contract files.
 
 ## Notes (optional)
-- web/dist/main.js modified but intentionally UNSTAGED before this cycle; now staged as generated asset. dist/index.html and dist/style.css unchanged. Untracked: evidence/orchestration_system_snapshot.md (out-of-band), web/node_modules/ (ignored).
+- Static serving snippet: app/main.py sets `dist_dir = (Path(__file__).resolve().parent.parent / "web" / "dist").resolve()`; `/static/{path}` handler guards path under dist_dir then returns FileResponse(target).
+- Evidence bundle outputs (start of cycle):
+  - git status -sb: `## main...origin/main` with only evidence/orchestration_system_snapshot.md and web/node_modules/ untracked.
+  - git diff --name-only: (none)
+  - git diff --staged --name-only: (none)
+  - git ls-files "scripts/run_tests.ps1": scripts/run_tests.ps1
+  - Test-Path .\scripts\run_tests.ps1: True
+  - git ls-files "evidence/test_runs.md" "evidence/test_runs_latest.md": evidence/test_runs.md; evidence/test_runs_latest.md
+  - Test-Path evidence/test_runs.md: True; Test-Path evidence/test_runs_latest.md: True
+- Untracked items intentionally left unstaged: evidence/orchestration_system_snapshot.md, web/node_modules/.
 
 ## Next Steps
-- Await AUTHORIZED to commit/push staged files; after authorization, push distilled UI asset proof and proceed to next directive.
+- Await AUTHORIZED to commit/push staged files; keep untracked items unstaged.
