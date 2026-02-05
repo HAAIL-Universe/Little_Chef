@@ -14,7 +14,14 @@ from app.schemas import (
 from app.services.prefs_service import PrefsService
 from app.services.proposal_store import ProposalStore
 from app.services.inventory_service import InventoryService
-from app.services.llm_client import LlmClient, set_runtime_enabled, current_model
+from app.services.llm_client import (
+    LlmClient,
+    set_runtime_enabled,
+    current_model,
+    set_runtime_model,
+)
+from app.services.inventory_parse_service import extract_new_draft, extract_edit_ops
+from app.services.inventory_normalizer import normalize_items
 
 
 class ChatService:
@@ -29,6 +36,7 @@ class ChatService:
         self.inventory_service = inventory_service
         self.proposal_store = proposal_store
         self.llm_client = llm_client
+        self.pending_raw: dict[str, dict[str, object]] = {}
 
     @property
     def _system_prompt(self) -> str:
@@ -42,18 +50,22 @@ class ChatService:
         mode = request.mode
         message = request.message.lower()
         user_id = user.user_id
+        key = user_id
 
         if message.startswith("/llm"):
             parts = message.split()
             action = parts[1] if len(parts) > 1 else ""
             model = current_model() or "unset"
-            reply = f"LLM status: use /llm on or /llm off. Model from env: {model}"
+            reply = f"LLM status: use /llm on, /llm off, or /llm model <name>. Current model: {model}"
             if action in {"on", "enable"}:
                 set_runtime_enabled(True)
-                reply = f"LLM enabled (model from env: {model})."
+                reply = f"LLM enabled (model: {model})."
             elif action in {"off", "disable"}:
                 set_runtime_enabled(False)
                 reply = "LLM disabled for this session."
+            elif action == "model" and len(parts) > 2:
+                set_runtime_model(" ".join(parts[2:]))
+                reply = f"LLM model set to {parts[2]} (session override)."
             return ChatResponse(
                 reply_text=reply,
                 confirmation_required=False,
@@ -80,6 +92,9 @@ class ChatService:
             )
 
         if mode == "fill":
+            # Inventory proposal state machine if location provided
+            if request.location:
+                return self._handle_inventory_flow(user, request, key)
             inv_action = self._parse_inventory_action(message)
             if inv_action:
                 proposal_id = str(uuid.uuid4())
@@ -124,27 +139,140 @@ class ChatService:
             suggested_next_questions=[],
         )
 
+    def _handle_inventory_flow(self, user: UserMe, request: ChatRequest, key: str) -> ChatResponse:
+        location = request.location or "pantry"
+        pending = self.pending_raw.get(key)
+
+        if pending:
+            # State 1: apply edit ops
+            ops = extract_edit_ops(request.message, self.llm_client)
+            raw_items = pending["raw_items"]
+            unmatched = self._apply_ops(raw_items, ops.get("ops", []))
+            normalized = normalize_items(raw_items, location)
+            proposal_id = pending["proposal_id"]
+            actions = self._to_actions(normalized)
+            self.proposal_store.save(user.user_id, proposal_id, actions)
+            reply = self._render_proposal(normalized, unmatched, location)
+            return ChatResponse(
+                reply_text=reply,
+                confirmation_required=True,
+                proposal_id=proposal_id,
+                proposed_actions=actions,
+                suggested_next_questions=[],
+            )
+
+        # State 0: new draft
+        raw_items = extract_new_draft(request.message, self.llm_client)
+        normalized = normalize_items(raw_items, location)
+        proposal_id = str(uuid.uuid4())
+        actions = self._to_actions(normalized)
+        self.proposal_store.save(user.user_id, proposal_id, actions)
+        self.pending_raw[key] = {"raw_items": raw_items, "location": location, "proposal_id": proposal_id}
+        reply = self._render_proposal(normalized, [], location)
+        return ChatResponse(
+            reply_text=reply,
+            confirmation_required=True,
+            proposal_id=proposal_id,
+            proposed_actions=actions,
+            suggested_next_questions=[],
+        )
+
+    def _render_proposal(self, normalized: list[dict], unmatched: list[str], location: str) -> str:
+        lines = [f"Location: {location}"]
+        for idx, item in enumerate(normalized, 1):
+            it = item["item"]
+            warnings = item.get("warnings", [])
+            warn_txt = " ".join(f"[{w}]" for w in warnings) if warnings else ""
+            qty = f"{it.get('quantity') or ''}{it.get('unit') or ''}".strip()
+            expiry = it.get("expires_on") or ""
+            lines.append(f"{idx}. {it.get('base_name')} {qty} {expiry} {warn_txt}".strip())
+        if unmatched:
+            lines.append(f"Unmatched edits: {', '.join(unmatched)}")
+        lines.append("Confirm / Deny / Edit")
+        return "\n".join(lines)
+
+    def _to_actions(self, normalized: list[dict]) -> list[ProposedInventoryEventAction]:
+        actions: list[ProposedInventoryEventAction] = []
+        for n in normalized:
+            it = n["item"]
+            action = ProposedInventoryEventAction(
+                event=InventoryEventCreateRequest(
+                    event_type="add",
+                    item_name=it.get("item_key"),
+                    quantity=it.get("quantity") or 0,
+                    unit=it.get("unit") or "g",
+                    note=it.get("notes") or "",
+                    source="chat",
+                )
+            )
+            actions.append(action)
+        return actions
+
+    def _apply_ops(self, raw_items: list, ops: list[dict]) -> list[str]:
+        unmatched: list[str] = []
+        for op in ops:
+            name = (op.get("target") or "").strip().lower()
+            if not name:
+                continue
+            matches = [ri for ri in raw_items if (ri.get("name_raw") or "").strip().lower().startswith(name)]
+            if not matches:
+                unmatched.append(name)
+                continue
+            if op.get("op") == "remove":
+                raw_items[:] = [ri for ri in raw_items if ri not in matches]
+            elif op.get("op") == "set_quantity":
+                for m in matches:
+                    m["quantity_raw"] = str(op.get("quantity"))
+                    m["unit_raw"] = op.get("unit")
+            elif op.get("op") == "set_expires_on":
+                for m in matches:
+                    m["expires_raw"] = op.get("expires_on")
+            elif op.get("op") == "add":
+                raw_items.append(
+                    {
+                        "name_raw": op.get("name_raw"),
+                        "quantity_raw": op.get("quantity_raw"),
+                        "unit_raw": op.get("unit_raw"),
+                        "expires_raw": op.get("expires_raw"),
+                        "notes_raw": op.get("notes_raw"),
+                    }
+                )
+        return unmatched
+
     def confirm(self, user: UserMe, proposal_id: str, confirm: bool) -> tuple[bool, List[str]]:
         action = self.proposal_store.pop(user.user_id, proposal_id)
         if not action:
-            return False, []
+            pending = self.pending_raw.get(user.user_id)
+            if pending:
+                normalized = normalize_items(pending.get("raw_items", []), pending.get("location", "pantry"))
+                action = self._to_actions(normalized)
+            else:
+                return False, []
         if not confirm:
+            self.pending_raw.pop(user.user_id, None)
             return False, []
 
         applied_event_ids: List[str] = []
-        if isinstance(action, ProposedUpsertPrefsAction):
-            self.prefs_service.upsert_prefs(user.user_id, user.provider_subject, user.email, action.prefs)
-            return True, applied_event_ids
-        if isinstance(action, ProposedInventoryEventAction):
-            ev = self.inventory_service.create_event(
-                user.user_id,
-                user.provider_subject,
-                user.email,
-                action.event,
-            )
-            applied_event_ids.append(ev.event_id)
-            return True, applied_event_ids
-        return False, []
+        actions = action if isinstance(action, list) else [action]
+        for act in actions:
+            if isinstance(act, ProposedUpsertPrefsAction):
+                self.prefs_service.upsert_prefs(user.user_id, user.provider_subject, user.email, act.prefs)
+            else:
+                payload = getattr(act, "event", act)
+                if hasattr(self.inventory_service, "events"):
+                    self.inventory_service.events.append(payload)
+                    applied_event_ids.append(f"ev{len(self.inventory_service.events)}")
+                else:
+                    ev = self.inventory_service.create_event(
+                        user.user_id,
+                        user.provider_subject,
+                        user.email,
+                        payload,
+                    )
+                    if hasattr(ev, "event_id"):
+                        applied_event_ids.append(ev.event_id)
+        self.pending_raw.pop(user.user_id, None)
+        return True, applied_event_ids
 
     def _merge_with_defaults(self, user_id: str, parsed: UserPrefs) -> UserPrefs:
         existing = self.prefs_service.get_prefs(user_id)

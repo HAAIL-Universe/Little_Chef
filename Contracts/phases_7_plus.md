@@ -122,7 +122,29 @@ Each sub-phase follows: Goal; User-visible outcome; Constraints (TS-only, confir
 - Exit:
   - Phase 7.5 section updated exactly as above with no changes to other phases.
 
-  ### 7.6 E2E Evidence Closure Pack (Phase 6A/6B/6C support)
+### 7.6 — Inventory conversational parsing & normalization (draft → confirm → write events)
+- Goal: Capture free-flow “cupboard scan” speech/text into draft items, normalize deterministically, surface warnings, and only write inventory events after confirm/edit/deny.
+- Scope:
+  - Parse user message into draft items (LLM extraction contract).
+  - Normalize fields (name/variant/item_key, quantity+unit, GB dates, manual location).
+  - Warning flags (unit assumed, date parse, location suspicious, expiry unknown, etc.).
+  - One event per item (inventory_events payload shape).
+  - Bulk confirm/edit/deny flow; no DB writes until confirm.
+  - Link to detailed spec: evidence/phases_7.6.md.
+- Non-goals:
+  - No recall/retrieval.
+  - No auto-location; manual toggle only.
+  - No batch/lot tracking (totals model only).
+  - No onboarding/region switching yet.
+- Acceptance (summary):
+  - Draft extraction JSON-only, no writes.
+  - Normalization enforces g/ml/count with kg/l → g/ml conversions; GB date (DD/MM) to ISO; item_key base|variant.
+  - Manual location stored; suspicious location flagged but not blocked.
+  - Warnings list present in payload.
+  - Confirm writes exactly one event per item; deny writes none; edit updates draft before write.
+  - Totals model remains compatible (aggregates by item_key + location).
+
+### 7.7 E2E Evidence Closure Pack (Phase 6A/6B/6C support)
   - Goal: Define repeatable proof bundle to flip UNKNOWN/PARTIAL → PASS.
   - Outcome: Checklist for future cycles: mobile screenshots, JSON excerpts of key API responses, smoke outputs, and short notes mapping to Blueprint acceptance items.
 - Evidence: Written checklist added to evidence per cycle; sample pack produced once.

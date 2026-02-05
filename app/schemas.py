@@ -212,6 +212,7 @@ class ChatRequest(BaseModel):
     mode: Literal["ask", "fill"]
     message: str = Field(..., min_length=1)
     include_user_library: bool = True
+    location: Optional[Literal["pantry", "fridge", "freezer"]] = None
 
 
 class ChatResponse(BaseModel):

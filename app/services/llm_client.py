@@ -7,6 +7,7 @@ from openai import OpenAI
 logger = logging.getLogger(__name__)
 
 _runtime_enabled: Optional[bool] = None
+_runtime_model: Optional[str] = None
 
 
 def _is_truthy(value: Optional[str]) -> bool:
@@ -42,6 +43,20 @@ def current_model() -> Optional[str]:
     return os.getenv("OPENAI_MODEL")
 
 
+def set_runtime_model(model: Optional[str]) -> None:
+    global _runtime_model
+    _runtime_model = model.strip() if model else None
+
+
+def reset_runtime_model() -> None:
+    global _runtime_model
+    _runtime_model = None
+
+
+def effective_model(env_model: Optional[str]) -> Optional[str]:
+    return _runtime_model if _runtime_model else env_model
+
+
 class LlmClient:
     DISABLED_REPLY = "LLM disabled; set LLM_ENABLED=1 and a gpt-5*-mini or gpt-5*-nano model to enable replies."
     INVALID_MODEL_REPLY = "Set OPENAI_MODEL to a valid gpt-5*-mini or gpt-5*-nano model (e.g., gpt-5.1-mini or gpt-5-nano) to enable LLM replies."
@@ -52,7 +67,8 @@ class LlmClient:
 
     def generate_reply(self, system_prompt: str, user_text: str) -> str:
         env_enabled = _is_truthy(os.getenv("LLM_ENABLED"))
-        model = os.getenv("OPENAI_MODEL")
+        env_model = os.getenv("OPENAI_MODEL")
+        model = effective_model(env_model)
 
         if not runtime_enabled(env_enabled):
             return self.DISABLED_REPLY
@@ -82,6 +98,84 @@ class LlmClient:
         except Exception as exc:  # pragma: no cover - error path asserted via message text
             logger.warning("LLM call failed: %s", exc)
             return self.ERROR_REPLY
+
+    def generate_structured_reply(self, user_text: str, kind: str) -> Optional[dict]:
+        """
+        Very small helper to support inventory parsing/edit ops.
+        When disabled/invalid model, returns None deterministically.
+        """
+        env_enabled = _is_truthy(os.getenv("LLM_ENABLED"))
+        env_model = os.getenv("OPENAI_MODEL")
+        model = effective_model(env_model)
+        if not runtime_enabled(env_enabled):
+            return None
+        if not _valid_model(model):
+            return None
+        try:
+            client = OpenAI(timeout=self.timeout)
+            if kind == "edit":
+                schema = {
+                    "type": "object",
+                    "properties": {
+                        "ops": {
+                            "type": "array",
+                            "items": {
+                                "type": "object",
+                                "properties": {
+                                    "op": {"type": "string"},
+                                    "target": {"type": "string"},
+                                    "quantity": {"type": "number"},
+                                    "unit": {"type": "string"},
+                                    "expires_on": {"type": "string"},
+                                    "notes": {"type": "string"},
+                                    "name_raw": {"type": "string"},
+                                    "quantity_raw": {"type": "string"},
+                                    "unit_raw": {"type": "string"},
+                                    "expires_raw": {"type": "string"},
+                                    "notes_raw": {"type": "string"},
+                                },
+                                "required": ["op"],
+                            },
+                        }
+                    },
+                    "required": ["ops"],
+                }
+            else:
+                schema = {
+                    "type": "object",
+                    "properties": {
+                        "items": {
+                            "type": "array",
+                            "items": {
+                                "type": "object",
+                                "properties": {
+                                    "name_raw": {"type": "string"},
+                                    "quantity_raw": {"type": ["string", "null"]},
+                                    "unit_raw": {"type": ["string", "null"]},
+                                    "expires_raw": {"type": ["string", "null"]},
+                                    "notes_raw": {"type": ["string", "null"]},
+                                },
+                                "required": ["name_raw"],
+                            },
+                        }
+                    },
+                    "required": ["items"],
+                }
+
+            resp = client.responses.create(
+                model=model,
+                input=[{"role": "user", "content": user_text}],
+                response_format={"type": "json_schema", "json_schema": schema},
+                max_output_tokens=400,
+            )
+            if hasattr(resp, "output"):
+                return resp.output  # type: ignore[attr-defined]
+            if hasattr(resp, "output_text"):
+                return None
+            return None
+        except Exception as exc:  # pragma: no cover
+            logger.warning("LLM call failed: %s", exc)
+            return None
 
 
 def get_llm_client() -> LlmClient:
