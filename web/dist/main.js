@@ -21,6 +21,9 @@ const duetState = {
     drawerProgress: 0,
 };
 let lastServerMode = "ASK";
+function currentModeLower() {
+    return (lastServerMode || "ASK").toLowerCase();
+}
 let historyOverlay = null;
 let historyToggle = null;
 let currentFlowKey = flowOptions[0].key;
@@ -393,6 +396,14 @@ function bindResizeForHistoryOffset() {
     window.addEventListener("resize", recalc);
     recalc();
 }
+function startNewThread() {
+    duetState.threadId = crypto.randomUUID();
+    duetState.history = [];
+    renderDuetHistory();
+    updateDuetBubbles();
+    updateThreadLabel();
+    setDuetStatus("New thread created.");
+}
 function addHistory(role, text) {
     duetState.history.push({ role, text });
     renderDuetHistory();
@@ -411,6 +422,17 @@ function setupHistoryDrawerUi() {
     const stage = document.querySelector(".duet-stage");
     if (!shell || !stage)
         return;
+    const historyPanel = document.getElementById("duet-history");
+    const historyHeader = historyPanel === null || historyPanel === void 0 ? void 0 : historyPanel.querySelector(".history-header");
+    if (historyHeader && !historyHeader.querySelector("#duet-new-thread")) {
+        const newThreadBtn = document.createElement("button");
+        newThreadBtn.id = "duet-new-thread";
+        newThreadBtn.type = "button";
+        newThreadBtn.className = "pill-btn";
+        newThreadBtn.textContent = "New Thread";
+        newThreadBtn.addEventListener("click", () => startNewThread());
+        historyHeader.appendChild(newThreadBtn);
+    }
     if (!historyOverlay) {
         historyOverlay = document.createElement("div");
         historyOverlay.className = "history-overlay";
@@ -653,7 +675,7 @@ async function sendAsk(message, opts) {
             method: "POST",
             headers: headers(),
             body: JSON.stringify({
-                mode: "ask",
+                mode: currentModeLower(),
                 message,
                 include_user_library: true,
                 thread_id: threadId,

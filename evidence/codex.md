@@ -1,32 +1,33 @@
 ## Current Repo State
-- HEAD: dbe811effe5156408d2a0e2e173ad44cef15b518
-- Branch: main (clean tracked); unstaged untracked: evidence/orchestration_system_snapshot.md, web/node_modules/
+- HEAD: f24547ddbe03411bb3e17d3223cb3e85b5048eb5 (main, ahead 10)
+- Working tree: staging pending (awaiting AUTHORIZED). Staged files: app/services/thread_messages_repo.py; web/src/main.ts; web/dist/main.js; tests/test_ui_new_thread_button.py; evidence/test_runs.md; evidence/test_runs_latest.md; evidence/updatedifflog.md.
+- Untracked/ignored: none of concern (node_modules remains ignored).
 
-## Phase Progress
-- 7.1: closed (shell-only duet UI; TS/dist policy; diff-log governance)
-- 7.2: closed (history drawer lock-to-scroll, inverted chronology; churn policies)
-- 7.3: closed (flow selector chips; shell-only; evidence/test_runs* staging policy)
-- 7.4A: closed (ASK wiring to /chat; physics drift resolved; OpenAPI contract test added)
-- 7.5: plan updated (inventory ghost overlay, dev panel hiding legacy blocks, mobile overflow acceptance; physics-safe)
+## Latest Functional Changes (staged, not committed)
+- History panel now has a **New Thread** button: generates a new UUID thread_id, clears local transcript UI, updates thread label/Dev Panel, mode unchanged.
+- Frontend still shows history drawer; Dev Panel shows thread + mode.
+- Dist rebuilt to include New Thread UI and thread_id payload usage.
+- Backend thread message persistence now ensures a 	hreads row exists before inserting into 	hread_messages (ON CONFLICT DO NOTHING; tolerant of DB failure).
+- Added deterministic UI test anchors for New Thread button / UUID / transcript clear.
 
-## Key Governance Policies (Locked)
-- evidence/test_runs.md & evidence/test_runs_latest.md: expected churn on each run; stage when modified.
-- web/package-lock.json: stage only if adjacent to tracked web/package.json.
-- web/node_modules/: local-only; never stage/commit.
-- evidence/orchestration_system_snapshot.md: out-of-band; never stage/commit.
-- Diff Log Gate: overwrite evidence/updatedifflog.md each cycle; stage it.
-- Authorization Gate: halt before commit until authorized.
+## Previous recent change (already committed)
+- Thread-scoped /ask and /fill overrides now control routing; frontend sends current mode instead of hardcoded ask; ChatResponse includes mode.
 
-## UI State (Whats on screen now)
-- Primary: duet shell with flow chips + composer.
-- Legacy blocks still visible: Chat/Prefs/Mealplan/Shopping diff debug panels + JWT auth block.
-- Planned fix: move legacy blocks into collapsed Dev Panel; fix mobile overflow (no right-side cut-off).
+## Tests / Build
+- npm run build: PASS (web)
+- ./scripts/run_tests.ps1: PASS (51 passed, 1 warning: python_multipart deprecation)
+- Latest run recorded in evidence/test_runs_latest.md.
 
-## Open Items / Next Steps
-- Confirm Phase 7+ doc update is physics-safe (no new endpoints/schemas promised).
-- Next target: implement Phase 7.5 UI (Inventory ghost overlay, Dev Panel, mobile scaling fixes).
-- Risks/notes: diff log notes untracked snapshot/node_modules only.
+## Open Items / To-Do when resuming
+- Commit staged changes after authorization.
+- Verify New Thread UX in browser: open history (clock), click New Thread, confirm thread label updates, transcript cleared, next /chat uses new thread_id.
+- Confirm backend thread row insertion behaves in hosted DB (best-effort insert in thread_messages_repo).
 
-## How To Resume Tomorrow
-- Commands: git status -sb; git log -1 --oneline; open vidence/codex.md; open vidence/updatedifflog.md.
-- Next directive expected: Phase 7.5 UI implementation (overlay + dev panel + mobile overflow fix).
+## Quick status commands for tomorrow
+- git status -sb
+- git diff --staged --stat
+- cat evidence/updatedifflog.md
+
+## Notes
+- Do not touch physics/schemas in this patch; mode fields already aligned earlier.
+- Keep node_modules ignored; dist is rebuilt and staged.

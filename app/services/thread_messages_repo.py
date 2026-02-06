@@ -11,6 +11,20 @@ class ThreadMessagesRepo:
             return None
         try:
             with connect() as conn, conn.cursor() as cur:
+                # Ensure a threads row exists for this thread/user
+                try:
+                    cur.execute(
+                        """
+                        INSERT INTO threads (thread_id, user_id)
+                        VALUES (%s, %s)
+                        ON CONFLICT (thread_id) DO NOTHING
+                        """,
+                        (thread_id, user_id),
+                    )
+                except Exception:
+                    # best-effort; continue even if this fails
+                    pass
+
                 cur.execute(
                     """
                     SELECT COALESCE(MAX(split_part(message_id, '-', 2)::int), 0) + 1
@@ -33,4 +47,3 @@ class ThreadMessagesRepo:
         except Exception:
             # Non-fatal: skip persistence if DB unavailable
             return None
-

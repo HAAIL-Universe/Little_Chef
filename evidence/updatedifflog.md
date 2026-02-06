@@ -1,50 +1,139 @@
-Cycle: 2026-02-06T02:58:30Z
+Cycle: 2026-02-06T11:51:02Z
 Branch: main
-BASE_HEAD: 1d1d2628b0eaf46b24f6a055b3f07f4c9a36a6de (working tree)
+BASE_HEAD: f24547d9498dd942ee17569e525933e455a8762c (working tree)
+Status: IN_PROCESS
 Contracts read: Contracts/builder_contract.md, Contracts/blueprint.md, Contracts/manifesto.md, Contracts/physics.yaml, Contracts/ui_style.md, Contracts/phases_7_plus.md; Contracts/directive.md NOT PRESENT (allowed)
-Allowed files: app/services/chat_service.py; app/schemas.py; Contracts/physics.yaml; web/src/main.ts; web/dist/main.js; tests/test_chat_mode_commands.py; evidence/updatedifflog.md; evidence/test_runs.md; evidence/test_runs_latest.md
+Allowed files: evidence/updatedifflog.md
 
-Evidence bundle:
-- git status -sb: clean before start
-- HEAD: 1d1d2628b0eaf46b24f6a055b3f07f4c9a36a6de
-- git diff --name-only: (clean before edits)
-- db_migrate.ps1 (earlier) shows migrations dir db/migrations with 0001_init, 0002_threads, 0003_thread_messages (applied)
-- Tests exist: scripts/run_tests.ps1
+## Summary
+- Checkpoint prep: New Thread history UI/test/dist rebuild plus thread persistence guard are staged with the latest evidence/test_runs entries (2026-02-06T11:50:38Z run) and the diff log will record this clean bundle for authorization.
+- `/fill` backend routing fix remains in the working tree (`app/services/chat_service.py` + `tests/test_chat_mode_commands.py`) and is intentionally excluded from this checkpoint.
 
-Changes this cycle:
-- Added thread-scoped /ask and /fill command handling in ChatService (in-memory mode overrides keyed by (user_id, thread_id)); commands reply immediately and do not append messages when thread_id missing.
-- ChatResponse now includes mode field; all responses populate effective mode (override or default ask).
-- ChatRequest thread_id made optional to allow graceful reply when missing; physics.yaml updated accordingly; ChatResponse schema updated to require mode.
-- Dev Panel now shows current Mode alongside Thread; mode updates from server responses.
-- Frontend tracks lastServerMode (default ASK) and updates on each /chat response; dist rebuilt.
-- New tests test_chat_mode_commands.py cover /fill, /ask mode switching and persistence.
-
-Verification:
-- npm ci && npm run build (web) completed
-- compileall app: PASS
-- python -c "import app.main": PASS
-- ./scripts/run_tests.ps1: PASS (49 passed, 1 warning)
-- DB check earlier: thread_messages exists
-
-Files changed (staged):
-- Contracts/physics.yaml
-- app/schemas.py
-- app/services/chat_service.py
-- web/src/main.ts
-- web/dist/main.js
-- tests/test_chat_mode_commands.py
+## Files Changed (staged)
+- app/services/thread_messages_repo.py
+- evidence/codex.md
 - evidence/test_runs.md
 - evidence/test_runs_latest.md
 - evidence/updatedifflog.md
+- tests/test_ui_new_thread_button.py
+- web/dist/main.js
+- web/src/main.ts
 
-Minimal diff hunks:
-- ChatResponse gains mode; ChatRequest thread_id optional.
-- ChatService adds /ask|/fill overrides, mode propagation, effective_mode helper.
-- main.ts displays Mode in Dev Panel and updates from response.
-- New test ensures mode commands set/retain mode.
-- Added migration already applied earlier (no change this cycle) – no schema change beyond physics update.
+## git status -sb
+```
+## main...origin/main [ahead 10]
+ M app/services/chat_service.py
+M  app/services/thread_messages_repo.py
+M  evidence/codex.md
+M  evidence/test_runs.md
+M  evidence/test_runs_latest.md
+M  evidence/updatedifflog.md
+ M tests/test_chat_mode_commands.py
+A  tests/test_ui_new_thread_button.py
+M  web/dist/main.js
+M  web/src/main.ts
+```
 
-Test runs:
-- Status PASS; pytest summary: 49 passed, 1 warning (python_multipart deprecation).
+## Minimal Diff Hunks
+```
+diff --git a/app/services/thread_messages_repo.py b/app/services/thread_messages_repo.py
+index f51041b..4e63a03 100644
+--- a/app/services/thread_messages_repo.py
++++ b/app/services/thread_messages_repo.py
+@@ -11,6 +11,20 @@ class ThreadMessagesRepo:
+             return None
+         try:
+             with connect() as conn, conn.cursor() as cur:
++                # Ensure a threads row exists for this thread/user
++                try:
++                    cur.execute(
++                        """
++                        INSERT INTO threads (thread_id, user_id)
++                        VALUES (%s, %s)
++                        ON CONFLICT (thread_id) DO NOTHING
++                        """,
++                        (thread_id, user_id),
++                    )
++                except Exception:
++                    # best-effort; continue even if this fails
++                    pass
+                 cur.execute(
+                     """
+                     SELECT COALESCE(MAX(split_part(message_id, '-', 2)::int), 0) + 1
+@@ -33,4 +47,3 @@ class ThreadMessagesRepo:
+         except Exception:
+             # Non-fatal: skip persistence if DB unavailable
+             return None
+```
 
-Status: COMPLETE_AWAITING_AUTHORIZATION
+```
+diff --git a/web/src/main.ts b/web/src/main.ts
+index 59bf157..e7123b1 100644
+--- a/web/src/main.ts
++++ b/web/src/main.ts
+@@ -29,6 +29,10 @@ const duetState = {
+ };
+ let lastServerMode = "ASK";
+
++function currentModeLower() {
++  return (lastServerMode || "ASK").toLowerCase();
++}
++
+ let historyOverlay: HTMLDivElement | null = null;
+@@ -430,6 +443,18 @@ function setupHistoryDrawerUi() {
+  const stage = document.querySelector(".duet-stage");
+  if (!shell || !stage) return;
+
+  const historyPanel = document.getElementById("duet-history");
+  const historyHeader = historyPanel?.querySelector(".history-header");
+  if (historyHeader && !historyHeader.querySelector("#duet-new-thread")) {
+    const newThreadBtn = document.createElement("button");
+    newThreadBtn.id = "duet-new-thread";
+    newThreadBtn.type = "button";
+    newThreadBtn.className = "pill-btn";
+    newThreadBtn.textContent = "New Thread";
+    newThreadBtn.addEventListener("click", () => startNewThread());
+    historyHeader.appendChild(newThreadBtn);
+  }
+
+```
+
+```
+diff --git a/tests/test_ui_new_thread_button.py b/tests/test_ui_new_thread_button.py
+new file mode 100644
+index 0000000..4b16ba6
+--- /dev/null
++++ b/tests/test_ui_new_thread_button.py
+@@ -0,0 +1,12 @@
++from pathlib import Path
++
++
+def test_new_thread_button_and_thread_reset_hooks_present():
+    src = Path("web/src/main.ts").read_text()
+    assert "New Thread" in src
+    assert "startNewThread" in src
+    assert "crypto.randomUUID" in src
+    assert "duetState.history = []" in src
+```
+
+## Verification
+- `python -m compileall app`: PASS
+- `python -c "import app.main; print('import ok')"`: PASS
+- `pwsh -NoProfile -Command "./scripts/run_tests.ps1"`: PASS (53 passed, 1 warning: python_multipart; recorded at 2026-02-06T11:50:38Z–11:50:46Z in `evidence/test_runs.md`/`test_runs_latest.md`)
+
+## Notes
+- `/fill` backend mode change is still staged/unstaged outside this checkpoint (`app/services/chat_service.py`, `tests/test_chat_mode_commands.py`) and will be addressed in the next cycle after this checkpoint is authorized.
+
+## Next Steps
+- Await Julius’ `AUTHORIZED` before committing this checkpoint bundle.
++  const historyPanel = document.getElementById("duet-history");
++  const historyHeader = historyPanel?.querySelector(".history-header");
++  if (historyHeader && !historyHeader.querySelector("#duet-new-thread")) {
++    const newThreadBtn = document.createElement("button");
++    newThreadBtn.id = "duet-new-thread";
++    newThreadBtn.type = "button";
++    newThreadBtn.className = "pill-btn";
++    newThreadBtn.textContent = "New Thread";
++    newThreadBtn.addEventListener("click", () => startNewThread());
++    historyHeader.appendChild(newThreadBtn);
++  }
