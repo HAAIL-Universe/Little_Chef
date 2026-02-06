@@ -36,6 +36,13 @@ class PrefsService:
             return stored
         return DEFAULT_PREFS.model_copy()
 
+    def has_prefs(self, user_id: str) -> bool:
+        try:
+            stored = self.repo.get_prefs(user_id)
+        except Exception:
+            return False
+        return stored is not None
+
     def upsert_prefs(
         self,
         user_id: str,

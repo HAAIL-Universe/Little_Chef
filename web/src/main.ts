@@ -54,6 +54,12 @@ let inventoryLowList: HTMLUListElement | null = null;
 let inventorySummaryList: HTMLUListElement | null = null;
 let inventoryLoading = false;
 let inventoryHasLoaded = false;
+let prefsOverlay: HTMLDivElement | null = null;
+let prefsOverlayStatusEl: HTMLElement | null = null;
+let prefsOverlaySummaryEl: HTMLElement | null = null;
+let prefsOverlayDetails: HTMLDivElement | null = null;
+let prefsOverlayLoading = false;
+let prefsOverlayHasLoaded = false;
 let onboardMenu: HTMLDivElement | null = null;
 let onboardPressTimer: number | null = null;
 let onboardPressStart: { x: number; y: number } | null = null;
@@ -234,6 +240,14 @@ async function submitProposalDecision(confirm: boolean, thinkingIndex?: number) 
     setText("chat-reply", { status: response.status, json: response.json });
     setDuetStatus(success ? "Reply received." : "Confirmation failed.");
     if (success) {
+      const confirmedPrefs =
+        response.json?.applied &&
+        state.proposedActions.some((action: any) => action.action_type === "upsert_prefs");
+      if (confirmedPrefs) {
+        state.onboarded = true;
+        renderOnboardMenuButtons();
+        updatePrefsOverlayVisibility();
+      }
       clearProposal();
     }
   } catch (err) {
@@ -483,6 +497,17 @@ function bindResizeForHistoryOffset() {
   recalc();
 }
 
+function elevateDuetBubbles() {
+  const assistantBubble = document.getElementById("duet-assistant-bubble");
+  const userBubble = document.getElementById("duet-user-bubble");
+  if (assistantBubble) {
+    assistantBubble.style.zIndex = "50";
+  }
+  if (userBubble) {
+    userBubble.style.zIndex = "50";
+  }
+}
+
 function startNewThread() {
   duetState.threadId = crypto.randomUUID();
   duetState.history = [];
@@ -670,7 +695,9 @@ function setupInventoryGhostOverlay() {
   const overlay = document.createElement("div");
   overlay.id = "inventory-ghost";
   overlay.className = "inventory-ghost hidden";
-  overlay.style.display = "flex";
+  overlay.style.display = "none";
+  overlay.style.pointerEvents = "none";
+  overlay.style.zIndex = "1";
   overlay.style.flexDirection = "column";
   overlay.style.justifyContent = "center";
   overlay.style.alignItems = "center";
@@ -680,12 +707,14 @@ function setupInventoryGhostOverlay() {
   overlay.style.height = "calc(100% - 20px)";
   overlay.style.position = "absolute";
 
-  const content = document.createElement("div");
-  content.style.display = "grid";
-  content.style.gap = "12px";
-  content.style.width = "100%";
-  content.style.maxWidth = "520px";
-  content.style.margin = "0 auto";
+  const panel = document.createElement("div");
+  panel.className = "prefs-overlay-content";
+  panel.style.display = "grid";
+  panel.style.pointerEvents = "auto";
+  panel.style.gap = "12px";
+  panel.style.width = "100%";
+  panel.style.maxWidth = "520px";
+  panel.style.margin = "0 auto";
 
   const header = document.createElement("div");
   header.className = "inventory-ghost-header";
@@ -726,17 +755,193 @@ function setupInventoryGhostOverlay() {
   summarySection.appendChild(summaryTitle);
   summarySection.appendChild(summaryList);
 
-  content.appendChild(header);
-  content.appendChild(status);
-  content.appendChild(lowSection);
-  content.appendChild(summarySection);
-  overlay.appendChild(content);
+  panel.appendChild(header);
+  panel.appendChild(status);
+  panel.appendChild(lowSection);
+  panel.appendChild(summarySection);
+  overlay.appendChild(panel);
   stage.appendChild(overlay);
 
   inventoryOverlay = overlay;
   inventoryStatusEl = status;
   inventoryLowList = lowList;
   inventorySummaryList = summaryList;
+}
+
+function setPrefsOverlayStatus(text: string) {
+  if (prefsOverlayStatusEl) {
+    prefsOverlayStatusEl.textContent = text;
+  }
+}
+
+function renderPrefsOverlay(prefs: any | null) {
+  const details = prefsOverlayDetails;
+  const summaryEl = prefsOverlaySummaryEl;
+  if (!details || !summaryEl) return;
+  details.innerHTML = "";
+  if (!prefs) {
+    summaryEl.textContent = "No preferences yet.";
+    const empty = document.createElement("div");
+    empty.className = "prefs-overlay-empty";
+    empty.textContent = "No preferences saved yet.";
+    details.appendChild(empty);
+    return;
+  }
+
+  const servings = Number.isFinite(prefs.servings) ? prefs.servings : "—";
+  const meals = Number.isFinite(prefs.meals_per_day) ? prefs.meals_per_day : "—";
+  summaryEl.textContent = `${servings} servings · ${meals} meals/day`;
+
+  const sections = [
+    { title: "Allergies", items: Array.isArray(prefs.allergies) ? prefs.allergies : [] },
+    { title: "Dislikes", items: Array.isArray(prefs.dislikes) ? prefs.dislikes : [] },
+    { title: "Likes", items: Array.isArray(prefs.cuisine_likes) ? prefs.cuisine_likes : [] },
+  ];
+
+  sections.forEach((section) => {
+    const sectionEl = document.createElement("div");
+    sectionEl.className = "prefs-overlay-section inventory-ghost-section";
+    const titleEl = document.createElement("div");
+    titleEl.className = "prefs-overlay-title inventory-ghost-title";
+    titleEl.textContent = section.title;
+    sectionEl.appendChild(titleEl);
+    const list = document.createElement("ul");
+    list.className = "prefs-overlay-list";
+    if (!section.items.length) {
+      const li = document.createElement("li");
+      li.className = "inventory-empty";
+      li.textContent = "None yet.";
+      list.appendChild(li);
+    } else {
+      section.items.forEach((item: string) => {
+        const li = document.createElement("li");
+        li.textContent = item;
+        list.appendChild(li);
+      });
+    }
+    sectionEl.appendChild(list);
+    details.appendChild(sectionEl);
+  });
+
+  if (prefs.notes) {
+    const notesSection = document.createElement("div");
+    notesSection.className = "prefs-overlay-section";
+    const notesTitle = document.createElement("div");
+    notesTitle.className = "prefs-overlay-title";
+    notesTitle.textContent = "Notes";
+    const notesBody = document.createElement("div");
+    notesBody.className = "prefs-overlay-notes";
+    notesBody.textContent = prefs.notes;
+    notesSection.appendChild(notesTitle);
+    notesSection.appendChild(notesBody);
+    details.appendChild(notesSection);
+  }
+}
+
+async function refreshPrefsOverlay(force = false) {
+  if (!prefsOverlay) return;
+  if (prefsOverlayLoading && !force) return;
+  prefsOverlayLoading = true;
+  setPrefsOverlayStatus("Loading...");
+  try {
+    const resp = await doGet("/prefs");
+    if (resp.status === 401) {
+      setPrefsOverlayStatus("Unauthorized (set token in Dev Panel)");
+      renderPrefsOverlay(null);
+      prefsOverlayHasLoaded = true;
+      return;
+    }
+    const payload = resp.json;
+    const hasData = payload && typeof payload === "object" && payload !== null && (typeof payload.servings === "number" || Array.isArray(payload.allergies));
+    renderPrefsOverlay(hasData ? payload : null);
+    setPrefsOverlayStatus(hasData ? "Read-only snapshot" : "No preferences yet.");
+    prefsOverlayHasLoaded = true;
+  } catch (err) {
+    setPrefsOverlayStatus("Network error. Try refresh.");
+    renderPrefsOverlay(null);
+    console.error(err);
+  } finally {
+    prefsOverlayLoading = false;
+  }
+}
+
+function updatePrefsOverlayVisibility() {
+  if (!prefsOverlay) return;
+  const visible = currentFlowKey === "prefs" && !!state.onboarded;
+  prefsOverlay.classList.toggle("hidden", !visible);
+  prefsOverlay.style.display = visible ? "flex" : "none";
+  if (visible && (!prefsOverlayHasLoaded || !prefsOverlayDetails?.childElementCount)) {
+    refreshPrefsOverlay();
+  }
+}
+
+function setupPrefsOverlay() {
+  const shell = document.getElementById("duet-shell");
+  const stage = shell?.querySelector(".duet-stage");
+  if (!shell || !stage || document.getElementById("prefs-ghost")) return;
+
+  const overlay = document.createElement("div");
+  overlay.id = "prefs-ghost";
+  overlay.className = "inventory-ghost prefs-overlay hidden";
+  overlay.style.display = "none";
+  overlay.style.pointerEvents = "none";
+  overlay.style.zIndex = "1";
+  overlay.style.flexDirection = "column";
+  overlay.style.justifyContent = "center";
+  overlay.style.alignItems = "center";
+  overlay.style.gap = "14px";
+  overlay.style.position = "absolute";
+  overlay.style.inset = "10px";
+  overlay.style.width = "calc(100% - 20px)";
+  overlay.style.height = "calc(100% - 20px)";
+
+  const panel = document.createElement("div");
+  panel.style.display = "grid";
+  panel.style.pointerEvents = "auto";
+  panel.style.gap = "12px";
+  panel.style.width = "100%";
+  panel.style.maxWidth = "520px";
+  panel.style.margin = "0 auto";
+
+  const header = document.createElement("div");
+  header.className = "inventory-ghost-header";
+  const title = document.createElement("span");
+  title.textContent = "Preferences";
+  const refresh = document.createElement("button");
+  refresh.type = "button";
+  refresh.className = "ghost-refresh";
+  refresh.textContent = "Refresh";
+  refresh.addEventListener("click", () => refreshPrefsOverlay(true));
+  header.appendChild(title);
+  header.appendChild(refresh);
+
+  const status = document.createElement("div");
+  status.id = "prefs-ghost-status";
+  status.className = "inventory-ghost-status";
+  status.textContent = "Select Preferences to load.";
+
+  const summary = document.createElement("div");
+  summary.id = "prefs-ghost-summary";
+  summary.className = "prefs-ghost-summary";
+  summary.textContent = "No preferences yet.";
+
+  const details = document.createElement("div");
+  details.className = "prefs-ghost-details";
+  details.style.display = "grid";
+  details.style.gap = "10px";
+  details.style.width = "100%";
+
+  panel.appendChild(header);
+  panel.appendChild(status);
+  panel.appendChild(summary);
+  panel.appendChild(details);
+  overlay.appendChild(panel);
+  stage.appendChild(overlay);
+
+  prefsOverlay = overlay;
+  prefsOverlayStatusEl = status;
+  prefsOverlaySummaryEl = summary;
+  prefsOverlayDetails = details;
 }
 
 async function doGet(path: string) {
@@ -875,6 +1080,8 @@ function wire() {
     const result = await doGet("/auth/me");
     setText("auth-out", result);
     state.onboarded = !!result.json?.onboarded;
+    renderOnboardMenuButtons();
+    updatePrefsOverlayVisibility();
     await silentGreetOnce();
     inventoryHasLoaded = false;
     if (currentFlowKey === "inventory") {
@@ -945,20 +1152,23 @@ function wire() {
   });
 
   setupFlowChips();
-  setupDock();
+  // setupDock();
   bindResizeForHistoryOffset();
   setupInventoryGhostOverlay();
+  setupPrefsOverlay();
   setupDevPanel();
   wireDuetComposer();
   setupHistoryDrawerUi();
   wireHistoryHotkeys();
   bindOnboardingLongPress();
   updateInventoryOverlayVisibility();
+  updatePrefsOverlayVisibility();
   applyDrawerProgress(duetState.drawerOpen ? 1 : 0, { commit: true });
   renderDuetHistory();
   updateDuetBubbles();
   updateThreadLabel();
   applyDrawerProgress(0, { commit: true });
+  elevateDuetBubbles();
 }
 
 document.addEventListener("DOMContentLoaded", wire);
@@ -1044,6 +1254,10 @@ function setupFlowChips() {
   setFlowMenuOpen(false);
   renderFlowMenu();
 
+  if (flowMenuContainer && flowMenuContainer.parentElement !== shell) {
+    shell.insertBefore(flowMenuContainer, composer);
+  }
+
   if (!flowMenuListenersBound) {
     document.addEventListener("click", (ev) => {
       if (!flowMenuOpen || !flowMenuContainer) return;
@@ -1117,32 +1331,55 @@ function selectFlow(key: string) {
   setFlowMenuOpen(false);
   setComposerPlaceholder();
   updateInventoryOverlayVisibility();
+  updatePrefsOverlayVisibility();
   if (currentFlowKey === "inventory") {
     refreshInventoryOverlay(true);
+  }
+  if (currentFlowKey === "prefs") {
+    refreshPrefsOverlay(true);
   }
 }
 
 function ensureOnboardMenu() {
-  if (onboardMenu) return onboardMenu;
-  const menu = document.createElement("div");
-  menu.id = "onboard-menu";
-  menu.className = "flow-menu-dropdown";
-  menu.style.position = "fixed";
-  menu.style.display = "none";
-  menu.style.zIndex = "999";
-  const btn = document.createElement("button");
-  btn.type = "button";
-  btn.className = "flow-menu-item";
-  btn.textContent = "Preferences";
-  btn.dataset.onboardItem = "start";
-  btn.addEventListener("click", () => {
+  if (!onboardMenu) {
+    const menu = document.createElement("div");
+    menu.id = "onboard-menu";
+    menu.className = "flow-menu-dropdown";
+    menu.style.position = "fixed";
+    menu.style.display = "none";
+    menu.style.zIndex = "999";
+    document.body.appendChild(menu);
+    onboardMenu = menu;
+  }
+  renderOnboardMenuButtons();
+  return onboardMenu;
+}
+
+function renderOnboardMenuButtons() {
+  if (!onboardMenu) return;
+  onboardMenu.innerHTML = "";
+  const prefsBtn = document.createElement("button");
+  prefsBtn.type = "button";
+  prefsBtn.className = "flow-menu-item";
+  prefsBtn.textContent = "Preferences";
+  prefsBtn.dataset.onboardItem = "start";
+  prefsBtn.addEventListener("click", () => {
     hideOnboardMenu();
     startOnboarding();
   });
-  menu.appendChild(btn);
-  document.body.appendChild(menu);
-  onboardMenu = menu;
-  return menu;
+  onboardMenu.appendChild(prefsBtn);
+  if (state.onboarded) {
+    const invBtn = document.createElement("button");
+    invBtn.type = "button";
+    invBtn.className = "flow-menu-item";
+    invBtn.textContent = "Inventory";
+    invBtn.dataset.onboardItem = "inventory";
+    invBtn.addEventListener("click", () => {
+      hideOnboardMenu();
+      selectFlow("inventory");
+    });
+    onboardMenu.appendChild(invBtn);
+  }
 }
 
 function hideOnboardMenu() {
@@ -1176,6 +1413,8 @@ function startOnboarding() {
 }
 
 function setupDock() {
+  // Dock layout is temporarily disabled; keep the legacy logic here in case we re-enable it later.
+  /*
   const shell = document.getElementById("duet-shell");
   const composer = document.getElementById("duet-composer");
   if (!shell || !composer) return;
@@ -1193,6 +1432,7 @@ function setupDock() {
     dock.appendChild(composer);
   }
   enforceViewportLock();
+  */
 }
 
 function bindOnboardingLongPress() {

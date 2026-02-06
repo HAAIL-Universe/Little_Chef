@@ -8399,3 +8399,839 @@ MM tests/test_chat_prefs_thread.py
  16 files changed, 1446 insertions(+), 138 deletions(-)
 ```
 
+## Test Run 2026-02-06T18:53:39Z
+- Status: PASS
+- Start: 2026-02-06T18:53:39Z
+- End: 2026-02-06T18:53:48Z
+- Python: Z:\LittleChef\.venv\\Scripts\\python.exe
+- Branch: main
+- HEAD: 69d620a757194ed8fbe86c36d7b3fb9047c0f68f
+- compileall exit: 0
+- import app.main exit: 0
+- pytest exit: 0
+- pytest summary: 57 passed, 1 warning in 3.17s
+- git status -sb:
+```
+## main...origin/main [ahead 2]
+ M tests/test_ui_onboarding_copy.py
+ M web/src/main.ts
+```
+- git diff --stat:
+```
+ tests/test_ui_onboarding_copy.py | 10 +++++++
+ web/src/main.ts                  | 61 +++++++++++++++++++++++++++++-----------
+ 2 files changed, 54 insertions(+), 17 deletions(-)
+```
+
+## Test Run 2026-02-06T18:54:57Z
+- Status: PASS
+- Start: 2026-02-06T18:54:57Z
+- End: 2026-02-06T18:55:05Z
+- Python: Z:\LittleChef\.venv\\Scripts\\python.exe
+- Branch: main
+- HEAD: 69d620a757194ed8fbe86c36d7b3fb9047c0f68f
+- compileall exit: 0
+- import app.main exit: 0
+- pytest exit: 0
+- pytest summary: 57 passed, 1 warning in 2.56s
+- git status -sb:
+```
+## main...origin/main [ahead 2]
+ M evidence/test_runs.md
+ M evidence/test_runs_latest.md
+ M tests/test_ui_onboarding_copy.py
+ M web/dist/main.js
+ M web/src/main.ts
+```
+- git diff --stat:
+```
+ evidence/test_runs.md            | 24 +++++++++++++++
+ evidence/test_runs_latest.md     | 49 ++++++-------------------------
+ tests/test_ui_onboarding_copy.py | 10 +++++++
+ web/dist/main.js                 | 63 ++++++++++++++++++++++++++++------------
+ web/src/main.ts                  | 61 +++++++++++++++++++++++++++-----------
+ 5 files changed, 131 insertions(+), 76 deletions(-)
+```
+
+## Test Run 2026-02-06T19:09:26Z
+- Status: FAIL
+- Start: 2026-02-06T19:09:26Z
+- End: 2026-02-06T19:09:34Z
+- Python: Z:\LittleChef\.venv\\Scripts\\python.exe
+- Branch: main
+- HEAD: 69d620a757194ed8fbe86c36d7b3fb9047c0f68f
+- compileall exit: 0
+- import app.main exit: 0
+- pytest exit: 1
+- pytest summary: 55 passed, 1 warning, 2 errors in 3.39s
+- git status -sb:
+```
+## main...origin/main [ahead 2]
+ M app/api/routers/auth.py
+ M app/services/prefs_service.py
+M  evidence/test_runs.md
+M  evidence/test_runs_latest.md
+M  evidence/updatedifflog.md
+ M tests/test_onboarding.py
+M  tests/test_ui_onboarding_copy.py
+M  web/dist/main.js
+M  web/src/main.ts
+```
+- git diff --stat:
+```
+ app/api/routers/auth.py       |  6 +++---
+ app/services/prefs_service.py |  7 +++++++
+ tests/test_onboarding.py      | 20 +++++++++++++-------
+ 3 files changed, 23 insertions(+), 10 deletions(-)
+```
+- Failure payload:
+```
+=== pytest (exit 1) ===
+.....................................EE..................                [100%]
+=================================== ERRORS ====================================
+________ ERROR at setup of test_auth_me_onboarded_false_when_no_prefs _________
+
+    @pytest.fixture
+    def fresh_app():
+        os.environ["LC_DISABLE_DOTENV"] = "1"
+        os.environ["DATABASE_URL"] = ""
+        get_prefs_service.cache_clear()
+>       get_inventory_service.cache_clear()
+        ^^^^^^^^^^^^^^^^^^^^^
+E       NameError: name 'get_inventory_service' is not defined
+
+tests\test_onboarding.py:21: NameError
+_______ ERROR at setup of test_auth_me_onboarded_true_when_prefs_exist ________
+
+    @pytest.fixture
+    def fresh_app():
+        os.environ["LC_DISABLE_DOTENV"] = "1"
+        os.environ["DATABASE_URL"] = ""
+        get_prefs_service.cache_clear()
+>       get_inventory_service.cache_clear()
+        ^^^^^^^^^^^^^^^^^^^^^
+E       NameError: name 'get_inventory_service' is not defined
+
+tests\test_onboarding.py:21: NameError
+============================== warnings summary ===============================
+.venv\Lib\site-packages\starlette\formparsers.py:12
+  Z:\LittleChef\.venv\Lib\site-packages\starlette\formparsers.py:12: PendingDeprecationWarning: Please use `import python_multipart` instead.
+    import multipart
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+ERROR tests/test_onboarding.py::test_auth_me_onboarded_false_when_no_prefs - ...
+ERROR tests/test_onboarding.py::test_auth_me_onboarded_true_when_prefs_exist
+55 passed, 1 warning, 2 errors in 3.39s
+```
+
+## Test Run 2026-02-06T19:10:07Z
+- Status: PASS
+- Start: 2026-02-06T19:10:07Z
+- End: 2026-02-06T19:10:15Z
+- Python: Z:\LittleChef\.venv\\Scripts\\python.exe
+- Branch: main
+- HEAD: 69d620a757194ed8fbe86c36d7b3fb9047c0f68f
+- compileall exit: 0
+- import app.main exit: 0
+- pytest exit: 0
+- pytest summary: 57 passed, 1 warning in 2.36s
+- git status -sb:
+```
+## main...origin/main [ahead 2]
+ M app/api/routers/auth.py
+ M app/services/prefs_service.py
+MM evidence/test_runs.md
+MM evidence/test_runs_latest.md
+M  evidence/updatedifflog.md
+ M tests/test_onboarding.py
+M  tests/test_ui_onboarding_copy.py
+M  web/dist/main.js
+M  web/src/main.ts
+```
+- git diff --stat:
+```
+ app/api/routers/auth.py       |  6 ++--
+ app/services/prefs_service.py |  7 ++++
+ evidence/test_runs.md         | 72 ++++++++++++++++++++++++++++++++++++++++
+ evidence/test_runs_latest.md  | 77 ++++++++++++++++++++++++++++++++++---------
+ tests/test_onboarding.py      | 19 +++++++----
+ 5 files changed, 156 insertions(+), 25 deletions(-)
+```
+
+## Test Run 2026-02-06T19:52:23Z
+- Status: PASS
+- Start: 2026-02-06T19:52:23Z
+- End: 2026-02-06T19:52:31Z
+- Python: Z:\LittleChef\.venv\\Scripts\\python.exe
+- Branch: main
+- HEAD: 69d620a757194ed8fbe86c36d7b3fb9047c0f68f
+- compileall exit: 0
+- import app.main exit: 0
+- pytest exit: 0
+- pytest summary: 58 passed, 1 warning in 3.27s
+- git status -sb:
+```
+## main...origin/main [ahead 2]
+M  app/api/routers/auth.py
+M  app/services/prefs_service.py
+M  evidence/test_runs.md
+M  evidence/test_runs_latest.md
+MM evidence/updatedifflog.md
+M  tests/test_onboarding.py
+MM tests/test_ui_onboarding_copy.py
+M  web/dist/main.js
+MM web/src/main.ts
+ M web/src/style.css
+```
+- git diff --stat:
+```
+ evidence/updatedifflog.md        |  54 ++++++------
+ tests/test_ui_onboarding_copy.py |   8 ++
+ web/src/main.ts                  | 182 +++++++++++++++++++++++++++++++++++++++
+ web/src/style.css                |  31 +++++++
+ 4 files changed, 246 insertions(+), 29 deletions(-)
+```
+
+## Test Run 2026-02-06T19:52:49Z
+- Status: PASS
+- Start: 2026-02-06T19:52:49Z
+- End: 2026-02-06T19:52:57Z
+- Python: Z:\LittleChef\.venv\\Scripts\\python.exe
+- Branch: main
+- HEAD: 69d620a757194ed8fbe86c36d7b3fb9047c0f68f
+- compileall exit: 0
+- import app.main exit: 0
+- pytest exit: 0
+- pytest summary: 58 passed, 1 warning in 2.58s
+- git status -sb:
+```
+## main...origin/main [ahead 2]
+M  app/api/routers/auth.py
+M  app/services/prefs_service.py
+MM evidence/test_runs.md
+MM evidence/test_runs_latest.md
+MM evidence/updatedifflog.md
+M  tests/test_onboarding.py
+MM tests/test_ui_onboarding_copy.py
+MM web/dist/main.js
+MM web/src/main.ts
+ M web/src/style.css
+```
+- git diff --stat:
+```
+ evidence/test_runs.md            |  34 ++++++++
+ evidence/test_runs_latest.md     |  34 ++++----
+ evidence/updatedifflog.md        |  54 ++++++------
+ tests/test_ui_onboarding_copy.py |   8 ++
+ web/dist/main.js                 | 173 ++++++++++++++++++++++++++++++++++++
+ web/src/main.ts                  | 184 +++++++++++++++++++++++++++++++++++++++
+ web/src/style.css                |  31 +++++++
+ 7 files changed, 472 insertions(+), 46 deletions(-)
+```
+
+## Test Run 2026-02-06T19:53:15Z
+- Status: PASS
+- Start: 2026-02-06T19:53:15Z
+- End: 2026-02-06T19:53:24Z
+- Python: Z:\LittleChef\.venv\\Scripts\\python.exe
+- Branch: main
+- HEAD: 69d620a757194ed8fbe86c36d7b3fb9047c0f68f
+- compileall exit: 0
+- import app.main exit: 0
+- pytest exit: 0
+- pytest summary: 58 passed, 1 warning in 2.54s
+- git status -sb:
+```
+## main...origin/main [ahead 2]
+M  app/api/routers/auth.py
+M  app/services/prefs_service.py
+MM evidence/test_runs.md
+MM evidence/test_runs_latest.md
+MM evidence/updatedifflog.md
+M  tests/test_onboarding.py
+MM tests/test_ui_onboarding_copy.py
+MM web/dist/main.js
+MM web/src/main.ts
+ M web/src/style.css
+```
+- git diff --stat:
+```
+ evidence/test_runs.md            |  71 +++++++++++++++
+ evidence/test_runs_latest.md     |  35 ++++----
+ evidence/updatedifflog.md        |  54 ++++++------
+ tests/test_ui_onboarding_copy.py |   8 ++
+ web/dist/main.js                 | 175 +++++++++++++++++++++++++++++++++++++
+ web/src/main.ts                  | 184 +++++++++++++++++++++++++++++++++++++++
+ web/src/style.css                |  31 +++++++
+ 7 files changed, 513 insertions(+), 45 deletions(-)
+```
+
+## Test Run 2026-02-06T19:57:05Z
+- Status: PASS
+- Start: 2026-02-06T19:57:05Z
+- End: 2026-02-06T19:57:14Z
+- Python: Z:\LittleChef\.venv\\Scripts\\python.exe
+- Branch: main
+- HEAD: 69d620a757194ed8fbe86c36d7b3fb9047c0f68f
+- compileall exit: 0
+- import app.main exit: 0
+- pytest exit: 0
+- pytest summary: 58 passed, 1 warning in 2.52s
+- git status -sb:
+```
+## main...origin/main [ahead 2]
+M  app/api/routers/auth.py
+M  app/services/prefs_service.py
+M  evidence/test_runs.md
+M  evidence/test_runs_latest.md
+M  evidence/updatedifflog.md
+M  tests/test_onboarding.py
+M  tests/test_ui_onboarding_copy.py
+M  web/dist/main.js
+MM web/src/main.ts
+M  web/src/style.css
+```
+- git diff --stat:
+```
+ web/src/main.ts | 1 +
+ 1 file changed, 1 insertion(+)
+```
+
+## Test Run 2026-02-06T20:00:03Z
+- Status: PASS
+- Start: 2026-02-06T20:00:03Z
+- End: 2026-02-06T20:00:11Z
+- Python: Z:\LittleChef\.venv\\Scripts\\python.exe
+- Branch: main
+- HEAD: 69d620a757194ed8fbe86c36d7b3fb9047c0f68f
+- compileall exit: 0
+- import app.main exit: 0
+- pytest exit: 0
+- pytest summary: 58 passed, 1 warning in 2.92s
+- git status -sb:
+```
+## main...origin/main [ahead 2]
+M  app/api/routers/auth.py
+M  app/services/prefs_service.py
+M  evidence/test_runs.md
+M  evidence/test_runs_latest.md
+M  evidence/updatedifflog.md
+M  tests/test_onboarding.py
+MM tests/test_ui_onboarding_copy.py
+M  web/dist/main.js
+MM web/src/main.ts
+M  web/src/style.css
+```
+- git diff --stat:
+```
+ tests/test_ui_onboarding_copy.py | 2 +-
+ web/src/main.ts                  | 4 +++-
+ 2 files changed, 4 insertions(+), 2 deletions(-)
+```
+
+## Test Run 2026-02-06T20:08:35Z
+- Status: PASS
+- Start: 2026-02-06T20:08:35Z
+- End: 2026-02-06T20:08:43Z
+- Python: Z:\LittleChef\.venv\\Scripts\\python.exe
+- Branch: main
+- HEAD: 69d620a757194ed8fbe86c36d7b3fb9047c0f68f
+- compileall exit: 0
+- import app.main exit: 0
+- pytest exit: 0
+- pytest summary: 58 passed, 1 warning in 2.54s
+- git status -sb:
+```
+## main...origin/main [ahead 2]
+M  app/api/routers/auth.py
+M  app/services/prefs_service.py
+M  evidence/test_runs.md
+M  evidence/test_runs_latest.md
+M  evidence/updatedifflog.md
+M  tests/test_onboarding.py
+M  tests/test_ui_onboarding_copy.py
+M  web/dist/main.js
+MM web/src/main.ts
+M  web/src/style.css
+```
+- git diff --stat:
+```
+ web/src/main.ts | 9 +++++++++
+ 1 file changed, 9 insertions(+)
+```
+
+## Test Run 2026-02-06T20:14:04Z
+- Status: PASS
+- Start: 2026-02-06T20:14:04Z
+- End: 2026-02-06T20:14:12Z
+- Python: Z:\LittleChef\.venv\\Scripts\\python.exe
+- Branch: main
+- HEAD: 69d620a757194ed8fbe86c36d7b3fb9047c0f68f
+- compileall exit: 0
+- import app.main exit: 0
+- pytest exit: 0
+- pytest summary: 58 passed, 1 warning in 2.55s
+- git status -sb:
+```
+## main...origin/main [ahead 2]
+M  app/api/routers/auth.py
+M  app/services/prefs_service.py
+M  evidence/test_runs.md
+M  evidence/test_runs_latest.md
+M  evidence/updatedifflog.md
+M  tests/test_onboarding.py
+M  tests/test_ui_onboarding_copy.py
+M  web/dist/main.js
+MM web/src/main.ts
+MM web/src/style.css
+```
+- git diff --stat:
+```
+ web/src/main.ts   | 30 +++++++++++-------------------
+ web/src/style.css |  8 ++++++++
+ 2 files changed, 19 insertions(+), 19 deletions(-)
+```
+
+## Test Run 2026-02-06T20:15:59Z
+- Status: PASS
+- Start: 2026-02-06T20:15:59Z
+- End: 2026-02-06T20:16:07Z
+- Python: Z:\LittleChef\.venv\\Scripts\\python.exe
+- Branch: main
+- HEAD: 69d620a757194ed8fbe86c36d7b3fb9047c0f68f
+- compileall exit: 0
+- import app.main exit: 0
+- pytest exit: 0
+- pytest summary: 58 passed, 1 warning in 2.50s
+- git status -sb:
+```
+## main...origin/main [ahead 2]
+M  app/api/routers/auth.py
+M  app/services/prefs_service.py
+M  evidence/test_runs.md
+M  evidence/test_runs_latest.md
+M  evidence/updatedifflog.md
+M  tests/test_onboarding.py
+M  tests/test_ui_onboarding_copy.py
+M  web/dist/main.js
+MM web/src/main.ts
+M  web/src/style.css
+```
+- git diff --stat:
+```
+ web/src/main.ts | 18 +++++++++++++-----
+ 1 file changed, 13 insertions(+), 5 deletions(-)
+```
+
+## Test Run 2026-02-06T20:18:19Z
+- Status: PASS
+- Start: 2026-02-06T20:18:19Z
+- End: 2026-02-06T20:18:27Z
+- Python: Z:\LittleChef\.venv\\Scripts\\python.exe
+- Branch: main
+- HEAD: 69d620a757194ed8fbe86c36d7b3fb9047c0f68f
+- compileall exit: 0
+- import app.main exit: 0
+- pytest exit: 0
+- pytest summary: 58 passed, 1 warning in 2.52s
+- git status -sb:
+```
+## main...origin/main [ahead 2]
+M  app/api/routers/auth.py
+M  app/services/prefs_service.py
+M  evidence/test_runs.md
+M  evidence/test_runs_latest.md
+M  evidence/updatedifflog.md
+M  tests/test_onboarding.py
+M  tests/test_ui_onboarding_copy.py
+M  web/dist/main.js
+MM web/src/main.ts
+M  web/src/style.css
+```
+- git diff --stat:
+```
+ web/src/main.ts | 7 +++++--
+ 1 file changed, 5 insertions(+), 2 deletions(-)
+```
+
+## Test Run 2026-02-06T20:21:26Z
+- Status: PASS
+- Start: 2026-02-06T20:21:26Z
+- End: 2026-02-06T20:21:34Z
+- Python: Z:\LittleChef\.venv\\Scripts\\python.exe
+- Branch: main
+- HEAD: 69d620a757194ed8fbe86c36d7b3fb9047c0f68f
+- compileall exit: 0
+- import app.main exit: 0
+- pytest exit: 0
+- pytest summary: 58 passed, 1 warning in 2.53s
+- git status -sb:
+```
+## main...origin/main [ahead 2]
+M  app/api/routers/auth.py
+M  app/services/prefs_service.py
+M  evidence/test_runs.md
+M  evidence/test_runs_latest.md
+M  evidence/updatedifflog.md
+M  tests/test_onboarding.py
+M  tests/test_ui_onboarding_copy.py
+M  web/dist/main.js
+MM web/src/main.ts
+M  web/src/style.css
+```
+- git diff --stat:
+```
+ web/src/main.ts | 4 ----
+ 1 file changed, 4 deletions(-)
+```
+
+## Test Run 2026-02-06T20:25:22Z
+- Status: PASS
+- Start: 2026-02-06T20:25:22Z
+- End: 2026-02-06T20:25:31Z
+- Python: Z:\LittleChef\.venv\\Scripts\\python.exe
+- Branch: main
+- HEAD: 69d620a757194ed8fbe86c36d7b3fb9047c0f68f
+- compileall exit: 0
+- import app.main exit: 0
+- pytest exit: 0
+- pytest summary: 58 passed, 1 warning in 2.64s
+- git status -sb:
+```
+## main...origin/main [ahead 2]
+M  app/api/routers/auth.py
+M  app/services/prefs_service.py
+M  evidence/test_runs.md
+M  evidence/test_runs_latest.md
+M  evidence/updatedifflog.md
+M  tests/test_onboarding.py
+M  tests/test_ui_onboarding_copy.py
+M  web/dist/main.js
+MM web/src/main.ts
+M  web/src/style.css
+```
+- git diff --stat:
+```
+ web/src/main.ts | 6 ++++--
+ 1 file changed, 4 insertions(+), 2 deletions(-)
+```
+
+## Test Run 2026-02-06T20:31:07Z
+- Status: PASS
+- Start: 2026-02-06T20:31:07Z
+- End: 2026-02-06T20:31:15Z
+- Python: Z:\LittleChef\.venv\\Scripts\\python.exe
+- Branch: main
+- HEAD: 69d620a757194ed8fbe86c36d7b3fb9047c0f68f
+- compileall exit: 0
+- import app.main exit: 0
+- pytest exit: 0
+- pytest summary: 58 passed, 1 warning in 2.57s
+- git status -sb:
+```
+## main...origin/main [ahead 2]
+M  app/api/routers/auth.py
+M  app/services/prefs_service.py
+M  evidence/test_runs.md
+M  evidence/test_runs_latest.md
+M  evidence/updatedifflog.md
+M  tests/test_onboarding.py
+M  tests/test_ui_onboarding_copy.py
+M  web/dist/main.js
+MM web/src/main.ts
+M  web/src/style.css
+```
+- git diff --stat:
+```
+ web/src/main.ts | 19 +++++--------------
+ 1 file changed, 5 insertions(+), 14 deletions(-)
+```
+
+## Test Run 2026-02-06T21:14:23Z
+- Status: FAIL
+- Start: 2026-02-06T21:14:23Z
+- End: 2026-02-06T21:14:33Z
+- Python: Z:\LittleChef\.venv\\Scripts\\python.exe
+- Branch: main
+- HEAD: 69d620a757194ed8fbe86c36d7b3fb9047c0f68f
+- compileall exit: 0
+- import app.main exit: 0
+- pytest exit: 1
+- pytest summary: 1 failed, 58 passed, 1 warning in 4.02s
+- git status -sb:
+```
+## main...origin/main [ahead 2]
+M  app/api/routers/auth.py
+M  app/services/prefs_service.py
+M  evidence/test_runs.md
+M  evidence/test_runs_latest.md
+M  evidence/updatedifflog.md
+M  tests/test_onboarding.py
+MM tests/test_ui_onboarding_copy.py
+MM web/dist/main.js
+ M web/index.html
+MM web/src/main.ts
+MM web/src/style.css
+```
+- git diff --stat:
+```
+ tests/test_ui_onboarding_copy.py | 15 ++++++++
+ web/dist/main.js                 | 79 +++++++++++++++++++++-----------------
+ web/index.html                   | 18 +++++----
+ web/src/main.ts                  | 83 +++++++++++++++++++++++-----------------
+ web/src/style.css                |  5 +++
+ 5 files changed, 121 insertions(+), 79 deletions(-)
+```
+- Failure payload:
+```
+=== pytest (exit 1) ===
+..........................................................F              [100%]
+================================== FAILURES ===================================
+______________________ test_overlay_pointer_events_split ______________________
+
+    def test_overlay_pointer_events_split():
+        main_ts = Path("web/src/main.ts").read_text(encoding="utf-8")
+        inv_start = main_ts.index("function setupInventoryGhostOverlay")
+        inv_end = main_ts.index("function setPrefsOverlayStatus", inv_start)
+        inv_section = main_ts[inv_start:inv_end]
+        assert 'overlay.style.pointerEvents = "none";' in inv_section
+        assert 'panel.style.pointerEvents = "auto";' in inv_section
+    
+        prefs_start = main_ts.index("function setupPrefsOverlay")
+>       prefs_end = main_ts.index("async function refreshPrefsOverlay", prefs_start)
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       ValueError: substring not found
+
+tests\test_ui_onboarding_copy.py:44: ValueError
+============================== warnings summary ===============================
+.venv\Lib\site-packages\starlette\formparsers.py:12
+  Z:\LittleChef\.venv\Lib\site-packages\starlette\formparsers.py:12: PendingDeprecationWarning: Please use `import python_multipart` instead.
+    import multipart
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED tests/test_ui_onboarding_copy.py::test_overlay_pointer_events_split - ...
+1 failed, 58 passed, 1 warning in 4.02s
+```
+
+## Test Run 2026-02-06T21:15:33Z
+- Status: PASS
+- Start: 2026-02-06T21:15:33Z
+- End: 2026-02-06T21:15:40Z
+- Python: Z:\LittleChef\.venv\\Scripts\\python.exe
+- Branch: main
+- HEAD: 69d620a757194ed8fbe86c36d7b3fb9047c0f68f
+- compileall exit: 0
+- import app.main exit: 0
+- pytest exit: 0
+- pytest summary: 59 passed, 1 warning in 2.40s
+- git status -sb:
+```
+## main...origin/main [ahead 2]
+M  app/api/routers/auth.py
+M  app/services/prefs_service.py
+MM evidence/test_runs.md
+MM evidence/test_runs_latest.md
+M  evidence/updatedifflog.md
+M  tests/test_onboarding.py
+MM tests/test_ui_onboarding_copy.py
+MM web/dist/main.js
+ M web/index.html
+MM web/src/main.ts
+MM web/src/style.css
+```
+- git diff --stat:
+```
+ evidence/test_runs.md            | 67 ++++++++++++++++++++++++++++++++
+ evidence/test_runs_latest.md     | 59 +++++++++++++++++++++++-----
+ tests/test_ui_onboarding_copy.py | 15 ++++++++
+ web/dist/main.js                 | 79 +++++++++++++++++++++-----------------
+ web/index.html                   | 18 +++++----
+ web/src/main.ts                  | 83 +++++++++++++++++++++++-----------------
+ web/src/style.css                |  5 +++
+ 7 files changed, 237 insertions(+), 89 deletions(-)
+```
+
+## Test Run 2026-02-06T21:29:56Z
+- Status: FAIL
+- Start: 2026-02-06T21:29:56Z
+- End: 2026-02-06T21:30:05Z
+- Python: Z:\LittleChef\.venv\\Scripts\\python.exe
+- Branch: main
+- HEAD: 69d620a757194ed8fbe86c36d7b3fb9047c0f68f
+- compileall exit: 0
+- import app.main exit: 0
+- pytest exit: 1
+- pytest summary: 1 failed, 59 passed, 1 warning in 4.06s
+- git status -sb:
+```
+## main...origin/main [ahead 2]
+M  app/api/routers/auth.py
+M  app/services/prefs_service.py
+MM evidence/test_runs.md
+MM evidence/test_runs_latest.md
+MM evidence/updatedifflog.md
+M  tests/test_onboarding.py
+MM tests/test_ui_onboarding_copy.py
+MM web/dist/main.js
+ M web/index.html
+MM web/src/main.ts
+MM web/src/style.css
+```
+- git diff --stat:
+```
+ evidence/test_runs.md            |   105 +
+ evidence/test_runs_latest.md     |    27 +-
+ evidence/updatedifflog.md        | 44843 +------------------------------------
+ tests/test_ui_onboarding_copy.py |    23 +
+ web/dist/main.js                 |    94 +-
+ web/index.html                   |    18 +-
+ web/src/main.ts                  |    99 +-
+ web/src/style.css                |     5 +
+ 8 files changed, 311 insertions(+), 44903 deletions(-)
+```
+- Failure payload:
+```
+=== pytest (exit 1) ===
+...........................................................F             [100%]
+================================== FAILURES ===================================
+_______________________ test_overlay_and_bubble_zindex ________________________
+
+    def test_overlay_and_bubble_zindex():
+        main_ts = Path("web/src/main.ts").read_text(encoding="utf-8")
+        assert 'overlay.style.zIndex = "1";' in main_ts
+        assert 'userBubble.style.zIndex = "50";' in main_ts
+        assert 'assistantBubble.style.zIndex = "50";' in main_ts
+>       assert 'bubble.style.position = "relative";' in main_ts
+E       assert 'bubble.style.position = "relative";' in 'import { formatProposalSummary, stripProposalPrefix } from "./proposalRenderer.js";\n\nconst state = {\n  token: "",\...aceBelow - 2)}px`;\n  }\n\n  dropdown.style.display = prevDisplay;\n  dropdown.style.visibility = prevVisibility;\n}\n'
+
+tests\test_ui_onboarding_copy.py:55: AssertionError
+============================== warnings summary ===============================
+.venv\Lib\site-packages\starlette\formparsers.py:12
+  Z:\LittleChef\.venv\Lib\site-packages\starlette\formparsers.py:12: PendingDeprecationWarning: Please use `import python_multipart` instead.
+    import multipart
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED tests/test_ui_onboarding_copy.py::test_overlay_and_bubble_zindex - ass...
+1 failed, 59 passed, 1 warning in 4.06s
+```
+
+## Test Run 2026-02-06T21:30:35Z
+- Status: PASS
+- Start: 2026-02-06T21:30:35Z
+- End: 2026-02-06T21:30:43Z
+- Python: Z:\LittleChef\.venv\\Scripts\\python.exe
+- Branch: main
+- HEAD: 69d620a757194ed8fbe86c36d7b3fb9047c0f68f
+- compileall exit: 0
+- import app.main exit: 0
+- pytest exit: 0
+- pytest summary: 60 passed, 1 warning in 2.38s
+- git status -sb:
+```
+## main...origin/main [ahead 2]
+M  app/api/routers/auth.py
+M  app/services/prefs_service.py
+MM evidence/test_runs.md
+MM evidence/test_runs_latest.md
+MM evidence/updatedifflog.md
+M  tests/test_onboarding.py
+MM tests/test_ui_onboarding_copy.py
+MM web/dist/main.js
+ M web/index.html
+MM web/src/main.ts
+MM web/src/style.css
+```
+- git diff --stat:
+```
+ evidence/test_runs.md            |   170 +
+ evidence/test_runs_latest.md     |    63 +-
+ evidence/updatedifflog.md        | 44843 +------------------------------------
+ tests/test_ui_onboarding_copy.py |    22 +
+ web/dist/main.js                 |    94 +-
+ web/index.html                   |    18 +-
+ web/src/main.ts                  |    99 +-
+ web/src/style.css                |     5 +
+ 8 files changed, 408 insertions(+), 44906 deletions(-)
+```
+
+## Test Run 2026-02-06T21:34:10Z
+- Status: PASS
+- Start: 2026-02-06T21:34:10Z
+- End: 2026-02-06T21:34:18Z
+- Python: Z:\LittleChef\.venv\\Scripts\\python.exe
+- Branch: main
+- HEAD: 69d620a757194ed8fbe86c36d7b3fb9047c0f68f
+- compileall exit: 0
+- import app.main exit: 0
+- pytest exit: 0
+- pytest summary: 60 passed, 1 warning in 2.53s
+- git status -sb:
+```
+## main...origin/main [ahead 2]
+M  app/api/routers/auth.py
+M  app/services/prefs_service.py
+MM evidence/test_runs.md
+MM evidence/test_runs_latest.md
+MM evidence/updatedifflog.md
+M  tests/test_onboarding.py
+MM tests/test_ui_onboarding_copy.py
+MM web/dist/main.js
+ M web/index.html
+MM web/src/main.ts
+MM web/src/style.css
+```
+- git diff --stat:
+```
+ evidence/test_runs.md            |   209 +
+ evidence/test_runs_latest.md     |    30 +-
+ evidence/updatedifflog.md        | 44843 +------------------------------------
+ tests/test_ui_onboarding_copy.py |    22 +
+ web/dist/main.js                 |    94 +-
+ web/index.html                   |    18 +-
+ web/src/main.ts                  |    99 +-
+ web/src/style.css                |     1 +
+ 8 files changed, 412 insertions(+), 44904 deletions(-)
+```
+
+## Test Run 2026-02-06T21:36:41Z
+- Status: PASS
+- Start: 2026-02-06T21:36:41Z
+- End: 2026-02-06T21:36:50Z
+- Python: Z:\LittleChef\.venv\\Scripts\\python.exe
+- Branch: main
+- HEAD: 69d620a757194ed8fbe86c36d7b3fb9047c0f68f
+- compileall exit: 0
+- import app.main exit: 0
+- pytest exit: 0
+- pytest summary: 60 passed, 1 warning in 3.11s
+- git status -sb:
+```
+## main...origin/main [ahead 2]
+M  app/api/routers/auth.py
+M  app/services/prefs_service.py
+MM evidence/test_runs.md
+MM evidence/test_runs_latest.md
+MM evidence/updatedifflog.md
+M  tests/test_onboarding.py
+MM tests/test_ui_onboarding_copy.py
+MM web/dist/main.js
+ M web/index.html
+MM web/src/main.ts
+MM web/src/style.css
+```
+- git diff --stat:
+```
+ evidence/test_runs.md            |   248 +
+ evidence/test_runs_latest.md     |    30 +-
+ evidence/updatedifflog.md        | 44843 +------------------------------------
+ tests/test_ui_onboarding_copy.py |    22 +
+ web/dist/main.js                 |    92 +-
+ web/index.html                   |    18 +-
+ web/src/main.ts                  |    97 +-
+ web/src/style.css                |     1 +
+ 8 files changed, 447 insertions(+), 44904 deletions(-)
+```
+

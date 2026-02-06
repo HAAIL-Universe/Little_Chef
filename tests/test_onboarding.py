@@ -1,7 +1,7 @@
 import pytest
 from fastapi.testclient import TestClient
 
-from app.schemas import UserMe, InventoryEventCreateRequest
+from app.schemas import UserMe, UserPrefs
 from app.services.inventory_service import get_inventory_service
 from app.main import create_app
 import app.api.routers.auth as auth_router
@@ -38,7 +38,7 @@ def patch_auth(monkeypatch, user_id="u1"):
     monkeypatch.setattr(auth_router, "get_auth_service", lambda: FakeAuth())
 
 
-def test_auth_me_onboarded_false_when_no_inventory(monkeypatch, fresh_app):
+def test_auth_me_onboarded_false_when_no_prefs(monkeypatch, fresh_app):
     patch_auth(monkeypatch, user_id="u1")
     with TestClient(fresh_app) as client:
         resp = client.get("/auth/me", headers={"Authorization": "Bearer dummy"})
@@ -47,14 +47,21 @@ def test_auth_me_onboarded_false_when_no_inventory(monkeypatch, fresh_app):
     assert data["onboarded"] is False
 
 
-def test_auth_me_onboarded_true_when_inventory_exists(monkeypatch, fresh_app):
+def test_auth_me_onboarded_true_when_prefs_exist(monkeypatch, fresh_app):
     patch_auth(monkeypatch, user_id="u2")
-    inv = get_inventory_service()
-    inv.create_event(
+    prefs_service = get_prefs_service()
+    prefs_service.upsert_prefs(
         "u2",
         "sub",
         None,
-        InventoryEventCreateRequest(event_type="add", item_name="eggs", quantity=1, unit="count", note="test", source="test"),
+        UserPrefs(
+            allergies=["eggs"],
+            dislikes=[],
+            cuisine_likes=[],
+            servings=2,
+            meals_per_day=3,
+            notes="test",
+        ),
     )
     with TestClient(fresh_app) as client:
         resp = client.get("/auth/me", headers={"Authorization": "Bearer dummy"})

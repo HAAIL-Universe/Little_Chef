@@ -3,6 +3,7 @@ import os
 
 from app.schemas import UserMe, ErrorResponse
 from app.services.auth_service import get_auth_service
+from app.services.prefs_service import get_prefs_service
 from app.auth.jwt_verifier import JWTVerificationError, JWTConfigurationError
 from app.errors import UnauthorizedError
 
@@ -50,12 +51,11 @@ def auth_me(
 ):
     token = _extract_bearer_token(authorization)
     service = get_auth_service()
-    from app.services.inventory_service import get_inventory_service
+    prefs_service = get_prefs_service()
     try:
         user = service.resolve_user(token)
         try:
-            inv = get_inventory_service()
-            user.onboarded = bool(inv.has_events(user.user_id))
+            user.onboarded = prefs_service.has_prefs(user.user_id)
         except Exception:
             user.onboarded = False
         return user
