@@ -144,7 +144,49 @@ Each sub-phase follows: Goal; User-visible outcome; Constraints (TS-only, confir
   - Confirm writes exactly one event per item; deny writes none; edit updates draft before write.
   - Totals model remains compatible (aggregates by item_key + location).
 
-### 7.7 E2E Evidence Closure Pack (Phase 6A/6B/6C support)
+### 7.7 Preferences-first Onboarding Entry (UI-only scaffolding)
+- Goal: Fix first-load bland greeting and provide a deterministic onboarding entry that does not depend on auth/backend.
+- Outcome:
+  - Default duet assistant fallback copy is onboarding-directed: “Welcome — I’m Little Chef. To start onboarding, fill out your preferences (allergies, likes/dislikes, servings, days).”
+  - Default duet user bubble fallback/placeholder is onboarding-directed: “Press and hold to start onboarding and fill out your preferences.”
+  - Long-press on the YOU duet bubble opens the existing mini menu at press location with a single **Start** action.
+  - Selecting **Start** routes to the **Preferences** flow using the same routing as Options → Preferences (no new routing logic).
+  - When onboarding starts, assistant bubble updates to: “Welcome — I’m Little Chef. To get started, let’s set your preferences…”
+  - When onboarding starts, user bubble placeholder updates to: “Answer in one message…” (or similar concise prompt).
+- Evidence:
+  - Screenshot: first load showing new assistant fallback copy.
+  - Screenshot: first load showing new user fallback placeholder.
+  - Screenshot: long-press menu at press location with Start action.
+  - Screenshot: after Start, Preferences flow active and onboarding copy visible.
+- Verification:
+  - TS/UI build step used by repo (or noted N/A if not required).
+  - Manual nav: refresh → new copy; long-press → menu; Start → Preferences flow.
+  - Test Gate: run repo test script and record in updatedifflog.
+- Exit:
+  - First-load copy is on-brand and guides to preferences.
+  - Long-press Start deterministically opens Preferences flow; no backend calls required.
+
+### 7.7.5 Preferences Persistence (DB-backed intake + confirm-before-write)
+- Goal: Implement Preferences flow end-to-end with persistence for allergies, dislikes, likes, meals/day, servings/people, days/week, cooking style, equipment.
+- Outcome:
+  - Add preferences table + minimal API to read/write user prefs.
+  - One-message intake template captures all fields; produces a proposal; confirm-before-write persists.
+  - Preferences dashboard/summary (Phase 7.5 read panel) reflects saved prefs after confirm.
+- Evidence:
+  - Schema/migration snippet for preferences table.
+  - API request/response excerpts (read/write).
+  - UI screens: intake → proposal → confirm → persisted summary.
+  - Tests proving read/write behavior.
+- Verification:
+  - Static/type checks as required by repo.
+  - Runtime sanity/import checks.
+  - Behavior: repo test script + new pref persistence tests.
+  - Contract: update physics/openapi only if endpoints require it.
+- Exit:
+  - Preferences can be captured, confirmed, persisted, and shown in Prefs read panel; refresh shows retained prefs.
+  - Note: Silent greet post-auth is parked; onboarding starts via Preferences entry above.
+
+### 7.8 E2E Evidence Closure Pack (Phase 6A/6B/6C support)
   - Goal: Define repeatable proof bundle to flip UNKNOWN/PARTIAL → PASS.
   - Outcome: Checklist for future cycles: mobile screenshots, JSON excerpts of key API responses, smoke outputs, and short notes mapping to Blueprint acceptance items.
 - Evidence: Written checklist added to evidence per cycle; sample pack produced once.

@@ -1,8 +1,8 @@
 Status: PASS
-Start: 2026-02-05T23:33:23.7938205Z
-End: 2026-02-05T23:33:30.3598022Z
+Start: 2026-02-06T00:23:19.5887835Z
+End: 2026-02-06T00:23:26.7285545Z
 Branch: main
-HEAD: e19ac833f09fed32124aefef18c6b33858af076d
+HEAD: c92336f0a060b457c8075f0e52ac213f16e908f5
 Python: Z:\LittleChef\.venv\\Scripts\\python.exe
 compileall exit: 0
 import app.main exit: 0
@@ -10,17 +10,24 @@ pytest exit: 0
 pytest summary: (see run_tests.ps1) ok
 git status -sb:
 ```
-## main...origin/main [ahead 3]
- M evidence/test_runs.md
+## main...origin/main [ahead 4]
+ M app/api/routers/auth.py
+ M app/repos/inventory_repo.py
+ M app/schemas.py
+ M app/services/inventory_service.py
+MM evidence/test_runs.md
  M evidence/test_runs_latest.md
  M evidence/updatedifflog.md
- M web/src/main.ts
+MM web/src/main.ts
+?? tests/test_onboarding.py
+?? Contracts/phases_7_plus.md
 ```
 git diff --stat:
 ```
- web/src/main.ts           | 25 +++++++++++++++++++++++--
- evidence/test_runs.md     | 19 +++++++++++++++++++
- evidence/test_runs_latest.md | 13 ++++++++++++-
- evidence/updatedifflog.md | 37 ++++++++++++++++++++++++-------------
- 4 files changed, 78 insertions(+), 16 deletions(-)
+ Contracts/phases_7_plus.md    | 63 ++++++++++++++++++++++++++++++++++++++++++++
+ web/src/main.ts               | 33 ++++++++++++++++++++++++++++++-
+ evidence/test_runs.md         | 76 +++++++++++++++++++++++++++++++++++++++++++++++-----
+ evidence/test_runs_latest.md  | 13 +++++++++++++
+ evidence/updatedifflog.md     | 45 +++++++++++++++++++++++++++++++++++++++----
+ 5 files changed, 218 insertions(+), 12 deletions(-)
 ```
