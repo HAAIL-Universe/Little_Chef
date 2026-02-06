@@ -14,13 +14,17 @@ from app.services.prefs_service import get_prefs_service
 from app.services.inventory_service import get_inventory_service
 from app.services.proposal_store import ProposalStore
 from app.services.llm_client import get_llm_client
+from app.services.thread_messages_repo import ThreadMessagesRepo
 from app.errors import BadRequestError
 
 router = APIRouter(prefix="", tags=["Chat"])
 
 # Shared instances (in-memory, process-local)
 _proposal_store = ProposalStore()
-_chat_service = ChatService(get_prefs_service(), get_inventory_service(), _proposal_store, get_llm_client())
+_thread_messages_repo = ThreadMessagesRepo()
+_chat_service = ChatService(
+    get_prefs_service(), get_inventory_service(), _proposal_store, get_llm_client(), _thread_messages_repo
+)
 
 
 @router.post(
@@ -63,4 +67,8 @@ def reset_chat_state_for_tests() -> None:
     _proposal_store.clear()
     get_prefs_service.cache_clear()
     get_inventory_service.cache_clear()
-    _chat_service = ChatService(get_prefs_service(), get_inventory_service(), _proposal_store, get_llm_client())
+    global _thread_messages_repo
+    _thread_messages_repo = ThreadMessagesRepo()
+    _chat_service = ChatService(
+        get_prefs_service(), get_inventory_service(), _proposal_store, get_llm_client(), _thread_messages_repo
+    )

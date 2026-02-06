@@ -31,11 +31,13 @@ class ChatService:
         inventory_service: InventoryService,
         proposal_store: ProposalStore,
         llm_client: LlmClient | None = None,
+        thread_messages_repo=None,
     ) -> None:
         self.prefs_service = prefs_service
         self.inventory_service = inventory_service
         self.proposal_store = proposal_store
         self.llm_client = llm_client
+        self.thread_messages_repo = thread_messages_repo
         self.pending_raw: dict[str, dict[str, object]] = {}
         self.prefs_drafts: dict[tuple[str, str], UserPrefs] = {}
 
@@ -78,27 +80,34 @@ class ChatService:
         if mode == "ask":
             ask_reply = self._handle_ask(user_id, message)
             if ask_reply:
+                self._append_messages(request.thread_id, user_id, request.message, ask_reply.reply_text)
                 return ask_reply
             reply_text = "I can help set preferences or inventory. Try FILL mode with details."
             if self.llm_client:
                 llm_text = self.llm_client.generate_reply(self._system_prompt, request.message)
                 if llm_text:
                     reply_text = llm_text
-            return ChatResponse(
+            resp = ChatResponse(
                 reply_text=reply_text,
                 confirmation_required=False,
                 proposal_id=None,
                 proposed_actions=[],
                 suggested_next_questions=[],
             )
+            self._append_messages(request.thread_id, user_id, request.message, resp.reply_text)
+            return resp
 
         if mode == "fill":
             # Preferences flow (no location) with thread-scoped draft
             if not request.location:
-                return self._handle_prefs_flow_threaded(user, request)
+                response = self._handle_prefs_flow_threaded(user, request)
+                self._append_messages(request.thread_id, user.user_id, request.message, response.reply_text)
+                return response
             # Inventory proposal state machine if location provided
             if request.location:
-                return self._handle_inventory_flow(user, request, key)
+                response = self._handle_inventory_flow(user, request, key)
+                self._append_messages(request.thread_id, user.user_id, request.message, response.reply_text)
+                return response
             inv_action = self._parse_inventory_action(message)
             if inv_action:
                 proposal_id = str(uuid.uuid4())
@@ -142,6 +151,13 @@ class ChatService:
             proposed_actions=[],
             suggested_next_questions=[],
         )
+
+    def _append_messages(self, thread_id: str | None, user_id: str, user_text: str, assistant_text: str | None) -> None:
+        if not self.thread_messages_repo or not thread_id:
+            return
+        self.thread_messages_repo.append_message(thread_id, user_id, "user", user_text or "")
+        if assistant_text:
+            self.thread_messages_repo.append_message(thread_id, user_id, "assistant", assistant_text)
 
     def _handle_inventory_flow(self, user: UserMe, request: ChatRequest, key: str) -> ChatResponse:
         location = request.location or "pantry"

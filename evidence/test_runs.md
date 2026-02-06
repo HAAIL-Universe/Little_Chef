@@ -6178,3 +6178,61 @@ pytest summary: 46 passed, 1 warning
 Warnings:
 - PendingDeprecationWarning from python_multipart (Starlette formparsers)
 
+## Test Run 2026-02-06T02:41:44Z
+- Status: PASS
+- Start: 2026-02-06T02:41:44Z
+- End: 2026-02-06T02:41:51Z
+- Python: Z:\LittleChef\.venv\\Scripts\\python.exe
+- Branch: main
+- HEAD: 575b7c4efdca98897d61a912d82dfa2c5f35cebf
+- compileall exit: 0
+- import app.main exit: 0
+- pytest exit: 0
+- pytest summary: 48 passed, 1 warning in 2.56s
+- git status -sb:
+```
+## main...origin/main [ahead 7]
+M  Contracts/physics.yaml
+MM app/api/routers/chat.py
+M  app/schemas.py
+MM app/services/chat_service.py
+M  app/services/prefs_service.py
+A  db/migrations/0002_threads.sql
+M  evidence/test_runs.md
+M  evidence/test_runs_latest.md
+MM evidence/updatedifflog.md
+M  tests/test_chat_inventory_ask_low_stock.py
+M  tests/test_chat_inventory_fill_propose_confirm.py
+M  tests/test_chat_llm.py
+M  tests/test_chat_prefs_propose_confirm.py
+A  tests/test_chat_prefs_thread.py
+M  tests/test_inventory_proposals.py
+M  web/dist/main.js
+M  web/src/main.ts
+?? app/services/thread_messages_repo.py
+?? db/migrations/0003_thread_messages.sql
+?? tests/test_thread_messages_persist.py
+```
+- git diff --stat:
+```
+ app/api/routers/chat.py      | 12 +++++++--
+ app/services/chat_service.py | 22 ++++++++++++++---
+ evidence/updatedifflog.md    | 58 ++++++++++++++++++++++++++------------------
+ 3 files changed, 64 insertions(+), 28 deletions(-)
+```
+
+
+
+Status: PASS
+Start: 2026-02-06T02:50:00Z
+End: 2026-02-06T02:50:20Z
+Branch: main
+HEAD: 575b7c4efdca98897d61a912d82dfa2c5f35cebf
+Python: Z:\LittleChef\.venv\\Scripts\\python.exe
+compileall exit: 0
+import app.main exit: 0
+pytest exit: 0
+pytest summary: 48 passed, 1 warning
+Warnings:
+- PendingDeprecationWarning from python_multipart (Starlette formparsers)
+
