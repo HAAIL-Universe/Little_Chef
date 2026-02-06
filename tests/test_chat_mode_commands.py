@@ -45,3 +45,13 @@ def test_mode_command_requires_thread(client):
     assert res.status_code == 200
     body = res.json()
     assert "thread id" in body["reply_text"].lower()
+
+
+def test_override_controls_routing_even_if_request_mode_is_ask(client):
+    thread = "t-mode-override"
+    client.post("/chat", json={"mode": "ask", "message": "/fill", "thread_id": thread})
+    res = client.post("/chat", json={"mode": "ask", "message": "hello", "thread_id": thread})
+    assert res.status_code == 200
+    body = res.json()
+    assert body["mode"] == "fill"
+    assert "try fill mode" not in body["reply_text"].lower()

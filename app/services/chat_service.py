@@ -120,7 +120,7 @@ class ChatService:
                 mode=effective_mode,
             )
 
-        if mode == "ask":
+        if effective_mode == "ask":
             ask_reply = self._handle_ask(user_id, message, effective_mode)
             if ask_reply:
                 self._append_messages(request.thread_id, user_id, request.message, ask_reply.reply_text)
@@ -141,7 +141,7 @@ class ChatService:
             self._append_messages(request.thread_id, user_id, request.message, resp.reply_text)
             return resp
 
-        if mode == "fill":
+        if effective_mode == "fill":
             # Preferences flow (no location) with thread-scoped draft
             if not request.location:
                 response = self._handle_prefs_flow_threaded(user, request, effective_mode)
