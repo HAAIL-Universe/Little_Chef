@@ -6564,3 +6564,215 @@ git unavailable
 git unavailable
 ```
 
+## Test Run 2026-02-06T13:10:38Z
+- Status: FAIL
+- Start: 2026-02-06T13:10:38Z
+- End: 2026-02-06T13:10:44Z
+- Python: Z:\LittleChef\.venv\\Scripts\\python.exe
+- Branch: main
+- HEAD: c64a9f90fb98770b445a2c8f26f1d76eb059a7a5
+- compileall exit: 0
+- import app.main exit: 0
+- pytest exit: 1
+- pytest summary: 1 failed, 53 passed, 1 warning in 2.59s
+- git status -sb:
+```
+## main...origin/main [ahead 14]
+ M app/services/chat_service.py
+ M tests/test_chat_prefs_propose_confirm.py
+```
+- git diff --stat:
+```
+ app/services/chat_service.py             | 22 +++++++++++++++++++++-
+ tests/test_chat_prefs_propose_confirm.py | 18 ++++++++++++++++++
+ 2 files changed, 39 insertions(+), 1 deletion(-)
+```
+- Failure payload:
+```
+=== pytest (exit 1) ===
+...................F..................................                   [100%]
+================================== FAILURES ===================================
+______________________ test_fill_word_servings_detected _______________________
+
+authed_client = <starlette.testclient.TestClient object at 0x0000021D240A7E30>
+
+    def test_fill_word_servings_detected(authed_client):
+        thread = "t-prefs-word"
+        paragraph = (
+            "Okay, so for allergies: I'm allergic to peanuts and I can't have shellfish. "
+            "I like chicken, salmon, rice, pasta, potatoes, tomatoes, spinach, peppers, cheese, "
+            "and anything spicy. I don't like mushrooms, olives, blue cheese, or really sweet sauces. "
+            "It's for two servings, and I want meals for Monday to Friday this week."
+        )
+        resp = authed_client.post(
+            "/chat",
+            json={"mode": "fill", "message": paragraph, "thread_id": thread},
+        )
+        assert resp.status_code == 200
+        body = resp.json()
+        assert body["confirmation_required"] is False
+>       assert body["reply_text"] == "How many meals per day do you want?"
+E       AssertionError: assert 'How many ser...d I plan for?' == 'How many mea... do you want?'
+E         
+E         - How many meals per day do you want?
+E         + How many servings should I plan for?
+
+tests\test_chat_prefs_propose_confirm.py:50: AssertionError
+============================== warnings summary ===============================
+.venv\Lib\site-packages\starlette\formparsers.py:12
+  Z:\LittleChef\.venv\Lib\site-packages\starlette\formparsers.py:12: PendingDeprecationWarning: Please use `import python_multipart` instead.
+    import multipart
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED tests/test_chat_prefs_propose_confirm.py::test_fill_word_servings_detected
+1 failed, 53 passed, 1 warning in 2.59s
+```
+
+## Test Run 2026-02-06T13:15:34Z
+- Status: FAIL
+- Start: 2026-02-06T13:15:34Z
+- End: 2026-02-06T13:15:41Z
+- Python: Z:\LittleChef\.venv\\Scripts\\python.exe
+- Branch: main
+- HEAD: c64a9f90fb98770b445a2c8f26f1d76eb059a7a5
+- compileall exit: 0
+- import app.main exit: 0
+- pytest exit: 1
+- pytest summary: 1 failed, 53 passed, 1 warning in 2.61s
+- git status -sb:
+```
+## main...origin/main [ahead 14]
+ M app/services/chat_service.py
+ M evidence/test_runs.md
+ M evidence/test_runs_latest.md
+ M tests/test_chat_prefs_propose_confirm.py
+```
+- git diff --stat:
+```
+ app/services/chat_service.py             | 22 ++++++++++-
+ evidence/test_runs.md                    | 65 +++++++++++++++++++++++++++++++
+ evidence/test_runs_latest.md             | 66 +++++++++++++++++++++++++++-----
+ tests/test_chat_prefs_propose_confirm.py | 18 +++++++++
+ 4 files changed, 161 insertions(+), 10 deletions(-)
+```
+- Failure payload:
+```
+=== pytest (exit 1) ===
+...................F..................................                   [100%]
+================================== FAILURES ===================================
+______________________ test_fill_word_servings_detected _______________________
+
+authed_client = <starlette.testclient.TestClient object at 0x000002EAA7C9B650>
+
+    def test_fill_word_servings_detected(authed_client):
+        thread = "t-prefs-word"
+        paragraph = (
+            "Okay, so for allergies: I'm allergic to peanuts and I can't have shellfish. "
+            "I like chicken, salmon, rice, pasta, potatoes, tomatoes, spinach, peppers, cheese, "
+            "and anything spicy. I don't like mushrooms, olives, blue cheese, or really sweet sauces. "
+            "It's for two servings, and I want meals for Monday to Friday this week."
+        )
+        resp = authed_client.post(
+            "/chat",
+            json={"mode": "fill", "message": paragraph, "thread_id": thread},
+        )
+        assert resp.status_code == 200
+        body = resp.json()
+>       assert body["confirmation_required"] is False
+E       assert True is False
+
+tests\test_chat_prefs_propose_confirm.py:49: AssertionError
+============================== warnings summary ===============================
+.venv\Lib\site-packages\starlette\formparsers.py:12
+  Z:\LittleChef\.venv\Lib\site-packages\starlette\formparsers.py:12: PendingDeprecationWarning: Please use `import python_multipart` instead.
+    import multipart
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED tests/test_chat_prefs_propose_confirm.py::test_fill_word_servings_detected
+1 failed, 53 passed, 1 warning in 2.61s
+```
+
+## Test Run 2026-02-06T13:15:54Z
+- Status: PASS
+- Start: 2026-02-06T13:15:54Z
+- End: 2026-02-06T13:16:00Z
+- Python: Z:\LittleChef\.venv\\Scripts\\python.exe
+- Branch: main
+- HEAD: c64a9f90fb98770b445a2c8f26f1d76eb059a7a5
+- compileall exit: 0
+- import app.main exit: 0
+- pytest exit: 0
+- pytest summary: 54 passed, 1 warning in 2.35s
+- git status -sb:
+```
+## main...origin/main [ahead 14]
+ M app/services/chat_service.py
+ M evidence/test_runs.md
+ M evidence/test_runs_latest.md
+ M tests/test_chat_prefs_propose_confirm.py
+```
+- git diff --stat:
+```
+ app/services/chat_service.py             |  22 +++++-
+ evidence/test_runs.md                    | 130 +++++++++++++++++++++++++++++++
+ evidence/test_runs_latest.md             |  66 +++++++++++++---
+ tests/test_chat_prefs_propose_confirm.py |  21 +++++
+ 4 files changed, 229 insertions(+), 10 deletions(-)
+```
+
+## Test Run 2026-02-06T13:36:15Z
+- Status: PASS
+- Start: 2026-02-06T13:36:15Z
+- End: 2026-02-06T13:36:22Z
+- Python: Z:\LittleChef\.venv\\Scripts\\python.exe
+- Branch: main
+- HEAD: c64a9f90fb98770b445a2c8f26f1d76eb059a7a5
+- compileall exit: 0
+- import app.main exit: 0
+- pytest exit: 0
+- pytest summary: 54 passed, 1 warning in 2.93s
+- git status -sb:
+```
+## main...origin/main [ahead 14]
+MM app/services/chat_service.py
+M  evidence/test_runs.md
+M  evidence/test_runs_latest.md
+MM evidence/updatedifflog.md
+MM tests/test_chat_prefs_propose_confirm.py
+```
+- git diff --stat:
+```
+ app/services/chat_service.py             | 104 +++++-
+ evidence/updatedifflog.md                | 530 ++++++++++++++++++++++++++-----
+ tests/test_chat_prefs_propose_confirm.py |   4 +
+ 3 files changed, 546 insertions(+), 92 deletions(-)
+```
+
+## Test Run 2026-02-06T13:43:05Z
+- Status: PASS
+- Start: 2026-02-06T13:43:05Z
+- End: 2026-02-06T13:43:12Z
+- Python: Z:\LittleChef\.venv\\Scripts\\python.exe
+- Branch: main
+- HEAD: c64a9f90fb98770b445a2c8f26f1d76eb059a7a5
+- compileall exit: 0
+- import app.main exit: 0
+- pytest exit: 0
+- pytest summary: 54 passed, 1 warning in 3.23s
+- git status -sb:
+```
+## main...origin/main [ahead 14]
+MM app/services/chat_service.py
+M  evidence/test_runs.md
+M  evidence/test_runs_latest.md
+M  evidence/updatedifflog.md
+M  tests/test_chat_prefs_propose_confirm.py
+```
+- git diff --stat:
+```
+ app/services/chat_service.py | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+```
+

@@ -23,6 +23,49 @@ from app.services.llm_client import (
 from app.services.inventory_parse_service import extract_new_draft, extract_edit_ops
 from app.services.inventory_normalizer import normalize_items
 
+NUMBER_WORDS: dict[str, int] = {
+    "zero": 0,
+    "one": 1,
+    "two": 2,
+    "three": 3,
+    "four": 4,
+    "five": 5,
+    "six": 6,
+    "seven": 7,
+    "eight": 8,
+    "nine": 9,
+    "ten": 10,
+    "eleven": 11,
+    "twelve": 12,
+}
+LIKE_CLAUSE_PATTERNS: tuple[str, ...] = (
+    r"(?:i(?: really)? like|i love)\s+(.+?)(?:[.!?]|$)",
+    r"likes?:\s+(.+?)(?:[.!?]|$)",
+)
+DISLIKE_CLAUSE_PATTERNS: tuple[str, ...] = (
+    rf"(?:i(?: don(?:'|’)?t|do not)\s+like|i(?: hate|detest))\s+(.+?)(?:[.!?]|$)",
+    r"dislikes?:\s+(.+?)(?:[.!?]|$)",
+)
+ALLERGY_CLAUSE_PATTERNS: tuple[str, ...] = (
+    r"allerg(?:y|ic|ies)[^\S\r\n]*[:\-]?[^\S\r\n]*(.+?)(?:[.!?]|$)",
+    r"allergic to[^\S\r\n]*(.+?)(?:[.!?]|$)",
+    rf"can(?:'|’)?t have[^\S\r\n]*(.+?)(?:[.!?]|$)",
+    r"cannot have[^\S\r\n]*(.+?)(?:[.!?]|$)",
+)
+CUISINE_CLAUSE_PATTERNS: tuple[str, ...] = (
+    r"cuisine likes?:\s+(.+?)(?:[.!?]|$)",
+    r"cuisines?:\s+(.+?)(?:[.!?]|$)",
+)
+ALLERGY_ITEM_PREFIXES: tuple[str, ...] = (
+    "i'm allergic to",
+    "i am allergic to",
+    "i can't have",
+    "i cannot have",
+    "i cant have",
+    "allergies",
+    "allergy",
+)
+
 
 class ChatService:
     def __init__(
@@ -407,16 +450,78 @@ class ChatService:
         return merged
 
     def _extract_number(self, text: str, patterns: List[str]) -> int | None:
+        text_lower = text.lower()
         for pat in patterns:
-            match = re.search(pat, text)
+            match = re.search(pat, text_lower)
             if match:
                 return int(match.group(1))
+        for word, value in NUMBER_WORDS.items():
+            if re.search(rf"\b{word}\b", text_lower):
+                return value
         return None
 
+    def _clean_list_item(self, value: str) -> str:
+        cleaned = value.strip()
+        cleaned = cleaned.strip(".,;:-\"'“”‘’")
+        return cleaned
+
+    def _split_clause_items(self, segment: str) -> List[str]:
+        if not segment:
+            return []
+        parts = re.split(r"\s*(?:,|\band\b|\bor\b)\s*", segment)
+        return [item for item in (self._clean_list_item(part) for part in parts) if item]
+
+    def _match_clause_segments(self, text: str, patterns: tuple[str, ...]) -> List[str]:
+        segments: list[str] = []
+        for pattern in patterns:
+            for match in re.finditer(pattern, text):
+                segment = match.group(1)
+                if segment:
+                    segments.append(segment)
+        return segments
+
+    def _dedupe_items(self, items: List[str]) -> List[str]:
+        seen: set[str] = set()
+        result: List[str] = []
+        for item in items:
+            if not item:
+                continue
+            key = item.lower()
+            if key in seen:
+                continue
+            seen.add(key)
+            result.append(item)
+        return result
+
+    def _extract_clause_items(self, text: str, patterns: tuple[str, ...]) -> List[str]:
+        segments = self._match_clause_segments(text, patterns)
+        items: List[str] = []
+        for segment in segments:
+            items.extend(self._split_clause_items(segment))
+        return self._dedupe_items(items)
+
+    def _normalize_allergy_item(self, item: str) -> str:
+        normalized = self._clean_list_item(item)
+        lowered = normalized.lower()
+        for prefix in ALLERGY_ITEM_PREFIXES:
+            if lowered.startswith(prefix):
+                normalized = normalized[len(prefix):].strip()
+                lowered = normalized
+        return self._clean_list_item(normalized)
+
+    def _extract_allergy_items(self, text: str) -> List[str]:
+        segments = self._match_clause_segments(text, ALLERGY_CLAUSE_PATTERNS)
+        raw_items: List[str] = []
+        for segment in segments:
+            raw_items.extend(self._split_clause_items(segment))
+        normalized = [self._normalize_allergy_item(item) for item in raw_items if item]
+        return self._dedupe_items([item for item in normalized if item])
+
     def _parse_prefs_from_message(self, message: str) -> UserPrefs:
-        servings = self._extract_number(message, [r"(\d+)\s*servings?", r"servings?[^0-9]*(\d+)"])
+        lowered_message = message.lower()
+        servings = self._extract_number(lowered_message, [r"(\d+)\s*servings?", r"servings?[^0-9]*(\d+)"])
         meals_per_day = self._extract_number(
-            message,
+            lowered_message,
             [
                 r"meals?\s*per\s*day[^0-9]*(\d+)",
                 r"(\d+)\s*meals?\s*per\s*day",
@@ -424,16 +529,11 @@ class ChatService:
             ],
         )
 
-        def extract_list(keyword: str) -> List[str]:
-            if keyword not in message:
-                return []
-            after = message.split(keyword, 1)[1]
-            parts = re.split(r"[,.]", after)
-            return [p.strip() for p in parts[0].split(" and ") if p.strip()]
-
-        allergies = extract_list("allerg")
-        dislikes = extract_list("dislike")
-        cuisine_likes = extract_list("cuisine")
+        allergies = self._extract_allergy_items(lowered_message)
+        dislikes = self._extract_clause_items(lowered_message, DISLIKE_CLAUSE_PATTERNS)
+        likes = self._extract_clause_items(lowered_message, LIKE_CLAUSE_PATTERNS)
+        cuisine_entries = self._extract_clause_items(lowered_message, CUISINE_CLAUSE_PATTERNS)
+        cuisine_likes = self._dedupe_items(likes + cuisine_entries)
 
         return UserPrefs(
             allergies=allergies,
