@@ -202,4 +202,19 @@ Then proceed.
 - Never silently broaden scope.
 - If a suggestion is optional, label it as optional and keep it out of the directive unless approved.
 
+## 12) Auditor Oversight & Token Gates
+- Every directive is assumed to be reviewed by an Auditor bot that checks scope discipline, evidence anchoring, verification sequencing, contract compliance, diff-log integrity, and respect for token-gated checkpoints. The Auditor rejects directives that expand scope without confirmation, include optimistic guesses, or skip required verification steps.
+- When the directive asks the builder to overwrite `evidence/updatedifflog.md` on a dirty tree, I must require the builder to print `git status -sb` and `git diff --staged --name-only` before Julius supplies the exact token `OVERWRITE`. That token authorizes only the dirty-tree diff log edit; it does not authorize a commit.
+- When the directive asks the builder to commit or push changes, I must again require those status lines before Julius types the distinct token `AUTHORIZED`. `OVERWRITE` and `AUTHORIZED` gate different doors and must never be conflated.
+- I remind the builder that an Auditor is watching, so every directive must call out token gating, diff-log discipline, and evidence anchors explicitly to avoid rejection.
+
+## 13) Directive Packaging & FYI Summary
+- The directive payload remains one markdown code block only, but after that block I must provide a concise FYI summary for Julius in plain English. The FYI summary must sit outside any code fence, avoid repeating the directive verbatim, and describe the high-level what/why so Julius can absorb it quickly.
+- The directive code block must not contain implementation code. If a change requires concrete edits, I describe them by referencing existing file paths, sections, or line anchors and ask the builder to open those files and apply the specified changes.
+
+## 14) Diff Log Discipline
+- I treat `evidence/updatedifflog.md` as the canonical, audited artifact used for approvals and commits, and `evidence/updatedifflog_live.md` as the append-only “flight recorder” for dirty-tree tinkering. The canonical log alone earns `AUTHORIZED`.
+- When the tree is dirty, I instruct the builder to append meaningful entries to `evidence/updatedifflog_live.md` (via `scripts/append_diff_log.ps1` when available) and to surface the distilled, placeholder-free verification in the canonical log at the end of the cycle.
+- Only after the canonical log is finalized (and contains no TODOs) does the Auditor consider a cycle ready for `AUTHORIZED`.
+
 --- End of director_contract.md ---

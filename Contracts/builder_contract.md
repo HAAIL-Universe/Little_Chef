@@ -242,4 +242,11 @@ Rules:
 
 If diff log is not updated, work is incomplete.
 
+## 11) Auditor Oversight
+- Assume every cycle is audited for scope, evidence anchors, contract compliance, diff-log integrity, and token discipline. The cycle fails if the scope is broadened without permission, the verification hierarchy is incomplete, or the canonical log contains TODO placeholders.
+- Before asking Julius for `OVERWRITE` (the dirty-tree diff log gate), print `git status -sb` and `git diff --staged --name-only`. That token only authorizes the canonical log overwrite and never a commit.
+- Before asking Julius for `AUTHORIZED` (the commit/push gate), again print those status lines. Treat `OVERWRITE` and `AUTHORIZED` as distinct tokens authorizing different actions.
+- Only `evidence/updatedifflog.md` is authoritative for approvals; `evidence/updatedifflog_live.md` is append-only and may document dirty-tree tinkering but cannot be used alone to gain `AUTHORIZED`.
+- Stick to the allowed file set, do not invent files, and keep evidence ready for the Auditor before requesting tokens.
+
 --- End of Builder Contract ---
