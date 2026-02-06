@@ -47,6 +47,11 @@ let inventoryHasLoaded = false;
 let onboardMenu: HTMLDivElement | null = null;
 let onboardPressTimer: number | null = null;
 let onboardPressStart: { x: number; y: number } | null = null;
+let onboardPointerId: number | null = null;
+let onboardMenuActive = false;
+let onboardActiveItem: HTMLElement | null = null;
+let onboardIgnoreDocClickUntilMs = 0;
+let onboardDragActive = false;
 
 function headers() {
   const h: Record<string, string> = { "Content-Type": "application/json" };
@@ -309,8 +314,11 @@ function updateDuetBubbles() {
   const user = document.getElementById("duet-user-text");
   const lastAssistant = [...duetState.history].reverse().find((h) => h.role === "assistant");
   const lastUser = [...duetState.history].reverse().find((h) => h.role === "user");
-  if (assistant) assistant.textContent = lastAssistant?.text ?? "Welcome — I’m Little Chef. To get started, press and hold your message bubble and tap Start.";
-  if (user) user.textContent = lastUser?.text ?? "Press and hold to start onboarding";
+  if (assistant)
+    assistant.textContent =
+      lastAssistant?.text ??
+      "Welcome — I’m Little Chef. To start onboarding, please fill out your preferences (allergies, likes/dislikes, servings, days).";
+  if (user) user.textContent = lastUser?.text ?? "Press and hold to start onboarding with preferences.";
 }
 
 function applyDrawerProgress(progress: number, opts?: { dragging?: boolean; commit?: boolean }) {
@@ -988,7 +996,8 @@ function ensureOnboardMenu() {
   const btn = document.createElement("button");
   btn.type = "button";
   btn.className = "flow-menu-item";
-  btn.textContent = "Start";
+  btn.textContent = "Preferences";
+  btn.dataset.onboardItem = "start";
   btn.addEventListener("click", () => {
     hideOnboardMenu();
     startOnboarding();
@@ -1001,6 +1010,12 @@ function ensureOnboardMenu() {
 
 function hideOnboardMenu() {
   if (onboardMenu) onboardMenu.style.display = "none";
+  onboardMenuActive = false;
+  if (onboardActiveItem) {
+    onboardActiveItem.classList.remove("active");
+    onboardActiveItem.style.outline = "";
+  }
+  onboardActiveItem = null;
 }
 
 function showOnboardMenu(x: number, y: number) {
@@ -1008,12 +1023,15 @@ function showOnboardMenu(x: number, y: number) {
   menu.style.left = `${x}px`;
   menu.style.top = `${y}px`;
   menu.style.display = "grid";
+  onboardMenuActive = true;
+  onboardIgnoreDocClickUntilMs = Date.now() + 800;
+  onboardDragActive = true;
 }
 
 function startOnboarding() {
-  selectFlow("inventory");
-  const assistantText = "Cool — let’s do onboarding. First: tell me what’s in your cupboards/pantry. Just list items in one message.";
-  const userText = "Just list items in one message";
+  selectFlow("prefs");
+  const assistantText = "To get started, let’s set your preferences (allergies, likes/dislikes, servings, days).";
+  const userText = "Answer in one message…";
   const assistant = document.getElementById("duet-assistant-text");
   const user = document.getElementById("duet-user-text");
   if (assistant) assistant.textContent = assistantText;
@@ -1051,21 +1069,48 @@ function bindOnboardingLongPress() {
     }
   };
 
-  const cancel = () => {
+  const cancel = (opts?: { hideMenu?: boolean }) => {
     clearTimer();
     onboardPressStart = null;
-    hideOnboardMenu();
+    onboardPointerId = null;
+    if (opts?.hideMenu ?? true) {
+      hideOnboardMenu();
+    }
   };
 
   userBubble.addEventListener("pointerdown", (ev) => {
     onboardPressStart = { x: ev.clientX, y: ev.clientY };
     clearTimer();
+    onboardPointerId = ev.pointerId;
     onboardPressTimer = window.setTimeout(() => {
       showOnboardMenu(ev.clientX, ev.clientY);
+      onboardPressTimer = null;
+      onboardPressStart = null;
+      try {
+        userBubble.setPointerCapture(ev.pointerId);
+      } catch (_err) {
+        // ignore if capture not supported
+      }
     }, 500);
   });
 
   userBubble.addEventListener("pointermove", (ev) => {
+    if (onboardMenuActive) {
+      const el = document.elementFromPoint(ev.clientX, ev.clientY) as HTMLElement | null;
+      const item = el?.closest("[data-onboard-item]") as HTMLElement | null;
+      if (item !== onboardActiveItem) {
+        if (onboardActiveItem) {
+          onboardActiveItem.classList.remove("active");
+          onboardActiveItem.style.outline = "";
+        }
+        onboardActiveItem = item;
+        if (onboardActiveItem) {
+          onboardActiveItem.classList.add("active");
+          onboardActiveItem.style.outline = "2px solid #7df";
+        }
+      }
+      return;
+    }
     if (!onboardPressStart || onboardPressTimer === null) return;
     const dx = Math.abs(ev.clientX - onboardPressStart.x);
     const dy = Math.abs(ev.clientY - onboardPressStart.y);
@@ -1074,11 +1119,31 @@ function bindOnboardingLongPress() {
     }
   });
 
-  userBubble.addEventListener("pointerup", cancel);
-  userBubble.addEventListener("pointercancel", cancel);
-  userBubble.addEventListener("lostpointercapture", cancel);
+  userBubble.addEventListener("pointerup", (ev) => {
+    if (onboardMenuActive) {
+      const startHovered = onboardActiveItem?.dataset.onboardItem === "start";
+      if (startHovered) {
+        startOnboarding();
+        hideOnboardMenu();
+      }
+      onboardDragActive = false;
+      cancel({ hideMenu: false });
+      return;
+    }
+    cancel();
+  });
+  userBubble.addEventListener("pointercancel", () => cancel());
+  userBubble.addEventListener("lostpointercapture", () => {
+    if (onboardMenuActive) {
+      cancel({ hideMenu: false });
+    } else {
+      cancel();
+    }
+  });
   document.addEventListener("click", (ev) => {
     if (!onboardMenu || onboardMenu.style.display === "none") return;
+    if (Date.now() < onboardIgnoreDocClickUntilMs) return;
+    if (onboardDragActive) return;
     if (ev.target instanceof Node && onboardMenu.contains(ev.target)) return;
     hideOnboardMenu();
   });

@@ -6,6 +6,7 @@ const state = {
     proposedActions: [],
     chatReply: null,
     chatError: "",
+    onboarded: null,
 };
 const flowOptions = [
     { key: "general", label: "General", placeholder: "Ask or fill..." },
@@ -35,6 +36,14 @@ let inventoryLowList = null;
 let inventorySummaryList = null;
 let inventoryLoading = false;
 let inventoryHasLoaded = false;
+let onboardMenu = null;
+let onboardPressTimer = null;
+let onboardPressStart = null;
+let onboardPointerId = null;
+let onboardMenuActive = false;
+let onboardActiveItem = null;
+let onboardIgnoreDocClickUntilMs = 0;
+let onboardDragActive = false;
 function headers() {
     var _a;
     const h = { "Content-Type": "application/json" };
@@ -292,9 +301,10 @@ function updateDuetBubbles() {
     const lastAssistant = [...duetState.history].reverse().find((h) => h.role === "assistant");
     const lastUser = [...duetState.history].reverse().find((h) => h.role === "user");
     if (assistant)
-        assistant.textContent = (_a = lastAssistant === null || lastAssistant === void 0 ? void 0 : lastAssistant.text) !== null && _a !== void 0 ? _a : "Hi - how can I help?";
+        assistant.textContent =
+            (_a = lastAssistant === null || lastAssistant === void 0 ? void 0 : lastAssistant.text) !== null && _a !== void 0 ? _a : "Welcome — I’m Little Chef. To start onboarding, please fill out your preferences (allergies, likes/dislikes, servings, days).";
     if (user)
-        user.textContent = (_b = lastUser === null || lastUser === void 0 ? void 0 : lastUser.text) !== null && _b !== void 0 ? _b : "Tap mic or type to start";
+        user.textContent = (_b = lastUser === null || lastUser === void 0 ? void 0 : lastUser.text) !== null && _b !== void 0 ? _b : "Press and hold to start onboarding with preferences.";
 }
 function applyDrawerProgress(progress, opts) {
     var _a;
@@ -673,9 +683,10 @@ async function silentGreetOnce() {
         return;
     sessionStorage.setItem(key, "1");
     try {
+        const greetMessage = state.onboarded === false ? "I'm new here" : "hello";
         const res = await doPost("/chat", {
             mode: "ask",
-            message: "hello",
+            message: greetMessage,
             include_user_library: true,
         });
         const json = res.json;
@@ -694,10 +705,12 @@ function wire() {
     enforceViewportLock();
     const jwtInput = document.getElementById("jwt");
     (_a = document.getElementById("btn-auth")) === null || _a === void 0 ? void 0 : _a.addEventListener("click", async () => {
+        var _a;
         state.token = jwtInput.value.trim();
         clearProposal();
         const result = await doGet("/auth/me");
         setText("auth-out", result);
+        state.onboarded = !!((_a = result.json) === null || _a === void 0 ? void 0 : _a.onboarded);
         await silentGreetOnce();
         inventoryHasLoaded = false;
         if (currentFlowKey === "inventory") {
@@ -771,6 +784,7 @@ function wire() {
     wireDuetComposer();
     setupHistoryDrawerUi();
     wireHistoryHotkeys();
+    bindOnboardingLongPress();
     updateInventoryOverlayVisibility();
     applyDrawerProgress(duetState.drawerOpen ? 1 : 0, { commit: true });
     renderDuetHistory();
@@ -928,6 +942,59 @@ function selectFlow(key) {
         refreshInventoryOverlay(true);
     }
 }
+function ensureOnboardMenu() {
+    if (onboardMenu)
+        return onboardMenu;
+    const menu = document.createElement("div");
+    menu.id = "onboard-menu";
+    menu.className = "flow-menu-dropdown";
+    menu.style.position = "fixed";
+    menu.style.display = "none";
+    menu.style.zIndex = "999";
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "flow-menu-item";
+    btn.textContent = "Preferences";
+    btn.dataset.onboardItem = "start";
+    btn.addEventListener("click", () => {
+        hideOnboardMenu();
+        startOnboarding();
+    });
+    menu.appendChild(btn);
+    document.body.appendChild(menu);
+    onboardMenu = menu;
+    return menu;
+}
+function hideOnboardMenu() {
+    if (onboardMenu)
+        onboardMenu.style.display = "none";
+    onboardMenuActive = false;
+    if (onboardActiveItem) {
+        onboardActiveItem.classList.remove("active");
+        onboardActiveItem.style.outline = "";
+    }
+    onboardActiveItem = null;
+}
+function showOnboardMenu(x, y) {
+    const menu = ensureOnboardMenu();
+    menu.style.left = `${x}px`;
+    menu.style.top = `${y}px`;
+    menu.style.display = "grid";
+    onboardMenuActive = true;
+    onboardIgnoreDocClickUntilMs = Date.now() + 800;
+    onboardDragActive = true;
+}
+function startOnboarding() {
+    selectFlow("prefs");
+    const assistantText = "To get started, let’s set your preferences (allergies, likes/dislikes, servings, days).";
+    const userText = "Answer in one message…";
+    const assistant = document.getElementById("duet-assistant-text");
+    const user = document.getElementById("duet-user-text");
+    if (assistant)
+        assistant.textContent = assistantText;
+    if (user)
+        user.textContent = userText;
+}
 function setupDock() {
     const shell = document.getElementById("duet-shell");
     const composer = document.getElementById("duet-composer");
@@ -947,6 +1014,100 @@ function setupDock() {
         dock.appendChild(composer);
     }
     enforceViewportLock();
+}
+function bindOnboardingLongPress() {
+    const userBubble = document.getElementById("duet-user-bubble");
+    if (!userBubble)
+        return;
+    const clearTimer = () => {
+        if (onboardPressTimer !== null) {
+            window.clearTimeout(onboardPressTimer);
+            onboardPressTimer = null;
+        }
+    };
+    const cancel = (opts) => {
+        var _a;
+        clearTimer();
+        onboardPressStart = null;
+        onboardPointerId = null;
+        if ((_a = opts === null || opts === void 0 ? void 0 : opts.hideMenu) !== null && _a !== void 0 ? _a : true) {
+            hideOnboardMenu();
+        }
+    };
+    userBubble.addEventListener("pointerdown", (ev) => {
+        onboardPressStart = { x: ev.clientX, y: ev.clientY };
+        clearTimer();
+        onboardPointerId = ev.pointerId;
+        onboardPressTimer = window.setTimeout(() => {
+            showOnboardMenu(ev.clientX, ev.clientY);
+            onboardPressTimer = null;
+            onboardPressStart = null;
+            try {
+                userBubble.setPointerCapture(ev.pointerId);
+            }
+            catch (_err) {
+                // ignore if capture not supported
+            }
+        }, 500);
+    });
+    userBubble.addEventListener("pointermove", (ev) => {
+        if (onboardMenuActive) {
+            const el = document.elementFromPoint(ev.clientX, ev.clientY);
+            const item = el === null || el === void 0 ? void 0 : el.closest("[data-onboard-item]");
+            if (item !== onboardActiveItem) {
+                if (onboardActiveItem) {
+                    onboardActiveItem.classList.remove("active");
+                    onboardActiveItem.style.outline = "";
+                }
+                onboardActiveItem = item;
+                if (onboardActiveItem) {
+                    onboardActiveItem.classList.add("active");
+                    onboardActiveItem.style.outline = "2px solid #7df";
+                }
+            }
+            return;
+        }
+        if (!onboardPressStart || onboardPressTimer === null)
+            return;
+        const dx = Math.abs(ev.clientX - onboardPressStart.x);
+        const dy = Math.abs(ev.clientY - onboardPressStart.y);
+        if (dx > 6 || dy > 6) {
+            cancel();
+        }
+    });
+    userBubble.addEventListener("pointerup", (ev) => {
+        if (onboardMenuActive) {
+            const startHovered = (onboardActiveItem === null || onboardActiveItem === void 0 ? void 0 : onboardActiveItem.dataset.onboardItem) === "start";
+            if (startHovered) {
+                startOnboarding();
+                hideOnboardMenu();
+            }
+            onboardDragActive = false;
+            cancel({ hideMenu: false });
+            return;
+        }
+        cancel();
+    });
+    userBubble.addEventListener("pointercancel", () => cancel());
+    userBubble.addEventListener("lostpointercapture", () => {
+        if (onboardMenuActive) {
+            cancel({ hideMenu: false });
+        }
+        else {
+            cancel();
+        }
+    });
+    document.addEventListener("click", (ev) => {
+        if (!onboardMenu || onboardMenu.style.display === "none")
+            return;
+        if (Date.now() < onboardIgnoreDocClickUntilMs)
+            return;
+        if (onboardDragActive)
+            return;
+        if (ev.target instanceof Node && onboardMenu.contains(ev.target))
+            return;
+        hideOnboardMenu();
+    });
 }
 function positionFlowMenuDropdown() {
     const dropdown = flowMenuDropdown;
