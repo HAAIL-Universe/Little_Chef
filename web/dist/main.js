@@ -7,6 +7,7 @@ const state = {
     chatReply: null,
     chatError: "",
     onboarded: null,
+    inventoryOnboarded: null,
 };
 const PROPOSAL_CONFIRM_COMMANDS = new Set(["confirm"]);
 const PROPOSAL_DENY_COMMANDS = new Set(["deny", "cancel"]);
@@ -578,6 +579,13 @@ function setInventoryStatus(text) {
         inventoryStatusEl.textContent = text;
     }
 }
+function markInventoryOnboarded(hasData) {
+    const already = !!state.inventoryOnboarded;
+    state.inventoryOnboarded = !!state.inventoryOnboarded || hasData;
+    if (!already && state.inventoryOnboarded) {
+        updateInventoryOverlayVisibility();
+    }
+}
 function renderInventoryLists(low, summary) {
     const lowList = inventoryLowList;
     if (lowList) {
@@ -636,6 +644,7 @@ async function refreshInventoryOverlay(force = false) {
         renderInventoryLists(lowItems, summaryItems);
         const hasAny = lowItems.length > 0 || summaryItems.length > 0;
         setInventoryStatus(hasAny ? "Read-only snapshot" : "No items yet.");
+        markInventoryOnboarded(hasAny);
         inventoryHasLoaded = true;
     }
     catch (err) {
@@ -650,11 +659,18 @@ async function refreshInventoryOverlay(force = false) {
 function updateInventoryOverlayVisibility() {
     if (!inventoryOverlay)
         return;
-    const visible = currentFlowKey === "inventory";
+    const wantsInventory = currentFlowKey === "inventory";
+    const canShowInventory = !!state.inventoryOnboarded;
+    const visible = wantsInventory && canShowInventory;
     inventoryOverlay.classList.toggle("hidden", !visible);
     inventoryOverlay.style.display = visible ? "flex" : "none";
-    if (visible && (!inventoryHasLoaded || !(inventoryLowList === null || inventoryLowList === void 0 ? void 0 : inventoryLowList.childElementCount))) {
-        refreshInventoryOverlay();
+    if (wantsInventory) {
+        if (!canShowInventory) {
+            refreshInventoryOverlay(true);
+        }
+        else if (visible && (!inventoryHasLoaded || !(inventoryLowList === null || inventoryLowList === void 0 ? void 0 : inventoryLowList.childElementCount))) {
+            refreshInventoryOverlay();
+        }
     }
 }
 function setupInventoryGhostOverlay() {
@@ -1031,14 +1047,16 @@ function wire() {
     enforceViewportLock();
     const jwtInput = document.getElementById("jwt");
     (_a = document.getElementById("btn-auth")) === null || _a === void 0 ? void 0 : _a.addEventListener("click", async () => {
-        var _a;
+        var _a, _b;
         state.token = jwtInput.value.trim();
         clearProposal();
         const result = await doGet("/auth/me");
         setText("auth-out", result);
         state.onboarded = !!((_a = result.json) === null || _a === void 0 ? void 0 : _a.onboarded);
+        state.inventoryOnboarded = !!((_b = result.json) === null || _b === void 0 ? void 0 : _b.inventory_onboarded);
         renderOnboardMenuButtons();
         updatePrefsOverlayVisibility();
+        updateInventoryOverlayVisibility();
         await silentGreetOnce();
         inventoryHasLoaded = false;
         if (currentFlowKey === "inventory") {

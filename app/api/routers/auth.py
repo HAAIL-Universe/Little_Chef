@@ -3,6 +3,7 @@ import os
 
 from app.schemas import UserMe, ErrorResponse
 from app.services.auth_service import get_auth_service
+from app.services.inventory_service import get_inventory_service
 from app.services.prefs_service import get_prefs_service
 from app.auth.jwt_verifier import JWTVerificationError, JWTConfigurationError
 from app.errors import UnauthorizedError
@@ -58,6 +59,11 @@ def auth_me(
             user.onboarded = prefs_service.has_prefs(user.user_id)
         except Exception:
             user.onboarded = False
+        try:
+            inventory_service = get_inventory_service()
+            user.inventory_onboarded = inventory_service.has_events(user.user_id)
+        except Exception:
+            user.inventory_onboarded = False
         return user
     except (JWTVerificationError, JWTConfigurationError) as exc:
         raise UnauthorizedError(str(exc)) from exc

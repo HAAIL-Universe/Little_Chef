@@ -8,6 +8,7 @@ const state = {
   chatReply: null as any,
   chatError: "",
   onboarded: null as boolean | null,
+  inventoryOnboarded: null as boolean | null,
 };
 
 const PROPOSAL_CONFIRM_COMMANDS = new Set(["confirm"]);
@@ -612,6 +613,14 @@ function setInventoryStatus(text: string) {
   }
 }
 
+function markInventoryOnboarded(hasData: boolean) {
+  const already = !!state.inventoryOnboarded;
+  state.inventoryOnboarded = !!state.inventoryOnboarded || hasData;
+  if (!already && state.inventoryOnboarded) {
+    updateInventoryOverlayVisibility();
+  }
+}
+
 function renderInventoryLists(low: LowStockItem[], summary: InventorySummaryItem[]) {
   const lowList = inventoryLowList;
   if (lowList) {
@@ -667,6 +676,7 @@ async function refreshInventoryOverlay(force = false) {
     renderInventoryLists(lowItems, summaryItems);
     const hasAny = lowItems.length > 0 || summaryItems.length > 0;
     setInventoryStatus(hasAny ? "Read-only snapshot" : "No items yet.");
+    markInventoryOnboarded(hasAny);
     inventoryHasLoaded = true;
   } catch (err) {
     setInventoryStatus("Network error. Try refresh.");
@@ -679,11 +689,17 @@ async function refreshInventoryOverlay(force = false) {
 
 function updateInventoryOverlayVisibility() {
   if (!inventoryOverlay) return;
-  const visible = currentFlowKey === "inventory";
+  const wantsInventory = currentFlowKey === "inventory";
+  const canShowInventory = !!state.inventoryOnboarded;
+  const visible = wantsInventory && canShowInventory;
   inventoryOverlay.classList.toggle("hidden", !visible);
   inventoryOverlay.style.display = visible ? "flex" : "none";
-  if (visible && (!inventoryHasLoaded || !inventoryLowList?.childElementCount)) {
-    refreshInventoryOverlay();
+  if (wantsInventory) {
+    if (!canShowInventory) {
+      refreshInventoryOverlay(true);
+    } else if (visible && (!inventoryHasLoaded || !inventoryLowList?.childElementCount)) {
+      refreshInventoryOverlay();
+    }
   }
 }
 
@@ -1080,8 +1096,10 @@ function wire() {
     const result = await doGet("/auth/me");
     setText("auth-out", result);
     state.onboarded = !!result.json?.onboarded;
+    state.inventoryOnboarded = !!result.json?.inventory_onboarded;
     renderOnboardMenuButtons();
     updatePrefsOverlayVisibility();
+    updateInventoryOverlayVisibility();
     await silentGreetOnce();
     inventoryHasLoaded = false;
     if (currentFlowKey === "inventory") {

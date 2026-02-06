@@ -45,6 +45,7 @@ def test_overlay_pointer_events_split():
     prefs_section = main_ts[prefs_start:prefs_end]
     assert 'overlay.style.pointerEvents = "none";' in prefs_section
     assert 'panel.style.pointerEvents = "auto";' in prefs_section
+    assert 'const canShowInventory = !!state.inventoryOnboarded;' in main_ts
 
 
 def test_overlay_and_bubble_zindex():

@@ -9235,3 +9235,101 @@ MM web/src/style.css
  8 files changed, 447 insertions(+), 44904 deletions(-)
 ```
 
+## Test Run 2026-02-06T21:44:48Z
+- Status: FAIL
+- Start: 2026-02-06T21:44:48Z
+- End: 2026-02-06T21:44:56Z
+- Python: Z:\LittleChef\.venv\\Scripts\\python.exe
+- Branch: main
+- HEAD: 03240184d9da421f40b383d8bd60515211260a87
+- compileall exit: 0
+- import app.main exit: 0
+- pytest exit: 1
+- pytest summary: 1 failed, 59 passed, 1 warning in 3.40s
+- git status -sb:
+```
+## main...origin/main [ahead 3]
+ M app/api/routers/auth.py
+ M app/schemas.py
+ M tests/test_ui_onboarding_copy.py
+ M web/dist/main.js
+ M web/src/main.ts
+```
+- git diff --stat:
+```
+ app/api/routers/auth.py          |  6 ++++++
+ app/schemas.py                   |  1 +
+ tests/test_ui_onboarding_copy.py |  1 +
+ web/dist/main.js                 | 26 ++++++++++++++++++++++----
+ web/src/main.ts                  | 24 +++++++++++++++++++++---
+ 5 files changed, 51 insertions(+), 7 deletions(-)
+```
+- Failure payload:
+```
+=== pytest (exit 1) ===
+..........................................................F.             [100%]
+================================== FAILURES ===================================
+______________________ test_overlay_pointer_events_split ______________________
+
+    def test_overlay_pointer_events_split():
+        main_ts = Path("web/src/main.ts").read_text(encoding="utf-8")
+        inv_start = main_ts.index("function setupInventoryGhostOverlay")
+        inv_end = main_ts.index("function setPrefsOverlayStatus", inv_start)
+        inv_section = main_ts[inv_start:inv_end]
+        assert 'overlay.style.pointerEvents = "none";' in inv_section
+        assert 'panel.style.pointerEvents = "auto";' in inv_section
+    
+        prefs_start = main_ts.index("function setupPrefsOverlay")
+        prefs_end = main_ts.index("function ensureOnboardMenu", prefs_start)
+        prefs_section = main_ts[prefs_start:prefs_end]
+        assert 'overlay.style.pointerEvents = "none";' in prefs_section
+        assert 'panel.style.pointerEvents = "auto";' in prefs_section
+>       assert 'currentFlowKey === "inventory" && !!state.inventoryOnboarded' in main_ts
+E       assert 'currentFlowKey === "inventory" && !!state.inventoryOnboarded' in 'import { formatProposalSummary, stripProposalPrefix } from "./proposalRenderer.js";\n\nconst state = {\n  token: "",\...aceBelow - 2)}px`;\n  }\n\n  dropdown.style.display = prevDisplay;\n  dropdown.style.visibility = prevVisibility;\n}\n'
+
+tests\test_ui_onboarding_copy.py:48: AssertionError
+============================== warnings summary ===============================
+.venv\Lib\site-packages\starlette\formparsers.py:12
+  Z:\LittleChef\.venv\Lib\site-packages\starlette\formparsers.py:12: PendingDeprecationWarning: Please use `import python_multipart` instead.
+    import multipart
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED tests/test_ui_onboarding_copy.py::test_overlay_pointer_events_split - ...
+1 failed, 59 passed, 1 warning in 3.40s
+```
+
+## Test Run 2026-02-06T21:45:50Z
+- Status: PASS
+- Start: 2026-02-06T21:45:50Z
+- End: 2026-02-06T21:45:58Z
+- Python: Z:\LittleChef\.venv\\Scripts\\python.exe
+- Branch: main
+- HEAD: 03240184d9da421f40b383d8bd60515211260a87
+- compileall exit: 0
+- import app.main exit: 0
+- pytest exit: 0
+- pytest summary: 60 passed, 1 warning in 2.50s
+- git status -sb:
+```
+## main...origin/main [ahead 3]
+ M app/api/routers/auth.py
+ M app/schemas.py
+ M evidence/test_runs.md
+ M evidence/test_runs_latest.md
+ M tests/test_ui_onboarding_copy.py
+ M web/dist/main.js
+ M web/src/main.ts
+```
+- git diff --stat:
+```
+ app/api/routers/auth.py          |  6 +++
+ app/schemas.py                   |  1 +
+ evidence/test_runs.md            | 64 +++++++++++++++++++++++++++++++
+ evidence/test_runs_latest.md     | 82 +++++++++++++++++++++++++++-------------
+ tests/test_ui_onboarding_copy.py |  1 +
+ web/dist/main.js                 | 26 +++++++++++--
+ web/src/main.ts                  | 24 ++++++++++--
+ 7 files changed, 170 insertions(+), 34 deletions(-)
+```
+

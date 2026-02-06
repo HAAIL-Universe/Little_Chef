@@ -18,6 +18,7 @@ class UserMe(BaseModel):
     provider_subject: Optional[str] = None
     email: Optional[str] = None
     onboarded: bool = False
+    inventory_onboarded: bool = False
 
 
 class UserPrefs(BaseModel):
