@@ -235,3 +235,7 @@ class ConfirmProposalRequest(BaseModel):
 class ConfirmProposalResponse(BaseModel):
     applied: bool
     applied_event_ids: List[str] = Field(default_factory=list)
+    reason: Optional[str] = Field(
+        default=None,
+        description="Optional machine-readable reason code when `applied` is false.",
+    )

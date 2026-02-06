@@ -51,12 +51,14 @@ def chat_confirm(
     request: ConfirmProposalRequest,
     current_user: UserMe = Depends(get_current_user),
 ) -> ConfirmProposalResponse:
-    applied, applied_event_ids = _chat_service.confirm(
+    applied, applied_event_ids, reason = _chat_service.confirm(
         current_user, request.proposal_id, request.confirm, request.thread_id
     )
-    if not applied and request.confirm:
+    if not applied and request.confirm and reason is None:
         raise BadRequestError("proposal not found")
-    return ConfirmProposalResponse(applied=applied, applied_event_ids=applied_event_ids)
+    return ConfirmProposalResponse(
+        applied=applied, applied_event_ids=applied_event_ids, reason=reason
+    )
 
 
 def reset_chat_state_for_tests() -> None:

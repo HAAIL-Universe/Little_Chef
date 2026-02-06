@@ -35,7 +35,7 @@ def test_prefs_missing_loop_and_confirm(client, monkeypatch):
 
     original_upsert = ps.get_prefs_service().upsert_prefs
 
-    def fake_upsert(user_id, provider_subject, email, prefs):
+    def fake_upsert(user_id, provider_subject, email, prefs, applied_event_id=None, require_db=False):
         calls.append(prefs)
         return prefs
 
@@ -68,8 +68,8 @@ def test_prefs_missing_loop_and_confirm(client, monkeypatch):
     resp3 = client.post("/chat/confirm", json={"proposal_id": proposal_id, "confirm": True, "thread_id": thread})
     assert resp3.status_code == 200
     assert resp3.json()["applied"] is True
+    assert resp3.json()["reason"] is None
     assert len(calls) == 1
     saved = calls[0]
     assert saved.servings == 2
     assert saved.meals_per_day == 3
-

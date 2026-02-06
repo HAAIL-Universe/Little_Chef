@@ -6802,3 +6802,1600 @@ M  tests/test_chat_prefs_propose_confirm.py
  2 files changed, 36 insertions(+), 24 deletions(-)
 ```
 
+## Test Run 2026-02-06T14:32:33Z
+- Status: PASS
+- Start: 2026-02-06T14:32:33Z
+- End: 2026-02-06T14:32:42Z
+- Python: Z:\LittleChef\.venv\\Scripts\\python.exe
+- Branch: main
+- HEAD: 0f32a326899fdf20ecbf5ba56faeb5e148577a67
+- compileall exit: 0
+- import app.main exit: 0
+- pytest exit: 0
+- pytest summary: 54 passed, 1 warning in 3.23s
+- git status -sb:
+```
+## main...origin/main [ahead 16]
+ M evidence/updatedifflog.md
+ M scripts/ui_proposal_renderer_test.mjs
+ M web/src/main.ts
+ M web/src/proposalRenderer.ts
+```
+- git diff --stat:
+```
+ evidence/updatedifflog.md             | 128 ++++------------------------------
+ scripts/ui_proposal_renderer_test.mjs |  13 +++-
+ web/src/main.ts                       |   6 +-
+ web/src/proposalRenderer.ts           |  36 ++++++----
+ 4 files changed, 54 insertions(+), 129 deletions(-)
+```
+
+## Test Run 2026-02-06T14:49:31Z
+- Status: PASS
+- Start: 2026-02-06T14:49:31Z
+- End: 2026-02-06T14:49:40Z
+- Python: Z:\LittleChef\.venv\\Scripts\\python.exe
+- Branch: main
+- HEAD: 0f32a326899fdf20ecbf5ba56faeb5e148577a67
+- compileall exit: 0
+- import app.main exit: 0
+- pytest exit: 0
+- pytest summary: 54 passed, 1 warning in 2.84s
+- git status -sb:
+```
+## main...origin/main [ahead 16]
+M  evidence/test_runs.md
+M  evidence/test_runs_latest.md
+M  evidence/updatedifflog.md
+MM scripts/ui_proposal_renderer_test.mjs
+M  web/dist/main.js
+M  web/dist/proposalRenderer.js
+M  web/src/main.ts
+MM web/src/proposalRenderer.ts
+ M web/src/style.css
+```
+- git diff --stat:
+```
+ scripts/ui_proposal_renderer_test.mjs | 15 +++++++++++++++
+ web/src/proposalRenderer.ts           |  2 +-
+ web/src/style.css                     |  1 +
+ 3 files changed, 17 insertions(+), 1 deletion(-)
+```
+
+## Test Run 2026-02-06T15:02:08Z
+- Status: PASS
+- Start: 2026-02-06T15:02:08Z
+- End: 2026-02-06T15:02:17Z
+- Python: Z:\LittleChef\.venv\\Scripts\\python.exe
+- Branch: main
+- HEAD: 0f32a326899fdf20ecbf5ba56faeb5e148577a67
+- compileall exit: 0
+- import app.main exit: 0
+- pytest exit: 0
+- pytest summary: 54 passed, 1 warning in 2.73s
+- git status -sb:
+```
+## main...origin/main [ahead 16]
+M  evidence/test_runs.md
+M  evidence/test_runs_latest.md
+M  evidence/updatedifflog.md
+M  scripts/ui_proposal_renderer_test.mjs
+M  web/dist/main.js
+M  web/dist/proposalRenderer.js
+MM web/src/main.ts
+M  web/src/proposalRenderer.ts
+M  web/src/style.css
+```
+- git diff --stat:
+```
+ web/src/main.ts | 23 ++++++++++++++++++-----
+ 1 file changed, 18 insertions(+), 5 deletions(-)
+```
+
+## Test Run 2026-02-06T15:17:00Z
+- Status: PASS
+- Start: 2026-02-06T15:17:00Z
+- End: 2026-02-06T15:17:08Z
+- Python: Z:\LittleChef\.venv\\Scripts\\python.exe
+- Branch: main
+- HEAD: 0f32a326899fdf20ecbf5ba56faeb5e148577a67
+- compileall exit: 0
+- import app.main exit: 0
+- pytest exit: 0
+- pytest summary: 54 passed, 1 warning in 3.11s
+- git status -sb:
+```
+## main...origin/main [ahead 16]
+ M app/services/chat_service.py
+M  evidence/test_runs.md
+M  evidence/test_runs_latest.md
+MM evidence/updatedifflog.md
+MM scripts/ui_proposal_renderer_test.mjs
+M  web/dist/main.js
+M  web/dist/proposalRenderer.js
+MM web/src/main.ts
+M  web/src/proposalRenderer.ts
+M  web/src/style.css
+```
+- git diff --stat:
+```
+ app/services/chat_service.py          |   9 +-
+ evidence/updatedifflog.md             | 768 ++++++++++++++++++++++++++++++----
+ scripts/ui_proposal_renderer_test.mjs |  11 +-
+ web/src/main.ts                       |   6 +-
+ 4 files changed, 708 insertions(+), 86 deletions(-)
+```
+
+## Test Run 2026-02-06T15:23:26Z
+- Status: PASS
+- Start: 2026-02-06T15:23:26Z
+- End: 2026-02-06T15:23:34Z
+- Python: Z:\LittleChef\.venv\\Scripts\\python.exe
+- Branch: main
+- HEAD: 0f32a326899fdf20ecbf5ba56faeb5e148577a67
+- compileall exit: 0
+- import app.main exit: 0
+- pytest exit: 0
+- pytest summary: 54 passed, 1 warning in 3.18s
+- git status -sb:
+```
+## main...origin/main [ahead 16]
+M  app/services/chat_service.py
+M  evidence/test_runs.md
+M  evidence/test_runs_latest.md
+MD evidence/updatedifflog.md
+M  scripts/ui_proposal_renderer_test.mjs
+M  web/dist/main.js
+M  web/dist/proposalRenderer.js
+M  web/src/main.ts
+M  web/src/proposalRenderer.ts
+M  web/src/style.css
+```
+- git diff --stat:
+```
+ evidence/updatedifflog.md | 739 ----------------------------------------------
+ 1 file changed, 739 deletions(-)
+```
+
+## Test Run 2026-02-06T16:23:12Z
+- Status: PASS
+- Start: 2026-02-06T16:23:12Z
+- End: 2026-02-06T16:23:20Z
+- Python: Z:\LittleChef\.venv\\Scripts\\python.exe
+- Branch: main
+- HEAD: 0f32a326899fdf20ecbf5ba56faeb5e148577a67
+- compileall exit: 0
+- import app.main exit: 0
+- pytest exit: 0
+- pytest summary: 54 passed, 1 warning in 3.62s
+- git status -sb:
+```
+## main...origin/main
+MM app/services/chat_service.py
+MM evidence/test_runs.md
+MM evidence/test_runs_latest.md
+MM evidence/updatedifflog.md
+MM scripts/ui_proposal_renderer_test.mjs
+M  web/dist/main.js
+M  web/dist/proposalRenderer.js
+MM web/src/main.ts
+MM web/src/proposalRenderer.ts
+M  web/src/style.css
+```
+- git diff --stat:
+```
+ app/services/chat_service.py          |   1 +
+ evidence/test_runs.md                 |  31 ++
+ evidence/test_runs_latest.md          |  21 +-
+ evidence/updatedifflog.md             | 738 +++-------------------------------
+ scripts/ui_proposal_renderer_test.mjs |  13 +-
+ web/src/main.ts                       |  69 +++-
+ web/src/proposalRenderer.ts           |  13 +
+ 7 files changed, 179 insertions(+), 707 deletions(-)
+```
+
+## Test Run 2026-02-06T16:23:23Z
+- Status: PASS
+- Start: 2026-02-06T16:23:23Z
+- End: 2026-02-06T16:23:30Z
+- Python: Z:\LittleChef\.venv\\Scripts\\python.exe
+- Branch: main
+- HEAD: 0f32a326899fdf20ecbf5ba56faeb5e148577a67
+- compileall exit: 0
+- import app.main exit: 0
+- pytest exit: 0
+- pytest summary: 54 passed, 1 warning in 2.32s
+- git status -sb:
+```
+## main...origin/main
+MM app/services/chat_service.py
+MM evidence/test_runs.md
+MM evidence/test_runs_latest.md
+MM evidence/updatedifflog.md
+MM scripts/ui_proposal_renderer_test.mjs
+M  web/dist/main.js
+M  web/dist/proposalRenderer.js
+MM web/src/main.ts
+MM web/src/proposalRenderer.ts
+M  web/src/style.css
+```
+- git diff --stat:
+```
+ app/services/chat_service.py          |   1 +
+ evidence/test_runs.md                 |  68 ++++
+ evidence/test_runs_latest.md          |  29 +-
+ evidence/updatedifflog.md             | 738 +++-------------------------------
+ scripts/ui_proposal_renderer_test.mjs |  13 +-
+ web/src/main.ts                       |  69 +++-
+ web/src/proposalRenderer.ts           |  13 +
+ 7 files changed, 223 insertions(+), 708 deletions(-)
+```
+
+## Test Run 2026-02-06T16:23:32Z
+- Status: PASS
+- Start: 2026-02-06T16:23:32Z
+- End: 2026-02-06T16:23:40Z
+- Python: Z:\LittleChef\.venv\\Scripts\\python.exe
+- Branch: main
+- HEAD: 0f32a326899fdf20ecbf5ba56faeb5e148577a67
+- compileall exit: 0
+- import app.main exit: 0
+- pytest exit: 0
+- pytest summary: 54 passed, 1 warning in 2.41s
+- git status -sb:
+```
+## main...origin/main
+MM app/services/chat_service.py
+MM evidence/test_runs.md
+MM evidence/test_runs_latest.md
+MM evidence/updatedifflog.md
+MM scripts/ui_proposal_renderer_test.mjs
+M  web/dist/main.js
+M  web/dist/proposalRenderer.js
+MM web/src/main.ts
+MM web/src/proposalRenderer.ts
+M  web/src/style.css
+```
+- git diff --stat:
+```
+ app/services/chat_service.py          |   1 +
+ evidence/test_runs.md                 | 105 +++++
+ evidence/test_runs_latest.md          |  29 +-
+ evidence/updatedifflog.md             | 738 +++-------------------------------
+ scripts/ui_proposal_renderer_test.mjs |  13 +-
+ web/src/main.ts                       |  69 +++-
+ web/src/proposalRenderer.ts           |  13 +
+ 7 files changed, 260 insertions(+), 708 deletions(-)
+```
+
+## Test Run 2026-02-06T16:37:54Z
+- Status: PASS
+- Start: 2026-02-06T16:37:54Z
+- End: 2026-02-06T16:38:02Z
+- Python: Z:\LittleChef\.venv\\Scripts\\python.exe
+- Branch: main
+- HEAD: 0f32a326899fdf20ecbf5ba56faeb5e148577a67
+- compileall exit: 0
+- import app.main exit: 0
+- pytest exit: 0
+- pytest summary: 54 passed, 1 warning in 2.52s
+- git status -sb:
+```
+## main...origin/main
+MM app/services/chat_service.py
+M  evidence/test_runs.md
+M  evidence/test_runs_latest.md
+MM evidence/updatedifflog.md
+M  scripts/ui_proposal_renderer_test.mjs
+M  web/dist/main.js
+M  web/dist/proposalRenderer.js
+MM web/src/main.ts
+M  web/src/proposalRenderer.ts
+M  web/src/style.css
+```
+- git diff --stat:
+```
+ app/services/chat_service.py |   1 +
+ evidence/updatedifflog.md    | 732 +------------------------------------------
+ web/src/main.ts              |   5 +-
+ 3 files changed, 7 insertions(+), 731 deletions(-)
+```
+
+## Test Run 2026-02-06T17:07:03Z
+- Status: PASS
+- Start: 2026-02-06T17:07:03Z
+- End: 2026-02-06T17:07:11Z
+- Python: Z:\LittleChef\.venv\\Scripts\\python.exe
+- Branch: main
+- HEAD: 0f32a326899fdf20ecbf5ba56faeb5e148577a67
+- compileall exit: 0
+- import app.main exit: 0
+- pytest exit: 0
+- pytest summary: 54 passed, 1 warning in 3.13s
+- git status -sb:
+```
+## main...origin/main
+MM app/services/chat_service.py
+ M app/services/prefs_service.py
+MM evidence/test_runs.md
+MM evidence/test_runs_latest.md
+MM evidence/updatedifflog.md
+M  scripts/ui_proposal_renderer_test.mjs
+MM web/dist/main.js
+M  web/dist/proposalRenderer.js
+MM web/src/main.ts
+M  web/src/proposalRenderer.ts
+M  web/src/style.css
+?? temp_diff_log.ps1
+```
+- git diff --stat:
+```
+ app/services/chat_service.py  |   4 +-
+ app/services/prefs_service.py |   5 +-
+ evidence/test_runs.md         |  33 ++
+ evidence/test_runs_latest.md  |  26 +-
+ evidence/updatedifflog.md     | 742 +-----------------------------------------
+ web/dist/main.js              |   5 +-
+ web/src/main.ts               |   5 +-
+ 7 files changed, 73 insertions(+), 747 deletions(-)
+```
+
+## Test Run 2026-02-06T17:19:08Z
+- Status: FAIL
+- Start: 2026-02-06T17:19:08Z
+- End: 2026-02-06T17:19:17Z
+- Python: Z:\LittleChef\.venv\\Scripts\\python.exe
+- Branch: main
+- HEAD: 0f32a326899fdf20ecbf5ba56faeb5e148577a67
+- compileall exit: 0
+- import app.main exit: 0
+- pytest exit: 1
+- pytest summary: 1 failed, 53 passed, 1 warning in 3.31s
+- git status -sb:
+```
+## main...origin/main
+ M app/repos/prefs_repo.py
+MM app/services/chat_service.py
+MM app/services/prefs_service.py
+M  evidence/test_runs.md
+M  evidence/test_runs_latest.md
+M  evidence/updatedifflog.md
+M  scripts/ui_proposal_renderer_test.mjs
+ M tests/test_chat_prefs_propose_confirm.py
+MM web/dist/main.js
+M  web/dist/proposalRenderer.js
+MM web/src/main.ts
+M  web/src/proposalRenderer.ts
+M  web/src/style.css
+?? db/migrations/0004_prefs_event_id.sql
+```
+- git diff --stat:
+```
+ app/repos/prefs_repo.py                  | 26 ++++++++++++++++++++------
+ app/services/chat_service.py             | 10 +++++++++-
+ app/services/prefs_service.py            | 15 +++++++++++----
+ tests/test_chat_prefs_propose_confirm.py | 12 +++++++++++-
+ web/dist/main.js                         |  5 ++++-
+ web/src/main.ts                          |  5 ++++-
+ 6 files changed, 59 insertions(+), 14 deletions(-)
+```
+- Failure payload:
+```
+=== pytest (exit 1) ===
+....................F.................................                   [100%]
+================================== FAILURES ===================================
+_____________________ test_prefs_missing_loop_and_confirm _____________________
+
+client = <starlette.testclient.TestClient object at 0x0000029F4AE03170>
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x0000029F4AE49160>
+
+    def test_prefs_missing_loop_and_confirm(client, monkeypatch):
+        # monkeypatch prefs_repo upsert to record calls
+        calls = []
+    
+        from app.services import prefs_service as ps
+    
+        original_upsert = ps.get_prefs_service().upsert_prefs
+    
+        def fake_upsert(user_id, provider_subject, email, prefs):
+            calls.append(prefs)
+            return prefs
+    
+        monkeypatch.setattr(ps.get_prefs_service(), "upsert_prefs", fake_upsert)
+    
+        thread = "11111111-1111-4111-8111-111111111111"
+    
+        # missing fields -> ask question
+        resp1 = client.post(
+            "/chat",
+            json={"mode": "fill", "message": "allergies peanuts", "include_user_library": True, "thread_id": thread},
+        )
+        assert resp1.status_code == 200
+        data1 = resp1.json()
+        assert data1["confirmation_required"] is False
+        assert "servings" in data1["reply_text"].lower() or "meals" in data1["reply_text"].lower()
+    
+        # supply required fields
+        resp2 = client.post(
+            "/chat",
+            json={"mode": "fill", "message": "2 servings and 3 meals per day", "include_user_library": True, "thread_id": thread},
+        )
+        assert resp2.status_code == 200
+        data2 = resp2.json()
+        assert data2["confirmation_required"] is True
+        proposal_id = data2["proposal_id"]
+        assert proposal_id
+    
+        # confirm writes once
+>       resp3 = client.post("/chat/confirm", json={"proposal_id": proposal_id, "confirm": True, "thread_id": thread})
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\test_chat_prefs_thread.py:68: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+.venv\Lib\site-packages\starlette\testclient.py:633: in post
+    return super().post(
+.venv\Lib\site-packages\httpx\_client.py:1144: in post
+    return self.request(
+.venv\Lib\site-packages\starlette\testclient.py:516: in request
+    return super().request(
+.venv\Lib\site-packages\httpx\_client.py:825: in request
+    return self.send(request, auth=auth, follow_redirects=follow_redirects)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.venv\Lib\site-packages\httpx\_client.py:914: in send
+    response = self._send_handling_auth(
+.venv\Lib\site-packages\httpx\_client.py:942: in _send_handling_auth
+    response = self._send_handling_redirects(
+.venv\Lib\site-packages\httpx\_client.py:979: in _send_handling_redirects
+    response = self._send_single_request(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.venv\Lib\site-packages\httpx\_client.py:1014: in _send_single_request
+    response = transport.handle_request(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.venv\Lib\site-packages\starlette\testclient.py:398: in handle_request
+    raise exc
+.venv\Lib\site-packages\starlette\testclient.py:395: in handle_request
+    portal.call(self.app, scope, receive, send)
+.venv\Lib\site-packages\anyio\from_thread.py:334: in call
+    return cast(T_Retval, self.start_task_soon(func, *args).result())
+                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+C:\Users\krisd\AppData\Local\Programs\Python\Python312\Lib\concurrent\futures\_base.py:456: in result
+    return self.__get_result()
+           ^^^^^^^^^^^^^^^^^^^
+C:\Users\krisd\AppData\Local\Programs\Python\Python312\Lib\concurrent\futures\_base.py:401: in __get_result
+    raise self._exception
+.venv\Lib\site-packages\anyio\from_thread.py:259: in _call_func
+    retval = await retval_or_awaitable
+             ^^^^^^^^^^^^^^^^^^^^^^^^^
+.venv\Lib\site-packages\fastapi\applications.py:1054: in __call__
+    await super().__call__(scope, receive, send)
+.venv\Lib\site-packages\starlette\applications.py:123: in __call__
+    await self.middleware_stack(scope, receive, send)
+.venv\Lib\site-packages\starlette\middleware\errors.py:186: in __call__
+    raise exc
+.venv\Lib\site-packages\starlette\middleware\errors.py:164: in __call__
+    await self.app(scope, receive, _send)
+.venv\Lib\site-packages\starlette\middleware\exceptions.py:65: in __call__
+    await wrap_app_handling_exceptions(self.app, conn)(scope, receive, send)
+.venv\Lib\site-packages\starlette\_exception_handler.py:64: in wrapped_app
+    raise exc
+.venv\Lib\site-packages\starlette\_exception_handler.py:53: in wrapped_app
+    await app(scope, receive, sender)
+.venv\Lib\site-packages\starlette\routing.py:756: in __call__
+    await self.middleware_stack(scope, receive, send)
+.venv\Lib\site-packages\starlette\routing.py:776: in app
+    await route.handle(scope, receive, send)
+.venv\Lib\site-packages\starlette\routing.py:297: in handle
+    await self.app(scope, receive, send)
+.venv\Lib\site-packages\starlette\routing.py:77: in app
+    await wrap_app_handling_exceptions(app, request)(scope, receive, send)
+.venv\Lib\site-packages\starlette\_exception_handler.py:64: in wrapped_app
+    raise exc
+.venv\Lib\site-packages\starlette\_exception_handler.py:53: in wrapped_app
+    await app(scope, receive, sender)
+.venv\Lib\site-packages\starlette\routing.py:72: in app
+    response = await func(request)
+               ^^^^^^^^^^^^^^^^^^^
+.venv\Lib\site-packages\fastapi\routing.py:278: in app
+    raw_response = await run_endpoint_function(
+.venv\Lib\site-packages\fastapi\routing.py:193: in run_endpoint_function
+    return await run_in_threadpool(dependant.call, **values)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.venv\Lib\site-packages\starlette\concurrency.py:42: in run_in_threadpool
+    return await anyio.to_thread.run_sync(func, *args)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.venv\Lib\site-packages\anyio\to_thread.py:63: in run_sync
+    return await get_async_backend().run_sync_in_worker_thread(
+.venv\Lib\site-packages\anyio\_backends\_asyncio.py:2502: in run_sync_in_worker_thread
+    return await future
+           ^^^^^^^^^^^^
+.venv\Lib\site-packages\anyio\_backends\_asyncio.py:986: in run
+    result = context.run(func, *args)
+             ^^^^^^^^^^^^^^^^^^^^^^^^
+app\api\routers\chat.py:54: in chat_confirm
+    applied, applied_event_ids = _chat_service.confirm(
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+self = <app.services.chat_service.ChatService object at 0x0000029F4AE031A0>
+user = UserMe(user_id='u1', provider_subject='sub', email=None, onboarded=False)
+proposal_id = '2ce12f1b-d4d9-4259-a471-8ab3d1fb3141', confirm = True
+thread_id = '11111111-1111-4111-8111-111111111111'
+
+    def confirm(self, user: UserMe, proposal_id: str, confirm: bool, thread_id: str | None = None) -> tuple[bool, List[str]]:
+        action = self.proposal_store.pop(user.user_id, proposal_id)
+        if not action:
+            pending = self.pending_raw.get(user.user_id)
+            if pending:
+                normalized = normalize_items(pending.get("raw_items", []), pending.get("location", "pantry"))
+                action = self._to_actions(normalized)
+            else:
+                return False, []
+        if not confirm:
+            self.pending_raw.pop(user.user_id, None)
+            if thread_id:
+                self.prefs_drafts.pop((user.user_id, thread_id), None)
+            return False, []
+    
+        applied_event_ids: List[str] = []
+        actions = action if isinstance(action, list) else [action]
+        for act in actions:
+            if isinstance(act, ProposedUpsertPrefsAction):
+                event_id = f"prefs-{uuid.uuid4()}"
+>               get_prefs_service().upsert_prefs(
+                    user.user_id,
+                    user.provider_subject,
+                    user.email,
+                    act.prefs,
+                    applied_event_id=event_id,
+                )
+E               TypeError: test_prefs_missing_loop_and_confirm.<locals>.fake_upsert() got an unexpected keyword argument 'applied_event_id'
+
+app\services\chat_service.py:394: TypeError
+============================== warnings summary ===============================
+.venv\Lib\site-packages\starlette\formparsers.py:12
+  Z:\LittleChef\.venv\Lib\site-packages\starlette\formparsers.py:12: PendingDeprecationWarning: Please use `import python_multipart` instead.
+    import multipart
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED tests/test_chat_prefs_thread.py::test_prefs_missing_loop_and_confirm
+1 failed, 53 passed, 1 warning in 3.31s
+```
+
+## Test Run 2026-02-06T17:19:59Z
+- Status: PASS
+- Start: 2026-02-06T17:19:59Z
+- End: 2026-02-06T17:20:07Z
+- Python: Z:\LittleChef\.venv\\Scripts\\python.exe
+- Branch: main
+- HEAD: 0f32a326899fdf20ecbf5ba56faeb5e148577a67
+- compileall exit: 0
+- import app.main exit: 0
+- pytest exit: 0
+- pytest summary: 54 passed, 1 warning in 2.41s
+- git status -sb:
+```
+## main...origin/main
+ M app/repos/prefs_repo.py
+MM app/services/chat_service.py
+MM app/services/prefs_service.py
+MM evidence/test_runs.md
+MM evidence/test_runs_latest.md
+M  evidence/updatedifflog.md
+M  scripts/ui_proposal_renderer_test.mjs
+ M tests/test_chat_prefs_propose_confirm.py
+ M tests/test_chat_prefs_thread.py
+MM web/dist/main.js
+M  web/dist/proposalRenderer.js
+MM web/src/main.ts
+M  web/src/proposalRenderer.ts
+M  web/src/style.css
+?? db/migrations/0004_prefs_event_id.sql
+```
+- git diff --stat:
+```
+ app/repos/prefs_repo.py                  |  26 +++-
+ app/services/chat_service.py             |  10 +-
+ app/services/prefs_service.py            |  15 ++-
+ evidence/test_runs.md                    | 221 +++++++++++++++++++++++++++++++
+ evidence/test_runs_latest.md             | 221 ++++++++++++++++++++++++++++---
+ tests/test_chat_prefs_propose_confirm.py |  12 +-
+ tests/test_chat_prefs_thread.py          |   3 +-
+ web/dist/main.js                         |   5 +-
+ web/src/main.ts                          |   5 +-
+ 9 files changed, 484 insertions(+), 34 deletions(-)
+```
+
+## Test Run 2026-02-06T17:32:08Z
+- Status: PASS
+- Start: 2026-02-06T17:32:08Z
+- End: 2026-02-06T17:32:17Z
+- Python: Z:\LittleChef\.venv\\Scripts\\python.exe
+- Branch: main
+- HEAD: 0f32a326899fdf20ecbf5ba56faeb5e148577a67
+- compileall exit: 0
+- import app.main exit: 0
+- pytest exit: 0
+- pytest summary: 55 passed, 1 warning in 3.27s
+- git status -sb:
+```
+## main...origin/main
+M  app/repos/prefs_repo.py
+MM app/services/chat_service.py
+M  app/services/prefs_service.py
+A  db/migrations/0004_prefs_event_id.sql
+M  evidence/test_runs.md
+M  evidence/test_runs_latest.md
+MM evidence/updatedifflog.md
+ M scripts/ui_proposal_renderer_test.mjs
+MM tests/test_chat_prefs_propose_confirm.py
+M  tests/test_chat_prefs_thread.py
+ M web/dist/main.js
+ M web/dist/proposalRenderer.js
+ M web/src/main.ts
+ M web/src/proposalRenderer.ts
+ M web/src/style.css
+```
+- git diff --stat:
+```
+ app/services/chat_service.py             |    4 +-
+ evidence/updatedifflog.md                | 1104 +++++++++++++++++++++++++++++-
+ scripts/ui_proposal_renderer_test.mjs    |   40 +-
+ tests/test_chat_prefs_propose_confirm.py |   39 ++
+ web/dist/main.js                         |  111 ++-
+ web/dist/proposalRenderer.js             |   46 +-
+ web/src/main.ts                          |  103 ++-
+ web/src/proposalRenderer.ts              |   49 +-
+ web/src/style.css                        |    1 +
+ 9 files changed, 1412 insertions(+), 85 deletions(-)
+```
+
+## Test Run 2026-02-06T17:34:10Z
+- Status: PASS
+- Start: 2026-02-06T17:34:10Z
+- End: 2026-02-06T17:34:18Z
+- Python: Z:\LittleChef\.venv\\Scripts\\python.exe
+- Branch: main
+- HEAD: 0f32a326899fdf20ecbf5ba56faeb5e148577a67
+- compileall exit: 0
+- import app.main exit: 0
+- pytest exit: 0
+- pytest summary: 55 passed, 1 warning in 2.49s
+- git status -sb:
+```
+## main...origin/main
+ M app/repos/prefs_repo.py
+ M app/services/chat_service.py
+ M app/services/prefs_service.py
+ M evidence/test_runs.md
+ M evidence/test_runs_latest.md
+ M evidence/updatedifflog.md
+ M scripts/ui_proposal_renderer_test.mjs
+ M tests/test_chat_prefs_propose_confirm.py
+ M tests/test_chat_prefs_thread.py
+ M web/dist/main.js
+ M web/dist/proposalRenderer.js
+ M web/src/main.ts
+ M web/src/proposalRenderer.ts
+ M web/src/style.css
+?? db/migrations/0004_prefs_event_id.sql
+```
+- git diff --stat:
+```
+ app/repos/prefs_repo.py                  |   26 +-
+ app/services/chat_service.py             |   10 +-
+ app/services/prefs_service.py            |   18 +-
+ evidence/test_runs.md                    |  647 ++++++++++++++++
+ evidence/test_runs_latest.md             |   40 +-
+ evidence/updatedifflog.md                | 1180 +++++++++++++++++++++++++++---
+ scripts/ui_proposal_renderer_test.mjs    |   40 +-
+ tests/test_chat_prefs_propose_confirm.py |   51 +-
+ tests/test_chat_prefs_thread.py          |    3 +-
+ web/dist/main.js                         |  111 ++-
+ web/dist/proposalRenderer.js             |   46 +-
+ web/src/main.ts                          |  103 ++-
+ web/src/proposalRenderer.ts              |   49 +-
+ web/src/style.css                        |    1 +
+ 14 files changed, 2145 insertions(+), 180 deletions(-)
+```
+
+## Test Run 2026-02-06T18:00:10Z
+- Status: FAIL
+- Start: 2026-02-06T18:00:10Z
+- End: 2026-02-06T18:00:21Z
+- Python: Z:\LittleChef\.venv\\Scripts\\python.exe
+- Branch: main
+- HEAD: 0f32a326899fdf20ecbf5ba56faeb5e148577a67
+- compileall exit: 0
+- import app.main exit: 0
+- pytest exit: 1
+- pytest summary: 6 failed, 50 passed, 1 warning in 3.33s
+- git status -sb:
+```
+## main...origin/main
+ M Contracts/physics.yaml
+ M app/api/routers/chat.py
+M  app/repos/prefs_repo.py
+ M app/schemas.py
+MM app/services/chat_service.py
+MM app/services/prefs_service.py
+A  db/migrations/0004_prefs_event_id.sql
+M  evidence/test_runs.md
+M  evidence/test_runs_latest.md
+M  evidence/updatedifflog.md
+ M scripts/ui_proposal_renderer_test.mjs
+MM tests/test_chat_prefs_propose_confirm.py
+M  tests/test_chat_prefs_thread.py
+ M web/dist/main.js
+ M web/dist/proposalRenderer.js
+ M web/src/main.ts
+ M web/src/proposalRenderer.ts
+ M web/src/style.css
+```
+- git diff --stat:
+```
+ Contracts/physics.yaml                   |  32 +++++----
+ app/api/routers/chat.py                  |   8 ++-
+ app/schemas.py                           |   4 ++
+ app/services/chat_service.py             | 104 ++++++++++++++++++-----------
+ app/services/prefs_service.py            |  17 +++--
+ scripts/ui_proposal_renderer_test.mjs    |  40 ++++++++++-
+ tests/test_chat_prefs_propose_confirm.py |  53 ++++++++++++++-
+ web/dist/main.js                         | 111 ++++++++++++++++++++++++++++---
+ web/dist/proposalRenderer.js             |  46 +++++++++----
+ web/src/main.ts                          | 103 +++++++++++++++++++++++++---
+ web/src/proposalRenderer.ts              |  49 ++++++++++----
+ web/src/style.css                        |   1 +
+ 12 files changed, 462 insertions(+), 106 deletions(-)
+```
+- Failure payload:
+```
+=== pytest (exit 1) ===
+            "It's for two servings, and I want meals for Monday to Friday this week."
+        )
+    
+        resp = authed_client.post(
+            "/chat",
+            json={"mode": "fill", "message": paragraph, "thread_id": thread},
+        )
+        assert resp.status_code == 200
+        body = resp.json()
+        assert body["confirmation_required"] is True
+        proposal_id = body["proposal_id"]
+        assert proposal_id
+    
+        confirm_resp = authed_client.post(
+            "/chat/confirm",
+            json={"proposal_id": proposal_id, "confirm": True, "thread_id": thread},
+        )
+        assert confirm_resp.status_code == 200
+        confirm_body = confirm_resp.json()
+>       assert confirm_body["applied"] is True
+E       assert False is True
+
+tests\test_chat_prefs_propose_confirm.py:96: AssertionError
+------------------------------ Captured log call ------------------------------
+WARNING  app.services.chat_service:chat_service.py:440 Prefs confirm failed (ad902709-be53-49ef-b468-2cd1681e73dc): database persistence required but no DB repository configured
+________________ test_chat_prefs_confirm_failure_is_retriable _________________
+
+authed_client = <starlette.testclient.TestClient object at 0x000001F0341D4EF0>
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x000001F034148BC0>
+
+    def test_chat_prefs_confirm_failure_is_retriable(authed_client, monkeypatch):
+        thread = "t-prefs-confirm-fail"
+        resp = authed_client.post(
+            "/chat",
+            json={"mode": "fill", "message": "set servings 3 meals per day 2", "thread_id": thread},
+        )
+        assert resp.status_code == 200
+        proposal_id = resp.json()["proposal_id"]
+        service = get_prefs_service()
+        original_upsert = service.upsert_prefs
+    
+        state: dict[str, int] = {"attempts": 0}
+    
+        def flaky_upsert(user_id, provider_subject, email, prefs, applied_event_id=None, require_db=False):
+            state["attempts"] += 1
+            if state["attempts"] == 1:
+                raise PrefsPersistenceError("simulated db outage")
+            return original_upsert(
+                user_id,
+                provider_subject,
+                email,
+                prefs,
+                applied_event_id=applied_event_id,
+                require_db=require_db,
+            )
+    
+        monkeypatch.setattr(service, "upsert_prefs", flaky_upsert)
+    
+        confirm_resp = authed_client.post(
+            "/chat/confirm",
+            json={"proposal_id": proposal_id, "confirm": True, "thread_id": thread},
+        )
+        assert confirm_resp.status_code == 200
+        body = confirm_resp.json()
+        assert body["applied"] is False
+        assert body["applied_event_ids"] == []
+        assert body["reason"] == "prefs_persist_failed"
+    
+        confirm_resp2 = authed_client.post(
+            "/chat/confirm",
+            json={"proposal_id": proposal_id, "confirm": True, "thread_id": thread},
+        )
+        assert confirm_resp2.status_code == 200
+        body2 = confirm_resp2.json()
+>       assert body2["applied"] is True
+E       assert False is True
+
+tests\test_chat_prefs_propose_confirm.py:154: AssertionError
+------------------------------ Captured log call ------------------------------
+WARNING  app.services.chat_service:chat_service.py:440 Prefs confirm failed (056d46fa-9639-42da-b91a-3b2d44106bd9): simulated db outage
+WARNING  app.services.chat_service:chat_service.py:440 Prefs confirm failed (056d46fa-9639-42da-b91a-3b2d44106bd9): database persistence required but no DB repository configured
+_____________________ test_prefs_missing_loop_and_confirm _____________________
+
+client = <starlette.testclient.TestClient object at 0x000001F03420EC30>
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x000001F0341B50A0>
+
+    def test_prefs_missing_loop_and_confirm(client, monkeypatch):
+        # monkeypatch prefs_repo upsert to record calls
+        calls = []
+    
+        from app.services import prefs_service as ps
+    
+        original_upsert = ps.get_prefs_service().upsert_prefs
+    
+        def fake_upsert(user_id, provider_subject, email, prefs, applied_event_id=None):
+            calls.append(prefs)
+            return prefs
+    
+        monkeypatch.setattr(ps.get_prefs_service(), "upsert_prefs", fake_upsert)
+    
+        thread = "11111111-1111-4111-8111-111111111111"
+    
+        # missing fields -> ask question
+        resp1 = client.post(
+            "/chat",
+            json={"mode": "fill", "message": "allergies peanuts", "include_user_library": True, "thread_id": thread},
+        )
+        assert resp1.status_code == 200
+        data1 = resp1.json()
+        assert data1["confirmation_required"] is False
+        assert "servings" in data1["reply_text"].lower() or "meals" in data1["reply_text"].lower()
+    
+        # supply required fields
+        resp2 = client.post(
+            "/chat",
+            json={"mode": "fill", "message": "2 servings and 3 meals per day", "include_user_library": True, "thread_id": thread},
+        )
+        assert resp2.status_code == 200
+        data2 = resp2.json()
+        assert data2["confirmation_required"] is True
+        proposal_id = data2["proposal_id"]
+        assert proposal_id
+    
+        # confirm writes once
+        resp3 = client.post("/chat/confirm", json={"proposal_id": proposal_id, "confirm": True, "thread_id": thread})
+        assert resp3.status_code == 200
+>       assert resp3.json()["applied"] is True
+E       assert False is True
+
+tests\test_chat_prefs_thread.py:70: AssertionError
+------------------------------ Captured log call ------------------------------
+ERROR    app.services.chat_service:chat_service.py:443 Unexpected error while confirming proposal 998c5ecf-1b6c-4428-8baf-f32b59903cc2
+Traceback (most recent call last):
+  File "Z:\LittleChef\app\services\chat_service.py", line 409, in confirm
+    self.prefs_service.upsert_prefs(
+TypeError: test_prefs_missing_loop_and_confirm.<locals>.fake_upsert() got an unexpected keyword argument 'require_db'
+__________________________ test_deny_clears_pending ___________________________
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x000001F03361C500>
+
+    def test_deny_clears_pending(monkeypatch):
+        import app.services.chat_service as chat_service
+    
+        monkeypatch.setattr(chat_service, "extract_new_draft", lambda text, llm: [{"name_raw": "cereal", "quantity_raw": "1", "unit_raw": "count", "expires_raw": None, "notes_raw": None}])
+        monkeypatch.setattr(chat_service, "normalize_items", lambda raw, loc: [])
+    
+        svc, inv = make_service(monkeypatch, llm=None)
+        user = UserMe(user_id="u1", provider_subject="s", email=None)
+    
+        resp1 = svc.handle_chat(
+            user, ChatRequest(mode="fill", message="add cereal", include_user_library=True, location="pantry", thread_id="t1")
+        )
+        pid = resp1.proposal_id
+>       applied, evs = svc.confirm(user, pid, confirm=False)
+        ^^^^^^^^^^^^
+E       ValueError: too many values to unpack (expected 2)
+
+tests\test_inventory_proposals.py:63: ValueError
+_________________________ test_confirm_writes_events __________________________
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x000001F03361F410>
+
+    def test_confirm_writes_events(monkeypatch):
+        import app.services.chat_service as chat_service
+    
+        monkeypatch.setattr(chat_service, "extract_new_draft", lambda text, llm: [{"name_raw": "cereal", "quantity_raw": "2", "unit_raw": "count", "expires_raw": None, "notes_raw": None}, {"name_raw": "flour", "quantity_raw": "1", "unit_raw": "kg", "expires_raw": None, "notes_raw": None}])
+        monkeypatch.setattr(chat_service, "normalize_items", lambda raw, loc: [
+            {"item": {"item_key": "cereal", "quantity": 2, "unit": "count", "notes": None, "expires_on": None, "base_name": "cereal"}, "warnings": []},
+            {"item": {"item_key": "flour", "quantity": 1000, "unit": "g", "notes": None, "expires_on": None, "base_name": "flour"}, "warnings": []},
+        ])
+    
+        svc, inv = make_service(monkeypatch, llm=None)
+        user = UserMe(user_id="u1", provider_subject="s", email=None)
+    
+        resp1 = svc.handle_chat(
+            user, ChatRequest(mode="fill", message="add cereal", include_user_library=True, location="pantry", thread_id="t1")
+        )
+        pid = resp1.proposal_id
+        assert pid
+        assert "u1" in svc.proposal_store._data
+        assert pid in svc.proposal_store._data["u1"]
+>       applied, evs = svc.confirm(user, pid, confirm=True)
+        ^^^^^^^^^^^^
+E       ValueError: too many values to unpack (expected 2)
+
+tests\test_inventory_proposals.py:90: ValueError
+============================== warnings summary ===============================
+.venv\Lib\site-packages\starlette\formparsers.py:12
+  Z:\LittleChef\.venv\Lib\site-packages\starlette\formparsers.py:12: PendingDeprecationWarning: Please use `import python_multipart` instead.
+    import multipart
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED tests/test_chat_prefs_propose_confirm.py::test_chat_prefs_propose_confirm_flow
+FAILED tests/test_chat_prefs_propose_confirm.py::test_chat_prefs_confirm_paragraph_persists
+FAILED tests/test_chat_prefs_propose_confirm.py::test_chat_prefs_confirm_failure_is_retriable
+FAILED tests/test_chat_prefs_thread.py::test_prefs_missing_loop_and_confirm
+FAILED tests/test_inventory_proposals.py::test_deny_clears_pending - ValueErr...
+FAILED tests/test_inventory_proposals.py::test_confirm_writes_events - ValueE...
+6 failed, 50 passed, 1 warning in 3.33s
+```
+
+## Test Run 2026-02-06T18:01:21Z
+- Status: FAIL
+- Start: 2026-02-06T18:01:21Z
+- End: 2026-02-06T18:01:30Z
+- Python: Z:\LittleChef\.venv\\Scripts\\python.exe
+- Branch: main
+- HEAD: 0f32a326899fdf20ecbf5ba56faeb5e148577a67
+- compileall exit: 0
+- import app.main exit: 0
+- pytest exit: 1
+- pytest summary: 4 failed, 52 passed, 1 warning in 3.22s
+- git status -sb:
+```
+## main...origin/main
+ M Contracts/physics.yaml
+ M app/api/routers/chat.py
+M  app/repos/prefs_repo.py
+ M app/schemas.py
+MM app/services/chat_service.py
+MM app/services/prefs_service.py
+A  db/migrations/0004_prefs_event_id.sql
+MM evidence/test_runs.md
+MM evidence/test_runs_latest.md
+M  evidence/updatedifflog.md
+ M scripts/ui_proposal_renderer_test.mjs
+MM tests/test_chat_prefs_propose_confirm.py
+M  tests/test_chat_prefs_thread.py
+ M tests/test_inventory_proposals.py
+ M web/dist/main.js
+ M web/dist/proposalRenderer.js
+ M web/src/main.ts
+ M web/src/proposalRenderer.ts
+ M web/src/style.css
+```
+- git diff --stat:
+```
+ Contracts/physics.yaml                   |  32 ++--
+ app/api/routers/chat.py                  |   8 +-
+ app/schemas.py                           |   4 +
+ app/services/chat_service.py             | 104 +++++++-----
+ app/services/prefs_service.py            |  17 +-
+ evidence/test_runs.md                    | 254 ++++++++++++++++++++++++++++
+ evidence/test_runs_latest.md             | 276 +++++++++++++++++++++++++++----
+ scripts/ui_proposal_renderer_test.mjs    |  40 ++++-
+ tests/test_chat_prefs_propose_confirm.py |  53 +++++-
+ tests/test_inventory_proposals.py        |   4 +-
+ web/dist/main.js                         | 111 +++++++++++--
+ web/dist/proposalRenderer.js             |  46 ++++--
+ web/src/main.ts                          | 103 +++++++++++-
+ web/src/proposalRenderer.ts              |  49 ++++--
+ web/src/style.css                        |   1 +
+ 15 files changed, 965 insertions(+), 137 deletions(-)
+```
+- Failure payload:
+```
+=== pytest (exit 1) ===
+..................F.FFF.................................                 [100%]
+================================== FAILURES ===================================
+____________________ test_chat_prefs_propose_confirm_flow _____________________
+
+authed_client = <starlette.testclient.TestClient object at 0x000002363DA54B30>
+
+    def test_chat_prefs_propose_confirm_flow(authed_client):
+        thread = "t-prefs-confirm"
+        # propose
+        resp = authed_client.post(
+            "/chat",
+            json={"mode": "fill", "message": "set servings 4 meals per day 2", "thread_id": thread},
+        )
+        assert resp.status_code == 200
+        body = resp.json()
+        assert body["confirmation_required"] is True
+        assert body["proposal_id"]
+        assert body["proposed_actions"]
+        action = body["proposed_actions"][0]
+        assert action["action_type"] == "upsert_prefs"
+        assert action["prefs"]["servings"] == 4
+        assert action["prefs"]["meals_per_day"] == 2
+    
+        # confirm
+        proposal_id = body["proposal_id"]
+        resp = authed_client.post(
+            "/chat/confirm",
+            json={"proposal_id": proposal_id, "confirm": True, "thread_id": thread},
+        )
+        assert resp.status_code == 200
+        confirm_body = resp.json()
+>       assert confirm_body["applied"] is True
+E       assert False is True
+
+tests\test_chat_prefs_propose_confirm.py:29: AssertionError
+------------------------------ Captured log call ------------------------------
+WARNING  app.services.chat_service:chat_service.py:440 Prefs confirm failed (7e62d662-5da3-4b38-b307-2a8ec687f44f): database persistence required but no DB repository configured
+_________________ test_chat_prefs_confirm_paragraph_persists __________________
+
+authed_client = <starlette.testclient.TestClient object at 0x000002363E63A120>
+
+    def test_chat_prefs_confirm_paragraph_persists(authed_client):
+        thread = "t-prefs-paragraph-confirm"
+        paragraph = (
+            "Okay, so for allergies: I'm allergic to peanuts and I can't have shellfish. "
+            "I like chicken, salmon, rice, pasta, potatoes, tomatoes, spinach, peppers, cheese, "
+            "and anything spicy. I don't like mushrooms, olives, blue cheese, or really sweet sauces. "
+            "It's for two servings, and I want meals for Monday to Friday this week."
+        )
+    
+        resp = authed_client.post(
+            "/chat",
+            json={"mode": "fill", "message": paragraph, "thread_id": thread},
+        )
+        assert resp.status_code == 200
+        body = resp.json()
+        assert body["confirmation_required"] is True
+        proposal_id = body["proposal_id"]
+        assert proposal_id
+    
+        confirm_resp = authed_client.post(
+            "/chat/confirm",
+            json={"proposal_id": proposal_id, "confirm": True, "thread_id": thread},
+        )
+        assert confirm_resp.status_code == 200
+        confirm_body = confirm_resp.json()
+>       assert confirm_body["applied"] is True
+E       assert False is True
+
+tests\test_chat_prefs_propose_confirm.py:96: AssertionError
+------------------------------ Captured log call ------------------------------
+WARNING  app.services.chat_service:chat_service.py:440 Prefs confirm failed (afee1f17-86fd-4f0c-8795-2ce2b25f1453): database persistence required but no DB repository configured
+________________ test_chat_prefs_confirm_failure_is_retriable _________________
+
+authed_client = <starlette.testclient.TestClient object at 0x000002363DA545F0>
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x000002363E64A990>
+
+    def test_chat_prefs_confirm_failure_is_retriable(authed_client, monkeypatch):
+        thread = "t-prefs-confirm-fail"
+        resp = authed_client.post(
+            "/chat",
+            json={"mode": "fill", "message": "set servings 3 meals per day 2", "thread_id": thread},
+        )
+        assert resp.status_code == 200
+        proposal_id = resp.json()["proposal_id"]
+        service = get_prefs_service()
+        original_upsert = service.upsert_prefs
+    
+        state: dict[str, int] = {"attempts": 0}
+    
+        def flaky_upsert(user_id, provider_subject, email, prefs, applied_event_id=None, require_db=False):
+            state["attempts"] += 1
+            if state["attempts"] == 1:
+                raise PrefsPersistenceError("simulated db outage")
+            return original_upsert(
+                user_id,
+                provider_subject,
+                email,
+                prefs,
+                applied_event_id=applied_event_id,
+                require_db=require_db,
+            )
+    
+        monkeypatch.setattr(service, "upsert_prefs", flaky_upsert)
+    
+        confirm_resp = authed_client.post(
+            "/chat/confirm",
+            json={"proposal_id": proposal_id, "confirm": True, "thread_id": thread},
+        )
+        assert confirm_resp.status_code == 200
+        body = confirm_resp.json()
+        assert body["applied"] is False
+        assert body["applied_event_ids"] == []
+        assert body["reason"] == "prefs_persist_failed"
+    
+        confirm_resp2 = authed_client.post(
+            "/chat/confirm",
+            json={"proposal_id": proposal_id, "confirm": True, "thread_id": thread},
+        )
+        assert confirm_resp2.status_code == 200
+        body2 = confirm_resp2.json()
+>       assert body2["applied"] is True
+E       assert False is True
+
+tests\test_chat_prefs_propose_confirm.py:154: AssertionError
+------------------------------ Captured log call ------------------------------
+WARNING  app.services.chat_service:chat_service.py:440 Prefs confirm failed (14cf5ada-f9a5-4abf-8ab4-a75f5ca42243): simulated db outage
+WARNING  app.services.chat_service:chat_service.py:440 Prefs confirm failed (14cf5ada-f9a5-4abf-8ab4-a75f5ca42243): database persistence required but no DB repository configured
+_____________________ test_prefs_missing_loop_and_confirm _____________________
+
+client = <starlette.testclient.TestClient object at 0x000002363E649C10>
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x000002363E7C61B0>
+
+    def test_prefs_missing_loop_and_confirm(client, monkeypatch):
+        # monkeypatch prefs_repo upsert to record calls
+        calls = []
+    
+        from app.services import prefs_service as ps
+    
+        original_upsert = ps.get_prefs_service().upsert_prefs
+    
+        def fake_upsert(user_id, provider_subject, email, prefs, applied_event_id=None):
+            calls.append(prefs)
+            return prefs
+    
+        monkeypatch.setattr(ps.get_prefs_service(), "upsert_prefs", fake_upsert)
+    
+        thread = "11111111-1111-4111-8111-111111111111"
+    
+        # missing fields -> ask question
+        resp1 = client.post(
+            "/chat",
+            json={"mode": "fill", "message": "allergies peanuts", "include_user_library": True, "thread_id": thread},
+        )
+        assert resp1.status_code == 200
+        data1 = resp1.json()
+        assert data1["confirmation_required"] is False
+        assert "servings" in data1["reply_text"].lower() or "meals" in data1["reply_text"].lower()
+    
+        # supply required fields
+        resp2 = client.post(
+            "/chat",
+            json={"mode": "fill", "message": "2 servings and 3 meals per day", "include_user_library": True, "thread_id": thread},
+        )
+        assert resp2.status_code == 200
+        data2 = resp2.json()
+        assert data2["confirmation_required"] is True
+        proposal_id = data2["proposal_id"]
+        assert proposal_id
+    
+        # confirm writes once
+        resp3 = client.post("/chat/confirm", json={"proposal_id": proposal_id, "confirm": True, "thread_id": thread})
+        assert resp3.status_code == 200
+>       assert resp3.json()["applied"] is True
+E       assert False is True
+
+tests\test_chat_prefs_thread.py:70: AssertionError
+------------------------------ Captured log call ------------------------------
+ERROR    app.services.chat_service:chat_service.py:443 Unexpected error while confirming proposal 220b0116-880e-497a-8bd9-1e8910af9440
+Traceback (most recent call last):
+  File "Z:\LittleChef\app\services\chat_service.py", line 409, in confirm
+    self.prefs_service.upsert_prefs(
+TypeError: test_prefs_missing_loop_and_confirm.<locals>.fake_upsert() got an unexpected keyword argument 'require_db'
+============================== warnings summary ===============================
+.venv\Lib\site-packages\starlette\formparsers.py:12
+  Z:\LittleChef\.venv\Lib\site-packages\starlette\formparsers.py:12: PendingDeprecationWarning: Please use `import python_multipart` instead.
+    import multipart
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED tests/test_chat_prefs_propose_confirm.py::test_chat_prefs_propose_confirm_flow
+FAILED tests/test_chat_prefs_propose_confirm.py::test_chat_prefs_confirm_paragraph_persists
+FAILED tests/test_chat_prefs_propose_confirm.py::test_chat_prefs_confirm_failure_is_retriable
+FAILED tests/test_chat_prefs_thread.py::test_prefs_missing_loop_and_confirm
+4 failed, 52 passed, 1 warning in 3.22s
+```
+
+## Test Run 2026-02-06T18:02:01Z
+- Status: FAIL
+- Start: 2026-02-06T18:02:01Z
+- End: 2026-02-06T18:02:09Z
+- Python: Z:\LittleChef\.venv\\Scripts\\python.exe
+- Branch: main
+- HEAD: 0f32a326899fdf20ecbf5ba56faeb5e148577a67
+- compileall exit: 0
+- import app.main exit: 0
+- pytest exit: 1
+- pytest summary: 3 failed, 53 passed, 1 warning in 3.24s
+- git status -sb:
+```
+## main...origin/main
+ M Contracts/physics.yaml
+ M app/api/routers/chat.py
+M  app/repos/prefs_repo.py
+ M app/schemas.py
+MM app/services/chat_service.py
+MM app/services/prefs_service.py
+A  db/migrations/0004_prefs_event_id.sql
+MM evidence/test_runs.md
+MM evidence/test_runs_latest.md
+M  evidence/updatedifflog.md
+ M scripts/ui_proposal_renderer_test.mjs
+MM tests/test_chat_prefs_propose_confirm.py
+MM tests/test_chat_prefs_thread.py
+ M tests/test_inventory_proposals.py
+ M web/dist/main.js
+ M web/dist/proposalRenderer.js
+ M web/src/main.ts
+ M web/src/proposalRenderer.ts
+ M web/src/style.css
+```
+- git diff --stat:
+```
+ Contracts/physics.yaml                   |  32 +-
+ app/api/routers/chat.py                  |   8 +-
+ app/schemas.py                           |   4 +
+ app/services/chat_service.py             | 104 ++++---
+ app/services/prefs_service.py            |  17 +-
+ evidence/test_runs.md                    | 507 +++++++++++++++++++++++++++++++
+ evidence/test_runs_latest.md             | 273 +++++++++++++++--
+ scripts/ui_proposal_renderer_test.mjs    |  40 ++-
+ tests/test_chat_prefs_propose_confirm.py |  53 +++-
+ tests/test_chat_prefs_thread.py          |   3 +-
+ tests/test_inventory_proposals.py        |   4 +-
+ web/dist/main.js                         | 111 ++++++-
+ web/dist/proposalRenderer.js             |  46 ++-
+ web/src/main.ts                          | 103 ++++++-
+ web/src/proposalRenderer.ts              |  49 ++-
+ web/src/style.css                        |   1 +
+ 16 files changed, 1217 insertions(+), 138 deletions(-)
+```
+- Failure payload:
+```
+=== pytest (exit 1) ===
+..................F.FF..................................                 [100%]
+================================== FAILURES ===================================
+____________________ test_chat_prefs_propose_confirm_flow _____________________
+
+authed_client = <starlette.testclient.TestClient object at 0x00000170E7DE11F0>
+
+    def test_chat_prefs_propose_confirm_flow(authed_client):
+        thread = "t-prefs-confirm"
+        # propose
+        resp = authed_client.post(
+            "/chat",
+            json={"mode": "fill", "message": "set servings 4 meals per day 2", "thread_id": thread},
+        )
+        assert resp.status_code == 200
+        body = resp.json()
+        assert body["confirmation_required"] is True
+        assert body["proposal_id"]
+        assert body["proposed_actions"]
+        action = body["proposed_actions"][0]
+        assert action["action_type"] == "upsert_prefs"
+        assert action["prefs"]["servings"] == 4
+        assert action["prefs"]["meals_per_day"] == 2
+    
+        # confirm
+        proposal_id = body["proposal_id"]
+        resp = authed_client.post(
+            "/chat/confirm",
+            json={"proposal_id": proposal_id, "confirm": True, "thread_id": thread},
+        )
+        assert resp.status_code == 200
+        confirm_body = resp.json()
+>       assert confirm_body["applied"] is True
+E       assert False is True
+
+tests\test_chat_prefs_propose_confirm.py:29: AssertionError
+------------------------------ Captured log call ------------------------------
+WARNING  app.services.chat_service:chat_service.py:440 Prefs confirm failed (03de1e20-1b00-4d06-9ed3-c2dbe4dab1cc): database persistence required but no DB repository configured
+_________________ test_chat_prefs_confirm_paragraph_persists __________________
+
+authed_client = <starlette.testclient.TestClient object at 0x00000170E7DA8500>
+
+    def test_chat_prefs_confirm_paragraph_persists(authed_client):
+        thread = "t-prefs-paragraph-confirm"
+        paragraph = (
+            "Okay, so for allergies: I'm allergic to peanuts and I can't have shellfish. "
+            "I like chicken, salmon, rice, pasta, potatoes, tomatoes, spinach, peppers, cheese, "
+            "and anything spicy. I don't like mushrooms, olives, blue cheese, or really sweet sauces. "
+            "It's for two servings, and I want meals for Monday to Friday this week."
+        )
+    
+        resp = authed_client.post(
+            "/chat",
+            json={"mode": "fill", "message": paragraph, "thread_id": thread},
+        )
+        assert resp.status_code == 200
+        body = resp.json()
+        assert body["confirmation_required"] is True
+        proposal_id = body["proposal_id"]
+        assert proposal_id
+    
+        confirm_resp = authed_client.post(
+            "/chat/confirm",
+            json={"proposal_id": proposal_id, "confirm": True, "thread_id": thread},
+        )
+        assert confirm_resp.status_code == 200
+        confirm_body = confirm_resp.json()
+>       assert confirm_body["applied"] is True
+E       assert False is True
+
+tests\test_chat_prefs_propose_confirm.py:96: AssertionError
+------------------------------ Captured log call ------------------------------
+WARNING  app.services.chat_service:chat_service.py:440 Prefs confirm failed (6836a614-f309-4371-b60a-44a8a5e129da): database persistence required but no DB repository configured
+________________ test_chat_prefs_confirm_failure_is_retriable _________________
+
+authed_client = <starlette.testclient.TestClient object at 0x00000170E7E4DC10>
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x00000170E7F65B80>
+
+    def test_chat_prefs_confirm_failure_is_retriable(authed_client, monkeypatch):
+        thread = "t-prefs-confirm-fail"
+        resp = authed_client.post(
+            "/chat",
+            json={"mode": "fill", "message": "set servings 3 meals per day 2", "thread_id": thread},
+        )
+        assert resp.status_code == 200
+        proposal_id = resp.json()["proposal_id"]
+        service = get_prefs_service()
+        original_upsert = service.upsert_prefs
+    
+        state: dict[str, int] = {"attempts": 0}
+    
+        def flaky_upsert(user_id, provider_subject, email, prefs, applied_event_id=None, require_db=False):
+            state["attempts"] += 1
+            if state["attempts"] == 1:
+                raise PrefsPersistenceError("simulated db outage")
+            return original_upsert(
+                user_id,
+                provider_subject,
+                email,
+                prefs,
+                applied_event_id=applied_event_id,
+                require_db=require_db,
+            )
+    
+        monkeypatch.setattr(service, "upsert_prefs", flaky_upsert)
+    
+        confirm_resp = authed_client.post(
+            "/chat/confirm",
+            json={"proposal_id": proposal_id, "confirm": True, "thread_id": thread},
+        )
+        assert confirm_resp.status_code == 200
+        body = confirm_resp.json()
+        assert body["applied"] is False
+        assert body["applied_event_ids"] == []
+        assert body["reason"] == "prefs_persist_failed"
+    
+        confirm_resp2 = authed_client.post(
+            "/chat/confirm",
+            json={"proposal_id": proposal_id, "confirm": True, "thread_id": thread},
+        )
+        assert confirm_resp2.status_code == 200
+        body2 = confirm_resp2.json()
+>       assert body2["applied"] is True
+E       assert False is True
+
+tests\test_chat_prefs_propose_confirm.py:154: AssertionError
+------------------------------ Captured log call ------------------------------
+WARNING  app.services.chat_service:chat_service.py:440 Prefs confirm failed (0d144a74-fa91-4948-bbd6-70140fa15849): simulated db outage
+WARNING  app.services.chat_service:chat_service.py:440 Prefs confirm failed (0d144a74-fa91-4948-bbd6-70140fa15849): database persistence required but no DB repository configured
+============================== warnings summary ===============================
+.venv\Lib\site-packages\starlette\formparsers.py:12
+  Z:\LittleChef\.venv\Lib\site-packages\starlette\formparsers.py:12: PendingDeprecationWarning: Please use `import python_multipart` instead.
+    import multipart
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED tests/test_chat_prefs_propose_confirm.py::test_chat_prefs_propose_confirm_flow
+FAILED tests/test_chat_prefs_propose_confirm.py::test_chat_prefs_confirm_paragraph_persists
+FAILED tests/test_chat_prefs_propose_confirm.py::test_chat_prefs_confirm_failure_is_retriable
+3 failed, 53 passed, 1 warning in 3.24s
+```
+
+## Test Run 2026-02-06T18:02:49Z
+- Status: FAIL
+- Start: 2026-02-06T18:02:49Z
+- End: 2026-02-06T18:02:57Z
+- Python: Z:\LittleChef\.venv\\Scripts\\python.exe
+- Branch: main
+- HEAD: 0f32a326899fdf20ecbf5ba56faeb5e148577a67
+- compileall exit: 0
+- import app.main exit: 0
+- pytest exit: 1
+- pytest summary: 2 failed, 54 passed, 1 warning in 2.99s
+- git status -sb:
+```
+## main...origin/main
+ M Contracts/physics.yaml
+ M app/api/routers/chat.py
+M  app/repos/prefs_repo.py
+ M app/schemas.py
+MM app/services/chat_service.py
+MM app/services/prefs_service.py
+A  db/migrations/0004_prefs_event_id.sql
+MM evidence/test_runs.md
+MM evidence/test_runs_latest.md
+M  evidence/updatedifflog.md
+ M scripts/ui_proposal_renderer_test.mjs
+MM tests/test_chat_prefs_propose_confirm.py
+MM tests/test_chat_prefs_thread.py
+ M tests/test_inventory_proposals.py
+ M web/dist/main.js
+ M web/dist/proposalRenderer.js
+ M web/src/main.ts
+ M web/src/proposalRenderer.ts
+ M web/src/style.css
+```
+- git diff --stat:
+```
+ Contracts/physics.yaml                   |  32 +-
+ app/api/routers/chat.py                  |   8 +-
+ app/schemas.py                           |   4 +
+ app/services/chat_service.py             | 104 +++--
+ app/services/prefs_service.py            |  17 +-
+ evidence/test_runs.md                    | 705 +++++++++++++++++++++++++++++++
+ evidence/test_runs_latest.md             | 217 ++++++++--
+ scripts/ui_proposal_renderer_test.mjs    |  40 +-
+ tests/test_chat_prefs_propose_confirm.py |  44 +-
+ tests/test_chat_prefs_thread.py          |   3 +-
+ tests/test_inventory_proposals.py        |   4 +-
+ web/dist/main.js                         | 111 ++++-
+ web/dist/proposalRenderer.js             |  46 +-
+ web/src/main.ts                          | 103 ++++-
+ web/src/proposalRenderer.ts              |  49 ++-
+ web/src/style.css                        |   1 +
+ 16 files changed, 1350 insertions(+), 138 deletions(-)
+```
+- Failure payload:
+```
+=== pytest (exit 1) ===
+..................F.F...................................                 [100%]
+================================== FAILURES ===================================
+____________________ test_chat_prefs_propose_confirm_flow _____________________
+
+authed_client = <starlette.testclient.TestClient object at 0x00000205AE6B1100>
+
+    def test_chat_prefs_propose_confirm_flow(authed_client):
+        thread = "t-prefs-confirm"
+        # propose
+        resp = authed_client.post(
+            "/chat",
+            json={"mode": "fill", "message": "set servings 4 meals per day 2", "thread_id": thread},
+        )
+        assert resp.status_code == 200
+        body = resp.json()
+        assert body["confirmation_required"] is True
+        assert body["proposal_id"]
+        assert body["proposed_actions"]
+        action = body["proposed_actions"][0]
+        assert action["action_type"] == "upsert_prefs"
+        assert action["prefs"]["servings"] == 4
+        assert action["prefs"]["meals_per_day"] == 2
+    
+        # confirm
+        proposal_id = body["proposal_id"]
+        resp = authed_client.post(
+            "/chat/confirm",
+            json={"proposal_id": proposal_id, "confirm": True, "thread_id": thread},
+        )
+        assert resp.status_code == 200
+        confirm_body = resp.json()
+>       assert confirm_body["applied"] is True
+E       assert False is True
+
+tests\test_chat_prefs_propose_confirm.py:29: AssertionError
+------------------------------ Captured log call ------------------------------
+WARNING  app.services.chat_service:chat_service.py:440 Prefs confirm failed (d0a90b4f-5331-49a8-9de3-2bfae2132f16): database persistence required but no DB repository configured
+_________________ test_chat_prefs_confirm_paragraph_persists __________________
+
+authed_client = <starlette.testclient.TestClient object at 0x00000205AE727F50>
+
+    def test_chat_prefs_confirm_paragraph_persists(authed_client):
+        thread = "t-prefs-paragraph-confirm"
+        paragraph = (
+            "Okay, so for allergies: I'm allergic to peanuts and I can't have shellfish. "
+            "I like chicken, salmon, rice, pasta, potatoes, tomatoes, spinach, peppers, cheese, "
+            "and anything spicy. I don't like mushrooms, olives, blue cheese, or really sweet sauces. "
+            "It's for two servings, and I want meals for Monday to Friday this week."
+        )
+    
+        resp = authed_client.post(
+            "/chat",
+            json={"mode": "fill", "message": paragraph, "thread_id": thread},
+        )
+        assert resp.status_code == 200
+        body = resp.json()
+        assert body["confirmation_required"] is True
+        proposal_id = body["proposal_id"]
+        assert proposal_id
+    
+        confirm_resp = authed_client.post(
+            "/chat/confirm",
+            json={"proposal_id": proposal_id, "confirm": True, "thread_id": thread},
+        )
+        assert confirm_resp.status_code == 200
+        confirm_body = confirm_resp.json()
+>       assert confirm_body["applied"] is True
+E       assert False is True
+
+tests\test_chat_prefs_propose_confirm.py:96: AssertionError
+------------------------------ Captured log call ------------------------------
+WARNING  app.services.chat_service:chat_service.py:440 Prefs confirm failed (5a94b639-1ab4-49f5-955f-8ae5b99843fc): database persistence required but no DB repository configured
+============================== warnings summary ===============================
+.venv\Lib\site-packages\starlette\formparsers.py:12
+  Z:\LittleChef\.venv\Lib\site-packages\starlette\formparsers.py:12: PendingDeprecationWarning: Please use `import python_multipart` instead.
+    import multipart
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED tests/test_chat_prefs_propose_confirm.py::test_chat_prefs_propose_confirm_flow
+FAILED tests/test_chat_prefs_propose_confirm.py::test_chat_prefs_confirm_paragraph_persists
+2 failed, 54 passed, 1 warning in 2.99s
+```
+
+## Test Run 2026-02-06T18:04:00Z
+- Status: PASS
+- Start: 2026-02-06T18:04:00Z
+- End: 2026-02-06T18:04:08Z
+- Python: Z:\LittleChef\.venv\\Scripts\\python.exe
+- Branch: main
+- HEAD: 0f32a326899fdf20ecbf5ba56faeb5e148577a67
+- compileall exit: 0
+- import app.main exit: 0
+- pytest exit: 0
+- pytest summary: 56 passed, 1 warning in 2.64s
+- git status -sb:
+```
+## main...origin/main
+ M Contracts/physics.yaml
+ M app/api/routers/chat.py
+M  app/repos/prefs_repo.py
+ M app/schemas.py
+MM app/services/chat_service.py
+MM app/services/prefs_service.py
+A  db/migrations/0004_prefs_event_id.sql
+MM evidence/test_runs.md
+MM evidence/test_runs_latest.md
+M  evidence/updatedifflog.md
+ M scripts/ui_proposal_renderer_test.mjs
+MM tests/test_chat_prefs_propose_confirm.py
+MM tests/test_chat_prefs_thread.py
+ M tests/test_inventory_proposals.py
+ M web/dist/main.js
+ M web/dist/proposalRenderer.js
+ M web/src/main.ts
+ M web/src/proposalRenderer.ts
+ M web/src/style.css
+```
+- git diff --stat:
+```
+ Contracts/physics.yaml                   |  32 +-
+ app/api/routers/chat.py                  |   8 +-
+ app/schemas.py                           |   4 +
+ app/services/chat_service.py             | 104 ++--
+ app/services/prefs_service.py            |  17 +-
+ evidence/test_runs.md                    | 846 +++++++++++++++++++++++++++++++
+ evidence/test_runs_latest.md             | 156 ++++--
+ scripts/ui_proposal_renderer_test.mjs    |  40 +-
+ tests/test_chat_prefs_propose_confirm.py |  60 ++-
+ tests/test_chat_prefs_thread.py          |   3 +-
+ tests/test_inventory_proposals.py        |   4 +-
+ web/dist/main.js                         | 111 +++-
+ web/dist/proposalRenderer.js             |  46 +-
+ web/src/main.ts                          | 103 +++-
+ web/src/proposalRenderer.ts              |  49 +-
+ web/src/style.css                        |   1 +
+ 16 files changed, 1446 insertions(+), 138 deletions(-)
+```
+

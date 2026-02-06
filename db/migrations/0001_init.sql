@@ -13,6 +13,7 @@ CREATE TABLE IF NOT EXISTS users (
 CREATE TABLE IF NOT EXISTS prefs (
     user_id TEXT PRIMARY KEY REFERENCES users(user_id) ON DELETE CASCADE,
     prefs JSONB NOT NULL,
+    applied_event_id TEXT NULL,
     updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 

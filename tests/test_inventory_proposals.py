@@ -60,7 +60,7 @@ def test_deny_clears_pending(monkeypatch):
         user, ChatRequest(mode="fill", message="add cereal", include_user_library=True, location="pantry", thread_id="t1")
     )
     pid = resp1.proposal_id
-    applied, evs = svc.confirm(user, pid, confirm=False)
+    applied, evs, _ = svc.confirm(user, pid, confirm=False)
     assert applied is False
     resp2 = svc.handle_chat(
         user, ChatRequest(mode="fill", message="remove cereal", include_user_library=True, location="pantry", thread_id="t1")
@@ -87,7 +87,7 @@ def test_confirm_writes_events(monkeypatch):
     assert pid
     assert "u1" in svc.proposal_store._data
     assert pid in svc.proposal_store._data["u1"]
-    applied, evs = svc.confirm(user, pid, confirm=True)
+    applied, evs, _ = svc.confirm(user, pid, confirm=True)
     assert applied is True
     assert len(inv.events) == 2
     resp2 = svc.handle_chat(

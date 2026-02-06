@@ -560,20 +560,24 @@ components:
         description: |
           true applies the proposed actions; false marks the proposal as declined (non-destructive). Declined proposals remain recoverable until a new clean thread starts.
 
-  ConfirmProposalResponse:
-    type: object
-    required: [applied, status]
-    properties:
-      applied:
-        type: boolean
-      status:
-        type: string
-        enum: [applied, declined]
-        description: applied -> actions executed; declined -> actions not executed.
-      applied_event_ids:
-        type: array
-        items: { type: string }
-        default: []
+    ConfirmProposalResponse:
+      type: object
+      required: [applied, status]
+      properties:
+        applied:
+          type: boolean
+        status:
+          type: string
+          enum: [applied, declined]
+          description: applied -> actions executed; declined -> actions not executed.
+        applied_event_ids:
+          type: array
+          items: { type: string }
+          default: []
+        reason:
+          type: string
+          nullable: true
+          description: Optional machine-readable reason code when `applied` is false.
 
 paths:
   /:

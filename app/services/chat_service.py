@@ -1,3 +1,4 @@
+import logging
 import re
 import uuid
 from typing import List, Optional
@@ -11,7 +12,7 @@ from app.schemas import (
     InventoryEventCreateRequest,
     UserMe,
 )
-from app.services.prefs_service import PrefsService
+from app.services.prefs_service import PrefsPersistenceError, PrefsService
 from app.services.proposal_store import ProposalStore
 from app.services.inventory_service import InventoryService
 from app.services.llm_client import (
@@ -65,6 +66,10 @@ ALLERGY_ITEM_PREFIXES: tuple[str, ...] = (
     "allergies",
     "allergy",
 )
+
+
+logger = logging.getLogger(__name__)
+PREFS_PERSIST_FAILED_REASON = "prefs_persist_failed"
 
 
 class ChatService:
@@ -371,50 +376,79 @@ class ChatService:
                 )
         return unmatched
 
-    def confirm(self, user: UserMe, proposal_id: str, confirm: bool, thread_id: str | None = None) -> tuple[bool, List[str]]:
-        action = self.proposal_store.pop(user.user_id, proposal_id)
+    def confirm(
+        self,
+        user: UserMe,
+        proposal_id: str,
+        confirm: bool,
+        thread_id: str | None = None,
+    ) -> tuple[bool, List[str], str | None]:
+        action = self.proposal_store.peek(user.user_id, proposal_id)
         if not action:
             pending = self.pending_raw.get(user.user_id)
             if pending:
                 normalized = normalize_items(pending.get("raw_items", []), pending.get("location", "pantry"))
                 action = self._to_actions(normalized)
             else:
-                return False, []
+                return False, [], None
         if not confirm:
             self.pending_raw.pop(user.user_id, None)
             if thread_id:
                 self.prefs_drafts.pop((user.user_id, thread_id), None)
-            return False, []
+            self.proposal_store.pop(user.user_id, proposal_id)
+            return False, [], None
 
         applied_event_ids: List[str] = []
         actions = action if isinstance(action, list) else [action]
-        for act in actions:
-            if isinstance(act, ProposedUpsertPrefsAction):
-                self.prefs_service.upsert_prefs(user.user_id, user.provider_subject, user.email, act.prefs)
-            else:
-                payload = getattr(act, "event", act)
-                ev = None
-                if hasattr(self.inventory_service, "events"):
-                    self.inventory_service.events.append(payload)
-                    applied_event_ids.append(f"ev{len(self.inventory_service.events)}")
+        reason: str | None = None
+        success = False
+        try:
+            for act in actions:
+                if isinstance(act, ProposedUpsertPrefsAction):
+                    event_id = f"prefs-{uuid.uuid4()}"
+                    self.prefs_service.upsert_prefs(
+                        user.user_id,
+                        user.provider_subject,
+                        user.email,
+                        act.prefs,
+                        applied_event_id=event_id,
+                        require_db=True,
+                    )
+                    applied_event_ids.append(event_id)
                 else:
-                    try:
-                        ev = self.inventory_service.create_event(
-                            user.user_id,
-                            user.provider_subject,
-                            user.email,
-                            payload,
-                        )
-                    except Exception:
-                        # Fallback in tests or when DB is unavailable
-                        applied_event_ids.append(f"ev{len(applied_event_ids)+1}")
-                        ev = None
-                if ev is not None and hasattr(ev, "event_id"):
-                    applied_event_ids.append(ev.event_id)
-        self.pending_raw.pop(user.user_id, None)
-        if thread_id:
-            self.prefs_drafts.pop((user.user_id, thread_id), None)
-        return True, applied_event_ids
+                    payload = getattr(act, "event", act)
+                    ev = None
+                    if hasattr(self.inventory_service, "events"):
+                        self.inventory_service.events.append(payload)
+                        applied_event_ids.append(f"ev{len(self.inventory_service.events)}")
+                    else:
+                        try:
+                            ev = self.inventory_service.create_event(
+                                user.user_id,
+                                user.provider_subject,
+                                user.email,
+                                payload,
+                            )
+                        except Exception:
+                            # Fallback in tests or when DB is unavailable
+                            applied_event_ids.append(f"ev{len(applied_event_ids)+1}")
+                            ev = None
+                    if ev is not None and hasattr(ev, "event_id"):
+                        applied_event_ids.append(ev.event_id)
+            success = True
+        except PrefsPersistenceError as exc:
+            logger.warning("Prefs confirm failed (%s): %s", proposal_id, exc)
+            reason = PREFS_PERSIST_FAILED_REASON
+        except Exception:
+            logger.exception("Unexpected error while confirming proposal %s", proposal_id)
+            reason = PREFS_PERSIST_FAILED_REASON
+        finally:
+            if success:
+                self.proposal_store.pop(user.user_id, proposal_id)
+                self.pending_raw.pop(user.user_id, None)
+                if thread_id:
+                    self.prefs_drafts.pop((user.user_id, thread_id), None)
+        return success, applied_event_ids, reason
 
     def _merge_with_defaults(self, user_id: str, parsed: UserPrefs) -> UserPrefs:
         existing = self.prefs_service.get_prefs(user_id)
