@@ -40,6 +40,7 @@ class ChatService:
         self.thread_messages_repo = thread_messages_repo
         self.pending_raw: dict[str, dict[str, object]] = {}
         self.prefs_drafts: dict[tuple[str, str], UserPrefs] = {}
+        self.thread_modes: dict[tuple[str, str], str] = {}
 
     @property
     def _system_prompt(self) -> str:
@@ -54,6 +55,47 @@ class ChatService:
         message = request.message.lower()
         user_id = user.user_id
         key = user_id
+        effective_mode = self._effective_mode(user_id, request.thread_id, mode)
+
+        if message.startswith("/ask"):
+            if not request.thread_id:
+                return ChatResponse(
+                    reply_text="Thread id is required to switch mode.",
+                    confirmation_required=False,
+                    proposal_id=None,
+                    proposed_actions=[],
+                    suggested_next_questions=[],
+                    mode=effective_mode,
+                )
+            self.thread_modes[(user_id, request.thread_id)] = "ask"
+            return ChatResponse(
+                reply_text=f"Mode set: ASK for thread {request.thread_id}",
+                confirmation_required=False,
+                proposal_id=None,
+                proposed_actions=[],
+                suggested_next_questions=[],
+                mode="ask",
+            )
+
+        if message.startswith("/fill"):
+            if not request.thread_id:
+                return ChatResponse(
+                    reply_text="Thread id is required to switch mode.",
+                    confirmation_required=False,
+                    proposal_id=None,
+                    proposed_actions=[],
+                    suggested_next_questions=[],
+                    mode=effective_mode,
+                )
+            self.thread_modes[(user_id, request.thread_id)] = "fill"
+            return ChatResponse(
+                reply_text=f"Mode set: FILL for thread {request.thread_id}",
+                confirmation_required=False,
+                proposal_id=None,
+                proposed_actions=[],
+                suggested_next_questions=[],
+                mode="fill",
+            )
 
         if message.startswith("/llm"):
             parts = message.split()
@@ -75,10 +117,11 @@ class ChatService:
                 proposal_id=None,
                 proposed_actions=[],
                 suggested_next_questions=[],
+                mode=effective_mode,
             )
 
         if mode == "ask":
-            ask_reply = self._handle_ask(user_id, message)
+            ask_reply = self._handle_ask(user_id, message, effective_mode)
             if ask_reply:
                 self._append_messages(request.thread_id, user_id, request.message, ask_reply.reply_text)
                 return ask_reply
@@ -93,6 +136,7 @@ class ChatService:
                 proposal_id=None,
                 proposed_actions=[],
                 suggested_next_questions=[],
+                mode=effective_mode,
             )
             self._append_messages(request.thread_id, user_id, request.message, resp.reply_text)
             return resp
@@ -100,12 +144,12 @@ class ChatService:
         if mode == "fill":
             # Preferences flow (no location) with thread-scoped draft
             if not request.location:
-                response = self._handle_prefs_flow_threaded(user, request)
+                response = self._handle_prefs_flow_threaded(user, request, effective_mode)
                 self._append_messages(request.thread_id, user.user_id, request.message, response.reply_text)
                 return response
             # Inventory proposal state machine if location provided
             if request.location:
-                response = self._handle_inventory_flow(user, request, key)
+                response = self._handle_inventory_flow(user, request, key, effective_mode)
                 self._append_messages(request.thread_id, user.user_id, request.message, response.reply_text)
                 return response
             inv_action = self._parse_inventory_action(message)
@@ -150,7 +194,15 @@ class ChatService:
             proposal_id=None,
             proposed_actions=[],
             suggested_next_questions=[],
+            mode=effective_mode,
         )
+
+    def _effective_mode(self, user_id: str, thread_id: str | None, requested: str) -> str:
+        if thread_id:
+            override = self.thread_modes.get((user_id, thread_id))
+            if override:
+                return override
+        return requested or "ask"
 
     def _append_messages(self, thread_id: str | None, user_id: str, user_text: str, assistant_text: str | None) -> None:
         if not self.thread_messages_repo or not thread_id:
@@ -159,7 +211,7 @@ class ChatService:
         if assistant_text:
             self.thread_messages_repo.append_message(thread_id, user_id, "assistant", assistant_text)
 
-    def _handle_inventory_flow(self, user: UserMe, request: ChatRequest, key: str) -> ChatResponse:
+    def _handle_inventory_flow(self, user: UserMe, request: ChatRequest, key: str, effective_mode: str) -> ChatResponse:
         location = request.location or "pantry"
         pending = self.pending_raw.get(key)
 
@@ -179,6 +231,7 @@ class ChatService:
                 proposal_id=proposal_id,
                 proposed_actions=actions,
                 suggested_next_questions=[],
+                mode=effective_mode,
             )
 
         # State 0: new draft
@@ -196,6 +249,7 @@ class ChatService:
                     proposal_id=proposal_id,
                     proposed_actions=actions,
                     suggested_next_questions=[],
+                    mode=effective_mode,
                 )
         normalized = normalize_items(raw_items, location)
         proposal_id = str(uuid.uuid4())
@@ -209,6 +263,7 @@ class ChatService:
             proposal_id=proposal_id,
             proposed_actions=actions,
             suggested_next_questions=[],
+            mode=effective_mode,
         )
 
     def _render_proposal(self, normalized: list[dict], unmatched: list[str], location: str) -> str:
@@ -397,7 +452,7 @@ class ChatService:
             questions.append("How many meals per day do you want?")
         return questions
 
-    def _handle_prefs_flow_threaded(self, user: UserMe, request: ChatRequest) -> ChatResponse:
+    def _handle_prefs_flow_threaded(self, user: UserMe, request: ChatRequest, effective_mode: str) -> ChatResponse:
         user_id = user.user_id
         thread_id = request.thread_id
         key = (user_id, thread_id)
@@ -418,6 +473,7 @@ class ChatService:
                 proposal_id=None,
                 proposed_actions=[],
                 suggested_next_questions=[],
+                mode=effective_mode,
             )
 
         prefs = self._merge_with_defaults(user_id, draft)
@@ -432,6 +488,7 @@ class ChatService:
             proposal_id=proposal_id,
             proposed_actions=[action],
             suggested_next_questions=[],
+            mode=effective_mode,
         )
 
     def _format_prefs(self, prefs: UserPrefs) -> str:
@@ -442,7 +499,7 @@ class ChatService:
             f"Cuisine likes: {', '.join(prefs.cuisine_likes) or 'none'}."
         )
 
-    def _handle_ask(self, user_id: str, message: str) -> Optional[ChatResponse]:
+    def _handle_ask(self, user_id: str, message: str, effective_mode: str) -> Optional[ChatResponse]:
         if "pref" in message or "preference" in message:
             prefs = self.prefs_service.get_prefs(user_id)
             reply = self._format_prefs(prefs)
@@ -452,6 +509,7 @@ class ChatService:
                 proposal_id=None,
                 proposed_actions=[],
                 suggested_next_questions=[],
+                mode=effective_mode,
             )
         if any(k in message for k in ["low on", "running out", "low stock"]):
             low = self.inventory_service.low_stock(user_id)
@@ -466,6 +524,7 @@ class ChatService:
                 proposal_id=None,
                 proposed_actions=[],
                 suggested_next_questions=[],
+                mode=effective_mode,
             )
         if any(k in message for k in ["what do i have", "inventory", "in stock"]):
             summary = self.inventory_service.summary(user_id)
@@ -480,6 +539,7 @@ class ChatService:
                 proposal_id=None,
                 proposed_actions=[],
                 suggested_next_questions=[],
+                mode=effective_mode,
             )
         return None
 

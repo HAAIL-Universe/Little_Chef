@@ -1,59 +1,50 @@
-Cycle: 2026-02-06T02:45:00Z
+Cycle: 2026-02-06T02:58:30Z
 Branch: main
-BASE_HEAD: 575b7c4efdca98897d61a912d82dfa2c5f35cebf (working tree with staged changes from prior cycle)
+BASE_HEAD: 1d1d2628b0eaf46b24f6a055b3f07f4c9a36a6de (working tree)
 Contracts read: Contracts/builder_contract.md, Contracts/blueprint.md, Contracts/manifesto.md, Contracts/physics.yaml, Contracts/ui_style.md, Contracts/phases_7_plus.md; Contracts/directive.md NOT PRESENT (allowed)
-Allowed files this corrective cycle: db/migrations/0002_threads.sql; delete app/migrations/0001_threads.sql; evidence/test_runs.md; evidence/test_runs_latest.md; evidence/updatedifflog.md (other staged files retained from prior authorized scope)
+Allowed files: app/services/chat_service.py; app/schemas.py; Contracts/physics.yaml; web/src/main.ts; web/dist/main.js; tests/test_chat_mode_commands.py; evidence/updatedifflog.md; evidence/test_runs.md; evidence/test_runs_latest.md
 
 Evidence bundle:
-- git status -sb:
-## main...origin/main [ahead 7]
- M Contracts/physics.yaml
- M app/api/routers/chat.py
- M app/schemas.py
- M app/services/chat_service.py
- M app/services/prefs_service.py
- M evidence/test_runs.md
- M evidence/test_runs_latest.md
- M evidence/updatedifflog.md
- M tests/test_chat_inventory_ask_low_stock.py
- M tests/test_chat_inventory_fill_propose_confirm.py
- M tests/test_chat_llm.py
- M tests/test_chat_prefs_propose_confirm.py
- M tests/test_inventory_proposals.py
- M web/dist/main.js
- M web/src/main.ts
-?? app/migrations/
-?? tests/test_chat_prefs_thread.py
-- git rev-parse HEAD: 575b7c4efdca98897d61a912d82dfa2c5f35cebf
-- git log -1 --oneline: 575b7c4e (latest commit prior to current staged work)
-- git diff --staged --name-status: (multiple files from prior cycle + new migration move, see staged list)
-- db_migrate.ps1 output:
-  [db_migrate] DATABASE_URL present (value not printed).
-  [db_migrate] Python: Z:\LittleChef\.venv\\Scripts\\python.exe
-  [migrate] migrations dir: Z:\LittleChef\db\migrations
-  [migrate] discovered: 0001_init.sql, 0002_threads.sql
-  [migrate] applied versions: 0001, 0001_init
-  [migrate] 0001 already applied; skipping.
-  [migrate] applying 0002 from 0002_threads.sql ...
-  [migrate] applied 0002 OK
-  [migrate] done.
-  users table present: YES
-- DB existence check: python -c "... to_regclass('public.threads')" -> threads_exists threads
+- git status -sb: clean before start
+- HEAD: 1d1d2628b0eaf46b24f6a055b3f07f4c9a36a6de
+- git diff --name-only: (clean before edits)
+- db_migrate.ps1 (earlier) shows migrations dir db/migrations with 0001_init, 0002_threads, 0003_thread_messages (applied)
+- Tests exist: scripts/run_tests.ps1
 
 Changes this cycle:
-- Moved threads migration to canonical path db/migrations/0002_threads.sql so db_migrate discovers/applies it; removed non-discoverable app/migrations/0001_threads.sql.
+- Added thread-scoped /ask and /fill command handling in ChatService (in-memory mode overrides keyed by (user_id, thread_id)); commands reply immediately and do not append messages when thread_id missing.
+- ChatResponse now includes mode field; all responses populate effective mode (override or default ask).
+- ChatRequest thread_id made optional to allow graceful reply when missing; physics.yaml updated accordingly; ChatResponse schema updated to require mode.
+- Dev Panel now shows current Mode alongside Thread; mode updates from server responses.
+- Frontend tracks lastServerMode (default ASK) and updates on each /chat response; dist rebuilt.
+- New tests test_chat_mode_commands.py cover /fill, /ask mode switching and persistence.
 
-Verification (this cycle):
+Verification:
+- npm ci && npm run build (web) completed
 - compileall app: PASS
 - python -c "import app.main": PASS
-- tests: ./scripts/run_tests.ps1 : PASS (46 passed, 1 warning)
-- threads table exists in DB (to_regclass returned 'threads').
+- ./scripts/run_tests.ps1: PASS (49 passed, 1 warning)
+- DB check earlier: thread_messages exists
 
-Files changed/staged in this corrective cycle:
-- db/migrations/0002_threads.sql (new)
-- app/migrations/0001_threads.sql (removed)
+Files changed (staged):
+- Contracts/physics.yaml
+- app/schemas.py
+- app/services/chat_service.py
+- web/src/main.ts
+- web/dist/main.js
+- tests/test_chat_mode_commands.py
 - evidence/test_runs.md
 - evidence/test_runs_latest.md
 - evidence/updatedifflog.md
+
+Minimal diff hunks:
+- ChatResponse gains mode; ChatRequest thread_id optional.
+- ChatService adds /ask|/fill overrides, mode propagation, effective_mode helper.
+- main.ts displays Mode in Dev Panel and updates from response.
+- New test ensures mode commands set/retain mode.
+- Added migration already applied earlier (no change this cycle) – no schema change beyond physics update.
+
+Test runs:
+- Status PASS; pytest summary: 49 passed, 1 warning (python_multipart deprecation).
 
 Status: COMPLETE_AWAITING_AUTHORIZATION

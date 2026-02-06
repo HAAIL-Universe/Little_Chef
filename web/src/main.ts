@@ -27,6 +27,7 @@ const duetState = {
   drawerOpen: false,
   drawerProgress: 0,
 };
+let lastServerMode = "ASK";
 
 let historyOverlay: HTMLDivElement | null = null;
 let historyToggle: HTMLButtonElement | null = null;
@@ -63,6 +64,13 @@ function headers() {
     }
   }
   return h;
+}
+
+function setModeFromResponse(json: any) {
+  if (json && typeof json.mode === "string") {
+    lastServerMode = json.mode.toUpperCase();
+    updateThreadLabel();
+  }
 }
 
 function setText(id: string, value: any) {
@@ -274,7 +282,7 @@ function toggleDevPanel() {
 function updateThreadLabel() {
   const label = document.getElementById("duet-thread-label");
   if (!label) return;
-  label.textContent = `Thread: ${duetState.threadId ?? "-"}`;
+  label.textContent = `Thread: ${duetState.threadId ?? "-"} | Mode: ${lastServerMode}`;
 }
 
 function syncHistoryUi() {
@@ -694,6 +702,7 @@ async function sendAsk(message: string, opts?: { flowLabel?: string; updateChatP
     if (!res.ok || !json || typeof json.reply_text !== "string") {
       throw new Error(json?.message || `ASK failed (status ${res.status})`);
     }
+    setModeFromResponse(json);
     updateHistory(thinkingIndex, json.reply_text);
     if (opts?.updateChatPanel) {
       setText("chat-reply", { status: res.status, json });
@@ -733,6 +742,7 @@ async function silentGreetOnce() {
     });
     const json = res.json;
     if (res.status === 200 && json && typeof json.reply_text === "string") {
+      setModeFromResponse(json);
       duetState.history.push({ role: "assistant", text: json.reply_text });
       renderDuetHistory();
       updateDuetBubbles();

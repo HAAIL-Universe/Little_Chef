@@ -507,7 +507,7 @@ components:
 
     ChatRequest:
       type: object
-      required: [mode, message, thread_id]
+      required: [mode, message]
       properties:
         mode:
           $ref: "#/components/schemas/ChatMode"
@@ -524,7 +524,7 @@ components:
 
     ChatResponse:
       type: object
-      required: [reply_text, confirmation_required]
+      required: [reply_text, confirmation_required, mode]
       properties:
         reply_text:
           type: string
@@ -542,6 +542,8 @@ components:
           type: array
           items: { type: string }
           default: []
+        mode:
+          $ref: "#/components/schemas/ChatMode"
 
     ConfirmProposalRequest:
       type: object

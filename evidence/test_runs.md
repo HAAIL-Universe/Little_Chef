@@ -6236,3 +6236,110 @@ pytest summary: 48 passed, 1 warning
 Warnings:
 - PendingDeprecationWarning from python_multipart (Starlette formparsers)
 
+## Test Run 2026-02-06T03:22:54Z
+- Status: FAIL
+- Start: 2026-02-06T03:22:54Z
+- End: 2026-02-06T03:23:02Z
+- Python: Z:\LittleChef\.venv\\Scripts\\python.exe
+- Branch: main
+- HEAD: 1d1d2623d336e755ed767b1cdee1b9fdb97e466d
+- compileall exit: 0
+- import app.main exit: 0
+- pytest exit: 1
+- pytest summary: 1 failed, 50 passed, 1 warning in 3.35s
+- git status -sb:
+```
+## main...origin/main [ahead 9]
+ M Contracts/physics.yaml
+ M app/schemas.py
+ M app/services/chat_service.py
+ M web/dist/main.js
+ M web/src/main.ts
+?? tests/test_chat_mode_commands.py
+```
+- git diff --stat:
+```
+ Contracts/physics.yaml       |  4 ++-
+ app/schemas.py               |  1 +
+ app/services/chat_service.py | 72 ++++++++++++++++++++++++++++++++++++++++----
+ web/dist/main.js             | 11 ++++++-
+ web/src/main.ts              | 12 +++++++-
+ 5 files changed, 91 insertions(+), 9 deletions(-)
+```
+- Failure payload:
+```
+=== pytest (exit 1) ===
+................F..................................                      [100%]
+================================== FAILURES ===================================
+______________________ test_mode_command_requires_thread ______________________
+
+client = <starlette.testclient.TestClient object at 0x0000020A2DF2EED0>
+
+    def test_mode_command_requires_thread(client):
+        res = client.post("/chat", json={"mode": "ask", "message": "/fill"})
+>       assert res.status_code == 200
+E       assert 422 == 200
+E        +  where 422 = <Response [422 Unprocessable Entity]>.status_code
+
+tests\test_chat_mode_commands.py:45: AssertionError
+============================== warnings summary ===============================
+.venv\Lib\site-packages\starlette\formparsers.py:12
+  Z:\LittleChef\.venv\Lib\site-packages\starlette\formparsers.py:12: PendingDeprecationWarning: Please use `import python_multipart` instead.
+    import multipart
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED tests/test_chat_mode_commands.py::test_mode_command_requires_thread - ...
+1 failed, 50 passed, 1 warning in 3.35s
+```
+
+## Test Run 2026-02-06T03:23:55Z
+- Status: PASS
+- Start: 2026-02-06T03:23:55Z
+- End: 2026-02-06T03:24:02Z
+- Python: Z:\LittleChef\.venv\\Scripts\\python.exe
+- Branch: main
+- HEAD: 1d1d2623d336e755ed767b1cdee1b9fdb97e466d
+- compileall exit: 0
+- import app.main exit: 0
+- pytest exit: 0
+- pytest summary: 51 passed, 1 warning in 2.60s
+- git status -sb:
+```
+## main...origin/main [ahead 9]
+ M Contracts/physics.yaml
+ M app/schemas.py
+ M app/services/chat_service.py
+ M evidence/test_runs.md
+ M evidence/test_runs_latest.md
+ M web/dist/main.js
+ M web/src/main.ts
+?? tests/test_chat_mode_commands.py
+```
+- git diff --stat:
+```
+ Contracts/physics.yaml       |  6 ++--
+ app/schemas.py               |  3 +-
+ app/services/chat_service.py | 72 ++++++++++++++++++++++++++++++++++++++++----
+ evidence/test_runs.md        | 57 +++++++++++++++++++++++++++++++++++
+ evidence/test_runs_latest.md | 63 +++++++++++++++++++++++++++++++++-----
+ web/dist/main.js             | 11 ++++++-
+ web/src/main.ts              | 12 +++++++-
+ 7 files changed, 205 insertions(+), 19 deletions(-)
+```
+
+
+
+Status: PASS
+Start: 2026-02-06T02:58:00Z
+End: 2026-02-06T02:58:20Z
+Branch: main
+HEAD: 1d1d2628b0eaf46b24f6a055b3f07f4c9a36a6de
+Python: Z:\LittleChef\.venv\\Scripts\\python.exe
+compileall exit: 0
+import app.main exit: 0
+pytest exit: 0
+pytest summary: 49 passed, 1 warning
+Warnings:
+- PendingDeprecationWarning from python_multipart (Starlette formparsers)
+

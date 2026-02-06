@@ -214,7 +214,7 @@ class ChatRequest(BaseModel):
     message: str = Field(..., min_length=1)
     include_user_library: bool = True
     location: Optional[Literal["pantry", "fridge", "freezer"]] = None
-    thread_id: str
+    thread_id: Optional[str] = None
 
 
 class ChatResponse(BaseModel):
@@ -223,6 +223,7 @@ class ChatResponse(BaseModel):
     proposal_id: Optional[str] = None
     proposed_actions: List[Union[ProposedUpsertPrefsAction, ProposedInventoryEventAction]] = Field(default_factory=list)
     suggested_next_questions: List[str] = Field(default_factory=list)
+    mode: Literal["ask", "fill"] = "ask"
 
 
 class ConfirmProposalRequest(BaseModel):
