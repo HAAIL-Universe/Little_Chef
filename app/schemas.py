@@ -17,6 +17,7 @@ class UserMe(BaseModel):
     user_id: str
     provider_subject: Optional[str] = None
     email: Optional[str] = None
+    onboarded: bool = False
 
 
 class UserPrefs(BaseModel):

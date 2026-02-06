@@ -50,7 +50,14 @@ def auth_me(
 ):
     token = _extract_bearer_token(authorization)
     service = get_auth_service()
+    from app.services.inventory_service import get_inventory_service
     try:
-        return service.resolve_user(token)
+        user = service.resolve_user(token)
+        try:
+            inv = get_inventory_service()
+            user.onboarded = bool(inv.has_events(user.user_id))
+        except Exception:
+            user.onboarded = False
+        return user
     except (JWTVerificationError, JWTConfigurationError) as exc:
         raise UnauthorizedError(str(exc)) from exc

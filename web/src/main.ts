@@ -5,6 +5,7 @@ const state = {
   proposedActions: [] as any[],
   chatReply: null as any,
   chatError: "",
+  onboarded: null as boolean | null,
 };
 
 type HistoryItem = { role: "user" | "assistant"; text: string };
@@ -43,6 +44,9 @@ let inventoryLowList: HTMLUListElement | null = null;
 let inventorySummaryList: HTMLUListElement | null = null;
 let inventoryLoading = false;
 let inventoryHasLoaded = false;
+let onboardMenu: HTMLDivElement | null = null;
+let onboardPressTimer: number | null = null;
+let onboardPressStart: { x: number; y: number } | null = null;
 
 function headers() {
   const h: Record<string, string> = { "Content-Type": "application/json" };
@@ -305,8 +309,8 @@ function updateDuetBubbles() {
   const user = document.getElementById("duet-user-text");
   const lastAssistant = [...duetState.history].reverse().find((h) => h.role === "assistant");
   const lastUser = [...duetState.history].reverse().find((h) => h.role === "user");
-  if (assistant) assistant.textContent = lastAssistant?.text ?? "Hi - how can I help?";
-  if (user) user.textContent = lastUser?.text ?? "Tap mic or type to start";
+  if (assistant) assistant.textContent = lastAssistant?.text ?? "Welcome — I’m Little Chef. To get started, press and hold your message bubble and tap Start.";
+  if (user) user.textContent = lastUser?.text ?? "Press and hold to start onboarding";
 }
 
 function applyDrawerProgress(progress: number, opts?: { dragging?: boolean; commit?: boolean }) {
@@ -703,9 +707,10 @@ async function silentGreetOnce() {
   if (sessionStorage.getItem(key) === "1") return;
   sessionStorage.setItem(key, "1");
   try {
+    const greetMessage = state.onboarded === false ? "I'm new here" : "hello";
     const res = await doPost("/chat", {
       mode: "ask",
-      message: "hello",
+      message: greetMessage,
       include_user_library: true,
     });
     const json = res.json;
@@ -727,6 +732,7 @@ function wire() {
     clearProposal();
     const result = await doGet("/auth/me");
     setText("auth-out", result);
+    state.onboarded = !!result.json?.onboarded;
     await silentGreetOnce();
     inventoryHasLoaded = false;
     if (currentFlowKey === "inventory") {
@@ -804,6 +810,7 @@ function wire() {
   wireDuetComposer();
   setupHistoryDrawerUi();
   wireHistoryHotkeys();
+  bindOnboardingLongPress();
   updateInventoryOverlayVisibility();
   applyDrawerProgress(duetState.drawerOpen ? 1 : 0, { commit: true });
   renderDuetHistory();
@@ -970,6 +977,49 @@ function selectFlow(key: string) {
   }
 }
 
+function ensureOnboardMenu() {
+  if (onboardMenu) return onboardMenu;
+  const menu = document.createElement("div");
+  menu.id = "onboard-menu";
+  menu.className = "flow-menu-dropdown";
+  menu.style.position = "fixed";
+  menu.style.display = "none";
+  menu.style.zIndex = "999";
+  const btn = document.createElement("button");
+  btn.type = "button";
+  btn.className = "flow-menu-item";
+  btn.textContent = "Start";
+  btn.addEventListener("click", () => {
+    hideOnboardMenu();
+    startOnboarding();
+  });
+  menu.appendChild(btn);
+  document.body.appendChild(menu);
+  onboardMenu = menu;
+  return menu;
+}
+
+function hideOnboardMenu() {
+  if (onboardMenu) onboardMenu.style.display = "none";
+}
+
+function showOnboardMenu(x: number, y: number) {
+  const menu = ensureOnboardMenu();
+  menu.style.left = `${x}px`;
+  menu.style.top = `${y}px`;
+  menu.style.display = "grid";
+}
+
+function startOnboarding() {
+  selectFlow("inventory");
+  const assistantText = "Cool — let’s do onboarding. First: tell me what’s in your cupboards/pantry. Just list items in one message.";
+  const userText = "Just list items in one message";
+  const assistant = document.getElementById("duet-assistant-text");
+  const user = document.getElementById("duet-user-text");
+  if (assistant) assistant.textContent = assistantText;
+  if (user) user.textContent = userText;
+}
+
 function setupDock() {
   const shell = document.getElementById("duet-shell");
   const composer = document.getElementById("duet-composer");
@@ -988,6 +1038,50 @@ function setupDock() {
     dock.appendChild(composer);
   }
   enforceViewportLock();
+}
+
+function bindOnboardingLongPress() {
+  const userBubble = document.getElementById("duet-user-bubble");
+  if (!userBubble) return;
+
+  const clearTimer = () => {
+    if (onboardPressTimer !== null) {
+      window.clearTimeout(onboardPressTimer);
+      onboardPressTimer = null;
+    }
+  };
+
+  const cancel = () => {
+    clearTimer();
+    onboardPressStart = null;
+    hideOnboardMenu();
+  };
+
+  userBubble.addEventListener("pointerdown", (ev) => {
+    onboardPressStart = { x: ev.clientX, y: ev.clientY };
+    clearTimer();
+    onboardPressTimer = window.setTimeout(() => {
+      showOnboardMenu(ev.clientX, ev.clientY);
+    }, 500);
+  });
+
+  userBubble.addEventListener("pointermove", (ev) => {
+    if (!onboardPressStart || onboardPressTimer === null) return;
+    const dx = Math.abs(ev.clientX - onboardPressStart.x);
+    const dy = Math.abs(ev.clientY - onboardPressStart.y);
+    if (dx > 6 || dy > 6) {
+      cancel();
+    }
+  });
+
+  userBubble.addEventListener("pointerup", cancel);
+  userBubble.addEventListener("pointercancel", cancel);
+  userBubble.addEventListener("lostpointercapture", cancel);
+  document.addEventListener("click", (ev) => {
+    if (!onboardMenu || onboardMenu.style.display === "none") return;
+    if (ev.target instanceof Node && onboardMenu.contains(ev.target)) return;
+    hideOnboardMenu();
+  });
 }
 
 function positionFlowMenuDropdown() {

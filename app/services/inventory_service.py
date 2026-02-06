@@ -34,6 +34,14 @@ class InventoryService:
     def list_events(self, user_id: str, limit: int, since: str | None) -> List[InventoryEvent]:
         return self.repo.list_events(user_id, limit=limit, since=since)
 
+    def has_events(self, user_id: str) -> bool:
+        try:
+            if hasattr(self.repo, "has_events"):
+                return bool(self.repo.has_events(user_id))
+            return bool(self.repo.all_events(user_id))
+        except Exception:
+            return False
+
     def summary(self, user_id: str) -> InventorySummaryResponse:
         aggregates: Dict[tuple[str, str], float] = {}
         events = self.repo.all_events(user_id)

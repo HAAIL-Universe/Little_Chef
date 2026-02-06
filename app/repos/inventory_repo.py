@@ -43,6 +43,9 @@ class InventoryRepository:
     def all_events(self, user_id: str) -> List[InventoryEvent]:
         return list(self._events_by_user.get(user_id, []))
 
+    def has_events(self, user_id: str) -> bool:
+        return bool(self._events_by_user.get(user_id))
+
     def clear(self) -> None:
         self._events_by_user.clear()
 
@@ -116,6 +119,17 @@ class DbInventoryRepository:
     def all_events(self, user_id: str) -> List[InventoryEvent]:
         # reuse list_events without since, large limit
         return self.list_events(user_id, limit=1000)
+
+    def has_events(self, user_id: str) -> bool:
+        with connect() as conn, conn.cursor() as cur:
+            cur.execute(
+                """
+                SELECT 1 FROM inventory_events WHERE user_id = %s LIMIT 1
+                """,
+                (user_id,),
+            )
+            row = cur.fetchone()
+        return row is not None
 
 
 def get_inventory_repository():
