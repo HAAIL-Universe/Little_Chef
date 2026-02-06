@@ -1,82 +1,73 @@
-Cycle: 2026-02-06T11:54:05Z
-Branch: main
-BASE_HEAD: bb78ac72ddc18deb85ec35c93c6e61d7246f312b (working tree)
-Status: IN_PROCESS
-Contracts read: Contracts/builder_contract.md, Contracts/blueprint.md, Contracts/manifesto.md, Contracts/physics.yaml, Contracts/ui_style.md, Contracts/phases_7_plus.md; Contracts/directive.md NOT PRESENT (allowed)
-Allowed files: evidence/updatedifflog.md
+# Diff Log (overwrite each cycle)
+
+## Cycle Metadata
+- Timestamp: 2026-02-06T12:30:18+00:00
+- Branch: main
+- HEAD: 4bf1a1fdfe73587e1811e201003e08f151a5804d
+- BASE_HEAD: bb78ac72ddc18deb85ec35c93c6e61d7246f312b
+- Diff basis: staged
+- Contracts read: Contracts/builder_contract.md, Contracts/blueprint.md, Contracts/manifesto.md, Contracts/physics.yaml, Contracts/ui_style.md, Contracts/phases_7_plus.md; Contracts/directive.md NOT PRESENT (allowed)
+- Allowed files: evidence/test_runs.md, evidence/test_runs_latest.md, evidence/updatedifflog.md, scripts/overwrite_diff_log.ps1
+
+## Cycle Status
+- Status: COMPLETE
 
 ## Summary
-- `/fill` routing now checks `effective_mode` instead of the request payload so the backend honors overwritten mode commands.
-- Added `test_override_controls_routing_even_if_request_mode_is_ask` to guard against ask-mode requests that issue `/fill`.
+- `scripts/overwrite_diff_log.ps1` now captures both the current `HEAD` and its parent as `BASE_HEAD`, eliminating the prior ambiguity where the parent hash was overwritten with the current commit.
+- Added the 2026-02-06T12:27:54Z verification run (compileall/import/run_tests) to `evidence/test_runs.md` and `evidence/test_runs_latest.md`, keeping the Test Gate record current.
 
 ## Files Changed (staged)
-- app/services/chat_service.py
+- evidence/test_runs.md
+- evidence/test_runs_latest.md
 - evidence/updatedifflog.md
-- tests/test_chat_mode_commands.py
+- scripts/overwrite_diff_log.ps1
 
 ## git status -sb
 ```
-## main...origin/main [ahead 11]
- M app/services/chat_service.py
- M tests/test_chat_mode_commands.py
+## main...origin/main [ahead 12]
+ M evidence/test_runs.md
+ M evidence/test_runs_latest.md
+ M evidence/updatedifflog.md
+ M scripts/overwrite_diff_log.ps1
 ```
 
 ## Minimal Diff Hunks
-```
-diff --git a/app/services/chat_service.py b/app/services/chat_service.py
-index 226b104..65ab583 100644
---- a/app/services/chat_service.py
-+++ b/app/services/chat_service.py
-@@ -120,7 +120,7 @@ class ChatService:
-              mode=effective_mode,
-          )
-
--        if mode == "ask":
-+        if effective_mode == "ask":
-             ask_reply = self._handle_ask(user_id, message, effective_mode)
-             if ask_reply:
-                 self._append_messages(request.thread_id, user_id, request.message, ask_reply.reply_text)
-@@ -141,7 +141,7 @@ class ChatService:
-             self._append_messages(request.thread_id, user_id, request.message, resp.reply_text)
-             return resp
-
--        if mode == "fill":
-+        if effective_mode == "fill":
-             # Preferences flow (no location) with thread-scoped draft
-             if not request.location:
-                 response = self._handle_prefs_flow_threaded(user, request, effective_mode)
-warning: in the working copy of 'app/services/chat_service.py', LF will be replaced by CRLF the next time Git touches it
-```
-
-```
-diff --git a/tests/test_chat_mode_commands.py b/tests/test_chat_mode_commands.py
-index 8feab1e..b425010 100644
---- a/tests/test_chat_mode_commands.py
-+++ b/tests/test_chat_mode_commands.py
-@@ -45,3 +45,13 @@ def test_mode_command_requires_thread(client):
-     assert res.status_code == 200
-     body = res.json()
-     assert "thread id" in body["reply_text"].lower()
-
-
-def test_override_controls_routing_even_if_request_mode_is_ask(client):
-     thread = "t-mode-override"
-     client.post("/chat", json={"mode": "ask", "message": "/fill", "thread_id": thread})
-     res = client.post("/chat", json={"mode": "ask", "message": "hello", "thread_id": thread})
-     assert res.status_code == 200
-     body = res.json()
-     assert body["mode"] == "fill"
-     assert "try fill mode" not in body["reply_text"].lower()
-warning: in the working copy of 'tests/test_chat_mode_commands.py', LF will be replaced by CRLF the next time Git touches it
+```diff
+diff --git a/scripts/overwrite_diff_log.ps1 b/scripts/overwrite_diff_log.ps1
+index b7e6612..6601279 100644
+--- a/scripts/overwrite_diff_log.ps1
++++ b/scripts/overwrite_diff_log.ps1
+@@
+-  $head = (& git rev-parse HEAD).Trim()
++  $head = (& git rev-parse HEAD).Trim()
++  $baseHead = ""
++  try {
++    $baseHead = (& git rev-parse HEAD^).Trim()
++  } catch {
++    $baseHead = ""
++  }
+@@
+-  $out.Add("## Cycle Metadata")
+-  $out.Add("- Timestamp: $timestamp")
+-  $out.Add("- Branch: $branch")
+-  $out.Add("- BASE_HEAD: $head")
+-  $out.Add("- Diff basis: $basis")
++  $baseHeadLabel = if ([string]::IsNullOrWhiteSpace($baseHead)) { "N/A (no parent)" } else { $baseHead }
++  $out.Add("## Cycle Metadata")
++  $out.Add("- Timestamp: $timestamp")
++  $out.Add("- Branch: $branch")
++  $out.Add("- HEAD: $head")
++  $out.Add("- BASE_HEAD: $baseHeadLabel")
++  $out.Add("- Diff basis: $basis")
 ```
 
 ## Verification
 - `python -m compileall app`: PASS
-- `python -c "import app.main; print('import ok')"`: PASS
-- `pwsh -NoProfile -Command "./scripts/run_tests.ps1"`: PASS (53 passed, 1 warning: python_multipart; recorded at 2026-02-06T11:54:33Z–11:54:40Z in `evidence/test_runs.md`/`evidence/test_runs_latest.md`)
+- `python temp_import_check.py` (prints `import ok`): PASS
+- `pwsh -NoProfile -Command "./scripts/run_tests.ps1"`: PASS (53 passed, 1 warning: python_multipart; recorded at 2026-02-06T12:27:54Z–12:28:00Z in `evidence/test_runs.md`/`evidence/test_runs_latest.md`)
 
 ## Notes
-- This cycle intentionally excludes the previously staged evidence checkpoint; those files remain committed in the prior checkpoint.
+- Contracts/directive.md NOT PRESENT (allowed). Live `updatedifflog_live.md` was not touched this cycle.
 
 ## Next Steps
-- Await Julius’ `AUTHORIZED` before committing this backend fix.
+- Await Julius’ `AUTHORIZED` before staging/committing this cycle.

@@ -95,6 +95,12 @@ try {
   $timestamp = (Get-Date).ToString("yyyy-MM-ddTHH:mm:ssK")
   $branch = (& git rev-parse --abbrev-ref HEAD).Trim()
   $head = (& git rev-parse HEAD).Trim()
+  $baseHead = ""
+  try {
+    $baseHead = (& git rev-parse HEAD^).Trim()
+  } catch {
+    $baseHead = ""
+  }
 
   if ($Finalize) {
     if (-not (Test-Path $logPath)) {
@@ -142,10 +148,12 @@ try {
   $out = New-Object System.Collections.Generic.List[string]
   $out.Add("# Diff Log (overwrite each cycle)")
   $out.Add("")
+  $baseHeadLabel = if ([string]::IsNullOrWhiteSpace($baseHead)) { "N/A (no parent)" } else { $baseHead }
   $out.Add("## Cycle Metadata")
   $out.Add("- Timestamp: $timestamp")
   $out.Add("- Branch: $branch")
-  $out.Add("- BASE_HEAD: $head")
+  $out.Add("- HEAD: $head")
+  $out.Add("- BASE_HEAD: $baseHeadLabel")
   $out.Add("- Diff basis: $basis")
   $out.Add("")
   $out.Add("## Cycle Status")
