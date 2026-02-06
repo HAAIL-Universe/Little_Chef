@@ -1,4 +1,4 @@
-import { formatProposalSummary } from "./proposalRenderer.js";
+import { formatProposalSummary, stripProposalPrefix } from "./proposalRenderer.js";
 const state = {
     token: "",
     lastPlan: null,
@@ -8,6 +8,8 @@ const state = {
     chatError: "",
     onboarded: null,
 };
+const PROPOSAL_CONFIRM_COMMANDS = new Set(["confirm"]);
+const PROPOSAL_DENY_COMMANDS = new Set(["deny", "cancel"]);
 const flowOptions = [
     { key: "general", label: "General", placeholder: "Ask or fill..." },
     { key: "inventory", label: "Inventory", placeholder: "Ask about inventory, stock, or adjustments..." },
@@ -175,6 +177,62 @@ function clearProposal() {
     state.proposedActions = [];
     renderProposal();
 }
+function detectProposalCommand(message) {
+    const normalized = message.trim().toLowerCase();
+    if (!normalized)
+        return null;
+    if (PROPOSAL_CONFIRM_COMMANDS.has(normalized))
+        return "confirm";
+    if (PROPOSAL_DENY_COMMANDS.has(normalized))
+        return "deny";
+    return null;
+}
+async function submitProposalDecision(confirm, thinkingIndex) {
+    var _a;
+    if (!state.proposalId)
+        return;
+    setChatError("");
+    setDuetStatus(confirm ? "Applying proposal confirmation..." : "Cancelling proposal...");
+    setComposerBusy(true);
+    try {
+        const payload = {
+            proposal_id: state.proposalId,
+            confirm,
+            thread_id: duetState.threadId,
+        };
+        const response = await doPost("/chat/confirm", payload);
+        const success = response.status >= 200 && response.status < 300;
+        const assistantText = confirm
+            ? success
+                ? ((_a = response.json) === null || _a === void 0 ? void 0 : _a.applied)
+                    ? "Preferences confirmed."
+                    : "No pending preferences added."
+                : "Confirmation failed."
+            : success
+                ? "Preferences update cancelled."
+                : "Cancellation failed.";
+        if (typeof thinkingIndex === "number") {
+            updateHistory(thinkingIndex, assistantText);
+        }
+        else {
+            addHistory("assistant", assistantText);
+        }
+        state.chatReply = response;
+        setText("chat-reply", { status: response.status, json: response.json });
+        setDuetStatus(success ? "Reply received." : "Confirmation failed.");
+        if (success) {
+            clearProposal();
+        }
+    }
+    catch (err) {
+        console.error(err);
+        setChatError("Network error. Try again.");
+        setDuetStatus("Confirmation failed.");
+    }
+    finally {
+        setComposerBusy(false);
+    }
+}
 function setChatError(msg) {
     state.chatError = msg;
     const el = document.getElementById("chat-error");
@@ -304,17 +362,30 @@ function renderDuetHistory() {
         list.appendChild(li);
     });
 }
+function setBubbleText(element, text) {
+    if (!element)
+        return;
+    element.innerHTML = "";
+    if (!text)
+        return;
+    const parts = text.split("\n");
+    parts.forEach((line, idx) => {
+        element.append(document.createTextNode(line));
+        if (idx < parts.length - 1) {
+            element.append(document.createElement("br"));
+        }
+    });
+}
 function updateDuetBubbles() {
     var _a, _b;
     const assistant = document.getElementById("duet-assistant-text");
     const user = document.getElementById("duet-user-text");
     const lastAssistant = [...duetState.history].reverse().find((h) => h.role === "assistant");
     const lastUser = [...duetState.history].reverse().find((h) => h.role === "user");
-    if (assistant)
-        assistant.textContent =
-            (_a = lastAssistant === null || lastAssistant === void 0 ? void 0 : lastAssistant.text) !== null && _a !== void 0 ? _a : "Welcome — I’m Little Chef. To start onboarding, please fill out your preferences (allergies, likes/dislikes, servings, days).";
-    if (user)
-        user.textContent = (_b = lastUser === null || lastUser === void 0 ? void 0 : lastUser.text) !== null && _b !== void 0 ? _b : "Press and hold to start onboarding with preferences.";
+    const assistantFallback = "Welcome — I’m Little Chef. To start onboarding, please fill out your preferences (allergies, likes/dislikes, servings, days).";
+    const userFallback = "Press and hold to start onboarding with preferences.";
+    setBubbleText(assistant, (_a = lastAssistant === null || lastAssistant === void 0 ? void 0 : lastAssistant.text) !== null && _a !== void 0 ? _a : assistantFallback);
+    setBubbleText(user, (_b = lastUser === null || lastUser === void 0 ? void 0 : lastUser.text) !== null && _b !== void 0 ? _b : userFallback);
 }
 function applyDrawerProgress(progress, opts) {
     var _a;
@@ -656,7 +727,7 @@ function shellOnlyDuetReply(userText) {
     return resp;
 }
 async function sendAsk(message, opts) {
-    var _a;
+    var _a, _b;
     const ensureThread = () => {
         if (!duetState.threadId) {
             duetState.threadId = crypto.randomUUID();
@@ -664,10 +735,23 @@ async function sendAsk(message, opts) {
         }
         return duetState.threadId;
     };
+    const normalizedMessage = message.trim();
     const flowLabel = opts === null || opts === void 0 ? void 0 : opts.flowLabel;
-    const displayText = flowLabel ? `[${flowLabel}] ${message}` : message;
+    const displayText = flowLabel ? `[${flowLabel}] ${normalizedMessage}` : normalizedMessage;
     const userIndex = addHistory("user", displayText);
     const thinkingIndex = addHistory("assistant", "...");
+    const command = state.proposalId ? detectProposalCommand(normalizedMessage) : null;
+    if (command) {
+        setDuetStatus(command === "confirm" ? "Applying proposal confirmation..." : "Cancelling proposal...");
+        setComposerBusy(true);
+        try {
+            await submitProposalDecision(command === "confirm", thinkingIndex);
+        }
+        finally {
+            setComposerBusy(false);
+        }
+        return { userIndex, thinkingIndex };
+    }
     setDuetStatus("Contacting backend...");
     setComposerBusy(true);
     try {
@@ -688,9 +772,11 @@ async function sendAsk(message, opts) {
         }
         setModeFromResponse(json);
         const proposalSummary = formatProposalSummary(json);
-        const assistantText = proposalSummary ? `${json.reply_text}\n\n${proposalSummary}` : json.reply_text;
+        const replyText = json.reply_text;
+        const replyBase = proposalSummary ? (_a = stripProposalPrefix(replyText)) !== null && _a !== void 0 ? _a : replyText : replyText;
+        const assistantText = proposalSummary ? `${proposalSummary}\n\n${replyBase}` : replyBase;
         updateHistory(thinkingIndex, assistantText);
-        state.proposalId = (_a = json.proposal_id) !== null && _a !== void 0 ? _a : null;
+        state.proposalId = (_b = json.proposal_id) !== null && _b !== void 0 ? _b : null;
         state.proposedActions = Array.isArray(json.proposed_actions) ? json.proposed_actions : [];
         renderProposal();
         if (opts === null || opts === void 0 ? void 0 : opts.updateChatPanel) {
@@ -853,11 +939,14 @@ function wireDuetComposer() {
         const text = input.value.trim();
         if (!text || composerBusy)
             return;
-        clearProposal();
         setChatError("");
         const flow = (_a = flowOptions.find((f) => f.key === currentFlowKey)) !== null && _a !== void 0 ? _a : flowOptions[0];
         setDuetStatus("Sending to backend...");
         syncButtons();
+        const pendingCommand = state.proposalId ? detectProposalCommand(text) : null;
+        if (!pendingCommand) {
+            clearProposal();
+        }
         sendAsk(text, { flowLabel: flow.label });
         input.value = "";
         syncButtons();

@@ -1,5 +1,5 @@
 import assert from "node:assert";
-import { formatProposalSummary } from "../web/dist/proposalRenderer.js";
+import { formatProposalSummary, stripProposalPrefix, detectProposalCommand } from "../web/dist/proposalRenderer.js";
 
 const sampleResponse = {
   confirmation_required: true,
@@ -25,4 +25,42 @@ assert(summary.includes("Servings: 2"), "servings value missing");
 assert(summary.includes("Allergies: peanuts, shellfish"), "allergy list missing");
 assert(summary.includes("Dislikes: mushrooms, olives"), "dislikes missing");
 assert(summary.includes("Cuisine likes: chicken, salmon"), "cuisine likes missing");
+assert(
+  summary.indexOf("Proposed preferences") === summary.lastIndexOf("Proposed preferences"),
+  "heading should appear only once"
+);
+
+const rawReply =
+  "Proposed preferences: servings 2, meals/day 2. Reply CONFIRM to save or continue editing.";
+const cleaned = stripProposalPrefix(rawReply);
+assert(cleaned, "reply text should remain after stripping prefix");
+assert(!cleaned.startsWith("Proposed preferences"), "prefix should be removed");
+assert(cleaned.includes("Reply CONFIRM"), "confirmation instruction preserved");
+const assistantText = `${summary}\n\n${cleaned}`;
+const confirmCount = (assistantText.match(/Reply CONFIRM/g) ?? []).length;
+const headingCount = (assistantText.match(/Proposed preferences/g) ?? []).length;
+assert(confirmCount === 1, "confirmation instruction should appear once");
+assert(headingCount === 1, "heading should appear once");
+assert(assistantText.startsWith("Proposed preferences"), "heading should appear first");
+assert(assistantText.includes("\n• Servings: 2"), "servings line present");
+assert(assistantText.includes("\n• Meals/day: 2"), "meals/day line present");
+assert(
+  assistantText.includes("\n• Allergies:"),
+  "allergies bullet on its own line"
+);
+assert(
+  assistantText.indexOf("Reply CONFIRM") > assistantText.indexOf("Proposed preferences"),
+  "confirm instruction should appear after the proposal block"
+);
 console.log("ui proposal renderer test: PASS");
+
+const commands = [
+  { input: "confirm", expected: "confirm" },
+  { input: " Confirm ", expected: "confirm" },
+  { input: "CANcel", expected: "deny" },
+  { input: "no thanks", expected: null },
+];
+commands.forEach(({ input, expected }) => {
+  const actual = detectProposalCommand(input);
+  assert.strictEqual(actual, expected, `detectProposalCommand(${JSON.stringify(input)}) => ${JSON.stringify(actual)}, expected ${JSON.stringify(expected)}`);
+});

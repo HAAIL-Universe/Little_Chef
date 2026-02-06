@@ -26,40 +26,65 @@ const formatList = (label: string, values?: string[] | null): string | null => {
 };
 
 const describePrefs = (prefs: Prefs): string[] => {
-  const lines: string[] = ["Proposed preferences:"];
+  const lines: string[] = [];
   if (prefs.servings) {
-    lines.push(`- Servings: ${prefs.servings}`);
+    lines.push(`• Servings: ${prefs.servings}`);
   }
   if (prefs.meals_per_day) {
-    lines.push(`- Meals/day: ${prefs.meals_per_day}`);
+    lines.push(`• Meals/day: ${prefs.meals_per_day}`);
   }
   if (prefs.days) {
-    lines.push(`- Days: ${prefs.days}`);
+    lines.push(`• Days: ${prefs.days}`);
   }
   const allergyLine = formatList("Allergies", prefs.allergies);
-  if (allergyLine) lines.push(`- ${allergyLine}`);
+  if (allergyLine) lines.push(`• ${allergyLine}`);
   const dislikeLine = formatList("Dislikes", prefs.dislikes);
-  if (dislikeLine) lines.push(`- ${dislikeLine}`);
+  if (dislikeLine) lines.push(`• ${dislikeLine}`);
   const cuisineLine = formatList("Cuisine likes", prefs.cuisine_likes);
-  if (cuisineLine) lines.push(`- ${cuisineLine}`);
+  if (cuisineLine) lines.push(`• ${cuisineLine}`);
   if (prefs.notes) {
-    lines.push(`- Notes: ${prefs.notes}`);
+    lines.push(`• Notes: ${prefs.notes}`);
   }
   return lines;
 };
+
+const PROPOSAL_PREFIX_RE = /^Proposed preferences:[^.!?]*(?:[.!?]+)?[\s]*/i;
 
 export function formatProposalSummary(response: ChatResponse | null): string | null {
   if (!response || !response.confirmation_required) {
     return null;
   }
   const actions = response.proposed_actions ?? [];
-  const lines: string[] = [];
+  const details: string[] = [];
   actions.forEach((action) => {
     if (action.action_type === "upsert_prefs" && action.prefs) {
-      lines.push(...describePrefs(action.prefs));
+      details.push(...describePrefs(action.prefs));
     } else {
-      lines.push(`Proposal: ${action.action_type}`);
+      details.push(`• Proposal: ${action.action_type}`);
     }
   });
-  return lines.length ? lines.join("\n") : null;
+  if (!details.length) {
+    return null;
+  }
+  return ["Proposed preferences", "", ...details].join("\n");
+}
+
+export function stripProposalPrefix(text: string | null): string | null {
+  if (!text) {
+    return text;
+  }
+  return text.replace(PROPOSAL_PREFIX_RE, "").trimStart();
+}
+
+const PROPOSAL_CONFIRM_COMMANDS = new Set(["confirm"]);
+const PROPOSAL_DENY_COMMANDS = new Set(["deny", "cancel"]);
+
+export type ProposalCommand = "confirm" | "deny";
+
+export function detectProposalCommand(message: string): ProposalCommand | null {
+  const normalized = message.trim().toLowerCase();
+  if (!normalized) return null;
+  if (PROPOSAL_CONFIRM_COMMANDS.has(normalized)) return "confirm";
+  if (PROPOSAL_DENY_COMMANDS.has(normalized)) return "deny";
+  return null;
 }
