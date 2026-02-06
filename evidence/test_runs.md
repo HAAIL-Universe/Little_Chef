@@ -5765,3 +5765,416 @@ MM web/src/main.ts
  5 files changed, 52 insertions(+), 16 deletions(-)
 ```
 
+## Test Run 2026-02-06T02:12:11Z
+- Status: FAIL
+- Start: 2026-02-06T02:12:11Z
+- End: 2026-02-06T02:12:18Z
+- Python: Z:\LittleChef\.venv\\Scripts\\python.exe
+- Branch: main
+- HEAD: 575b7c4efdca98897d61a912d82dfa2c5f35cebf
+- compileall exit: 0
+- import app.main exit: 0
+- pytest exit: 1
+- pytest summary: 9 failed, 37 passed, 1 warning in 2.70s
+- git status -sb:
+```
+## main...origin/main [ahead 7]
+ M Contracts/physics.yaml
+ M app/api/routers/chat.py
+ M app/schemas.py
+ M app/services/chat_service.py
+ M evidence/updatedifflog.md
+ M tests/test_inventory_proposals.py
+ M web/dist/main.js
+ M web/src/main.ts
+?? app/migrations/
+?? tests/test_chat_prefs_thread.py
+```
+- git diff --stat:
+```
+ Contracts/physics.yaml            |  26 ++-
+ app/api/routers/chat.py           |   4 +-
+ app/schemas.py                    |   2 +
+ app/services/chat_service.py      |  67 +++++-
+ evidence/updatedifflog.md         | 431 ++++----------------------------------
+ tests/test_inventory_proposals.py |  24 ++-
+ web/dist/main.js                  |  11 +-
+ web/src/main.ts                   |  12 +-
+ 8 files changed, 169 insertions(+), 408 deletions(-)
+```
+- Failure payload:
+```
+=== pytest (exit 1) ===
+        monkeypatch.setenv("LLM_ENABLED", "1")
+        monkeypatch.setenv("OPENAI_MODEL", "gpt-4")
+        import app.api.routers.chat as chat_router
+    
+        chat_router.reset_chat_state_for_tests()
+        resp = authed_client.post("/chat", json={"mode": "ask", "message": "hello"})
+>       assert resp.status_code == 200
+E       assert 422 == 200
+E        +  where 422 = <Response [422 Unprocessable Entity]>.status_code
+
+tests\test_chat_llm.py:23: AssertionError
+___________________________ test_chat_llm_uses_mock ___________________________
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x000001520FFA8080>
+authed_client = <starlette.testclient.TestClient object at 0x000001520FFAA5D0>
+
+    def test_chat_llm_uses_mock(monkeypatch, authed_client):
+        monkeypatch.setenv("LLM_ENABLED", "1")
+        monkeypatch.setenv("OPENAI_MODEL", "gpt-5-nano")
+    
+        def fake_reply(system_prompt: str, user_text: str) -> str:  # pragma: no cover - deterministic path
+            return "mocked llm reply"
+    
+        import app.services.llm_client as llm_client
+    
+        monkeypatch.setattr(llm_client.LlmClient, "generate_reply", staticmethod(fake_reply))
+        import app.api.routers.chat as chat_router
+    
+        chat_router.reset_chat_state_for_tests()
+    
+        resp = authed_client.post("/chat", json={"mode": "ask", "message": "hi there"})
+>       assert resp.status_code == 200
+E       assert 422 == 200
+E        +  where 422 = <Response [422 Unprocessable Entity]>.status_code
+
+tests\test_chat_llm.py:44: AssertionError
+____________________________ test_chat_llm_toggle _____________________________
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x00000152104E0B90>
+authed_client = <starlette.testclient.TestClient object at 0x00000152104E0B30>
+
+    def test_chat_llm_toggle(monkeypatch, authed_client):
+        monkeypatch.setenv("OPENAI_MODEL", "gpt-5-nano")
+        monkeypatch.setenv("LLM_ENABLED", "0")
+        import app.api.routers.chat as chat_router
+        import app.services.llm_client as llm_client
+    
+        chat_router.reset_chat_state_for_tests()
+        # start disabled by default (LLM_ENABLED unset)
+        resp = authed_client.post("/chat", json={"mode": "ask", "message": "hello"})
+>       assert "LLM disabled" in resp.json()["reply_text"]
+                                 ^^^^^^^^^^^^^^^^^^^^^^^^^
+E       KeyError: 'reply_text'
+
+tests\test_chat_llm.py:59: KeyError
+____________________ test_chat_prefs_propose_confirm_flow _____________________
+
+authed_client = <starlette.testclient.TestClient object at 0x000001520FFF58B0>
+
+    def test_chat_prefs_propose_confirm_flow(authed_client):
+        # propose
+        resp = authed_client.post(
+            "/chat",
+            json={"mode": "fill", "message": "set servings 4 meals per day 2"},
+        )
+>       assert resp.status_code == 200
+E       assert 422 == 200
+E        +  where 422 = <Response [422 Unprocessable Entity]>.status_code
+
+tests\test_chat_prefs_propose_confirm.py:7: AssertionError
+_____________________ test_prefs_missing_loop_and_confirm _____________________
+
+client = <starlette.testclient.TestClient object at 0x00000152105250A0>
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x0000015210562AE0>
+
+    def test_prefs_missing_loop_and_confirm(client, monkeypatch):
+        # monkeypatch prefs_repo upsert to record calls
+        calls = []
+    
+        from app.services import prefs_service as ps
+    
+        original_upsert = ps.get_prefs_service().upsert_prefs
+    
+        def fake_upsert(user_id, provider_subject, email, prefs):
+            calls.append(prefs)
+            return prefs
+    
+        monkeypatch.setattr(ps.get_prefs_service(), "upsert_prefs", fake_upsert)
+    
+        thread = "11111111-1111-4111-8111-111111111111"
+    
+        # missing fields -> ask question
+        resp1 = client.post(
+            "/chat",
+            json={"mode": "fill", "message": "allergies peanuts", "include_user_library": True, "thread_id": thread},
+        )
+        assert resp1.status_code == 200
+        data1 = resp1.json()
+        assert data1["confirmation_required"] is False
+        assert "servings" in data1["reply_text"].lower() or "meals" in data1["reply_text"].lower()
+    
+        # supply required fields
+        resp2 = client.post(
+            "/chat",
+            json={"mode": "fill", "message": "2 servings and 3 meals per day", "include_user_library": True, "thread_id": thread},
+        )
+        assert resp2.status_code == 200
+        data2 = resp2.json()
+>       assert data2["confirmation_required"] is True
+E       assert False is True
+
+tests\test_chat_prefs_thread.py:63: AssertionError
+_________________________ test_confirm_writes_events __________________________
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x000001520FFAB560>
+
+    def test_confirm_writes_events(monkeypatch):
+        import app.services.chat_service as chat_service
+    
+        monkeypatch.setattr(chat_service, "extract_new_draft", lambda text, llm: [{"name_raw": "cereal", "quantity_raw": "2", "unit_raw": "count", "expires_raw": None, "notes_raw": None}, {"name_raw": "flour", "quantity_raw": "1", "unit_raw": "kg", "expires_raw": None, "notes_raw": None}])
+        monkeypatch.setattr(chat_service, "normalize_items", lambda raw, loc: [
+            {"item": {"item_key": "cereal", "quantity": 2, "unit": "count", "notes": None, "expires_on": None, "base_name": "cereal"}, "warnings": []},
+            {"item": {"item_key": "flour", "quantity": 1000, "unit": "g", "notes": None, "expires_on": None, "base_name": "flour"}, "warnings": []},
+        ])
+    
+        svc, inv = make_service(monkeypatch, llm=None)
+        user = UserMe(user_id="u1", provider_subject="s", email=None)
+    
+        resp1 = svc.handle_chat(
+            user, ChatRequest(mode="fill", message="add cereal", include_user_library=True, location="pantry", thread_id="t1")
+        )
+        pid = resp1.proposal_id
+        assert pid
+        assert "u1" in svc.proposal_store._data
+        assert pid in svc.proposal_store._data["u1"]
+>       applied, evs = svc.confirm(user, pid, confirm=True)
+                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\test_inventory_proposals.py:90: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+self = <app.services.chat_service.ChatService object at 0x000001520FFABF80>
+user = UserMe(user_id='u1', provider_subject='s', email=None, onboarded=False)
+proposal_id = 'bf390e04-ab4b-49e4-8789-26cf75ed9592', confirm = True
+thread_id = None
+
+    def confirm(self, user: UserMe, proposal_id: str, confirm: bool, thread_id: str | None = None) -> tuple[bool, List[str]]:
+        action = self.proposal_store.pop(user.user_id, proposal_id)
+        if not action:
+            pending = self.pending_raw.get(user.user_id)
+            if pending:
+                normalized = normalize_items(pending.get("raw_items", []), pending.get("location", "pantry"))
+                action = self._to_actions(normalized)
+            else:
+                return False, []
+        if not confirm:
+            self.pending_raw.pop(user.user_id, None)
+            if thread_id:
+                self.prefs_drafts.pop((user.user_id, thread_id), None)
+            return False, []
+    
+        applied_event_ids: List[str] = []
+        actions = action if isinstance(action, list) else [action]
+        for act in actions:
+            if isinstance(act, ProposedUpsertPrefsAction):
+                self.prefs_service.upsert_prefs(user.user_id, user.provider_subject, user.email, act.prefs)
+            else:
+                payload = getattr(act, "event", act)
+                if hasattr(self.inventory_service, "events"):
+                    self.inventory_service.events.append(payload)
+                    applied_event_ids.append(f"ev{len(self.inventory_service.events)}")
+                else:
+                    ev = self.inventory_service.create_event(
+                        user.user_id,
+                        user.provider_subject,
+                        user.email,
+                        payload,
+                    )
+>               if hasattr(ev, "event_id"):
+                           ^^
+E               UnboundLocalError: cannot access local variable 'ev' where it is not associated with a value
+
+app\services\chat_service.py:278: UnboundLocalError
+============================== warnings summary ===============================
+.venv\Lib\site-packages\starlette\formparsers.py:12
+  Z:\LittleChef\.venv\Lib\site-packages\starlette\formparsers.py:12: PendingDeprecationWarning: Please use `import python_multipart` instead.
+    import multipart
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED tests/test_chat_inventory_ask_low_stock.py::test_chat_inventory_ask_low_stock
+FAILED tests/test_chat_inventory_fill_propose_confirm.py::test_chat_inventory_fill_propose_confirm
+FAILED tests/test_chat_llm.py::test_chat_llm_disabled - assert 422 == 200
+FAILED tests/test_chat_llm.py::test_chat_llm_invalid_model - assert 422 == 200
+FAILED tests/test_chat_llm.py::test_chat_llm_uses_mock - assert 422 == 200
+FAILED tests/test_chat_llm.py::test_chat_llm_toggle - KeyError: 'reply_text'
+FAILED tests/test_chat_prefs_propose_confirm.py::test_chat_prefs_propose_confirm_flow
+FAILED tests/test_chat_prefs_thread.py::test_prefs_missing_loop_and_confirm
+FAILED tests/test_inventory_proposals.py::test_confirm_writes_events - Unboun...
+9 failed, 37 passed, 1 warning in 2.70s
+```
+
+## Test Run 2026-02-06T02:18:01Z
+- Status: FAIL
+- Start: 2026-02-06T02:18:01Z
+- End: 2026-02-06T02:18:07Z
+- Python: Z:\LittleChef\.venv\\Scripts\\python.exe
+- Branch: main
+- HEAD: 575b7c4efdca98897d61a912d82dfa2c5f35cebf
+- compileall exit: 0
+- import app.main exit: 0
+- pytest exit: 1
+- pytest summary: 2 failed, 44 passed, 1 warning in 2.07s
+- git status -sb:
+```
+## main...origin/main [ahead 7]
+ M Contracts/physics.yaml
+ M app/api/routers/chat.py
+ M app/schemas.py
+ M app/services/chat_service.py
+ M evidence/test_runs.md
+ M evidence/test_runs_latest.md
+ M evidence/updatedifflog.md
+ M tests/test_chat_inventory_ask_low_stock.py
+ M tests/test_chat_inventory_fill_propose_confirm.py
+ M tests/test_chat_llm.py
+ M tests/test_chat_prefs_propose_confirm.py
+ M tests/test_inventory_proposals.py
+ M web/dist/main.js
+ M web/src/main.ts
+?? app/migrations/
+?? tests/test_chat_prefs_thread.py
+```
+- git diff --stat:
+```
+ Contracts/physics.yaml                            |  26 +-
+ app/api/routers/chat.py                           |   4 +-
+ app/schemas.py                                    |   2 +
+ app/services/chat_service.py                      |  82 +++-
+ evidence/test_runs.md                             | 242 ++++++++++++
+ evidence/test_runs_latest.md                      | 260 ++++++++++++-
+ evidence/updatedifflog.md                         | 431 +++-------------------
+ tests/test_chat_inventory_ask_low_stock.py        |   2 +-
+ tests/test_chat_inventory_fill_propose_confirm.py |   5 +-
+ tests/test_chat_llm.py                            |  17 +-
+ tests/test_chat_prefs_propose_confirm.py          |   5 +-
+ tests/test_inventory_proposals.py                 |  24 +-
+ web/dist/main.js                                  |  11 +-
+ web/src/main.ts                                   |  12 +-
+ 14 files changed, 679 insertions(+), 444 deletions(-)
+```
+- Failure payload:
+```
+=== pytest (exit 1) ===
+.........F....F...............................                           [100%]
+================================== FAILURES ===================================
+__________________ test_chat_inventory_fill_propose_confirm ___________________
+
+authed_client = <starlette.testclient.TestClient object at 0x0000020266D51370>
+
+    def test_chat_inventory_fill_propose_confirm(authed_client):
+        thread = "t-inv-fill"
+        resp = authed_client.post("/chat", json={"mode": "fill", "message": "bought 2 eggs", "thread_id": thread})
+        assert resp.status_code == 200
+        body = resp.json()
+>       assert body["confirmation_required"] is True
+E       assert False is True
+
+tests\test_chat_inventory_fill_propose_confirm.py:6: AssertionError
+____________________ test_chat_prefs_propose_confirm_flow _____________________
+
+authed_client = <starlette.testclient.TestClient object at 0x0000020266E31C40>
+
+    def test_chat_prefs_propose_confirm_flow(authed_client):
+        thread = "t-prefs-confirm"
+        # propose
+        resp = authed_client.post(
+            "/chat",
+            json={"mode": "fill", "message": "set servings 4 meals per day 2", "thread_id": thread},
+        )
+        assert resp.status_code == 200
+        body = resp.json()
+        assert body["confirmation_required"] is True
+        assert body["proposal_id"]
+        assert body["proposed_actions"]
+        action = body["proposed_actions"][0]
+        assert action["action_type"] == "upsert_prefs"
+        assert action["prefs"]["servings"] == 4
+>       assert action["prefs"]["meals_per_day"] == 2
+E       assert 4 == 2
+
+tests\test_chat_prefs_propose_confirm.py:16: AssertionError
+============================== warnings summary ===============================
+.venv\Lib\site-packages\starlette\formparsers.py:12
+  Z:\LittleChef\.venv\Lib\site-packages\starlette\formparsers.py:12: PendingDeprecationWarning: Please use `import python_multipart` instead.
+    import multipart
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED tests/test_chat_inventory_fill_propose_confirm.py::test_chat_inventory_fill_propose_confirm
+FAILED tests/test_chat_prefs_propose_confirm.py::test_chat_prefs_propose_confirm_flow
+2 failed, 44 passed, 1 warning in 2.07s
+```
+
+
+
+Status: PASS
+Start: 2026-02-06T02:35:00Z
+End: 2026-02-06T02:35:10Z
+Branch: main
+HEAD: 575b7c4efdca98897d61a912d82dfa2c5f35cebf
+Python: Z:\LittleChef\.venv\\Scripts\\python.exe
+compileall exit: 0
+import app.main exit: 0
+pytest exit: 0
+pytest summary: 46 passed, 1 warning in 2.97s
+Warnings:
+- PendingDeprecationWarning from python_multipart (Starlette formparsers)
+
+## Test Run 2026-02-06T02:32:42Z
+- Status: PASS
+- Start: 2026-02-06T02:32:42Z
+- End: 2026-02-06T02:32:48Z
+- Python: Z:\LittleChef\.venv\\Scripts\\python.exe
+- Branch: main
+- HEAD: 575b7c4efdca98897d61a912d82dfa2c5f35cebf
+- compileall exit: 0
+- import app.main exit: 0
+- pytest exit: 0
+- pytest summary: 46 passed, 1 warning in 2.43s
+- git status -sb:
+```
+## main...origin/main [ahead 7]
+M  Contracts/physics.yaml
+M  app/api/routers/chat.py
+AD app/migrations/0001_threads.sql
+M  app/schemas.py
+M  app/services/chat_service.py
+M  app/services/prefs_service.py
+M  evidence/test_runs.md
+M  evidence/test_runs_latest.md
+M  evidence/updatedifflog.md
+M  tests/test_chat_inventory_ask_low_stock.py
+M  tests/test_chat_inventory_fill_propose_confirm.py
+M  tests/test_chat_llm.py
+M  tests/test_chat_prefs_propose_confirm.py
+A  tests/test_chat_prefs_thread.py
+M  tests/test_inventory_proposals.py
+M  web/dist/main.js
+M  web/src/main.ts
+?? db/migrations/0002_threads.sql
+```
+- git diff --stat:
+```
+ app/migrations/0001_threads.sql | 9 ---------
+ 1 file changed, 9 deletions(-)
+```
+
+
+
+Status: PASS
+Start: 2026-02-06T02:42:00Z
+End: 2026-02-06T02:42:15Z
+Branch: main
+HEAD: 575b7c4efdca98897d61a912d82dfa2c5f35cebf
+Python: Z:\LittleChef\.venv\\Scripts\\python.exe
+compileall exit: 0
+import app.main exit: 0
+pytest exit: 0
+pytest summary: 46 passed, 1 warning
+Warnings:
+- PendingDeprecationWarning from python_multipart (Starlette formparsers)
+

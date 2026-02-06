@@ -36,9 +36,13 @@ def test_pending_edit_updates_without_write(monkeypatch):
     svc, inv = make_service(monkeypatch, llm=None)
     user = UserMe(user_id="u1", provider_subject="s", email=None)
 
-    resp1 = svc.handle_chat(user, ChatRequest(mode="fill", message="add cereal", include_user_library=True, location="pantry"))
+    resp1 = svc.handle_chat(
+        user, ChatRequest(mode="fill", message="add cereal", include_user_library=True, location="pantry", thread_id="t1")
+    )
     assert resp1.confirmation_required is True
-    resp2 = svc.handle_chat(user, ChatRequest(mode="fill", message="remove cereal", include_user_library=True, location="pantry"))
+    resp2 = svc.handle_chat(
+        user, ChatRequest(mode="fill", message="remove cereal", include_user_library=True, location="pantry", thread_id="t1")
+    )
     assert resp2.confirmation_required is True
     assert len(inv.events) == 0
 
@@ -52,11 +56,15 @@ def test_deny_clears_pending(monkeypatch):
     svc, inv = make_service(monkeypatch, llm=None)
     user = UserMe(user_id="u1", provider_subject="s", email=None)
 
-    resp1 = svc.handle_chat(user, ChatRequest(mode="fill", message="add cereal", include_user_library=True, location="pantry"))
+    resp1 = svc.handle_chat(
+        user, ChatRequest(mode="fill", message="add cereal", include_user_library=True, location="pantry", thread_id="t1")
+    )
     pid = resp1.proposal_id
     applied, evs = svc.confirm(user, pid, confirm=False)
     assert applied is False
-    resp2 = svc.handle_chat(user, ChatRequest(mode="fill", message="remove cereal", include_user_library=True, location="pantry"))
+    resp2 = svc.handle_chat(
+        user, ChatRequest(mode="fill", message="remove cereal", include_user_library=True, location="pantry", thread_id="t1")
+    )
     assert resp2.confirmation_required is True
 
 
@@ -72,7 +80,9 @@ def test_confirm_writes_events(monkeypatch):
     svc, inv = make_service(monkeypatch, llm=None)
     user = UserMe(user_id="u1", provider_subject="s", email=None)
 
-    resp1 = svc.handle_chat(user, ChatRequest(mode="fill", message="add cereal", include_user_library=True, location="pantry"))
+    resp1 = svc.handle_chat(
+        user, ChatRequest(mode="fill", message="add cereal", include_user_library=True, location="pantry", thread_id="t1")
+    )
     pid = resp1.proposal_id
     assert pid
     assert "u1" in svc.proposal_store._data
@@ -80,5 +90,7 @@ def test_confirm_writes_events(monkeypatch):
     applied, evs = svc.confirm(user, pid, confirm=True)
     assert applied is True
     assert len(inv.events) == 2
-    resp2 = svc.handle_chat(user, ChatRequest(mode="fill", message="more flour", include_user_library=True, location="pantry"))
+    resp2 = svc.handle_chat(
+        user, ChatRequest(mode="fill", message="more flour", include_user_library=True, location="pantry", thread_id="t1")
+    )
     assert resp2.confirmation_required is True

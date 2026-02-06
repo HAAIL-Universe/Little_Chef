@@ -1,8 +1,9 @@
 def test_chat_prefs_propose_confirm_flow(authed_client):
+    thread = "t-prefs-confirm"
     # propose
     resp = authed_client.post(
         "/chat",
-        json={"mode": "fill", "message": "set servings 4 meals per day 2"},
+        json={"mode": "fill", "message": "set servings 4 meals per day 2", "thread_id": thread},
     )
     assert resp.status_code == 200
     body = resp.json()
@@ -18,7 +19,7 @@ def test_chat_prefs_propose_confirm_flow(authed_client):
     proposal_id = body["proposal_id"]
     resp = authed_client.post(
         "/chat/confirm",
-        json={"proposal_id": proposal_id, "confirm": True},
+        json={"proposal_id": proposal_id, "confirm": True, "thread_id": thread},
     )
     assert resp.status_code == 200
     assert resp.json()["applied"] is True

@@ -6,7 +6,7 @@ def test_chat_llm_disabled(monkeypatch, authed_client):
     import app.api.routers.chat as chat_router
 
     chat_router.reset_chat_state_for_tests()
-    resp = authed_client.post("/chat", json={"mode": "ask", "message": "hello"})
+    resp = authed_client.post("/chat", json={"mode": "ask", "message": "hello", "thread_id": "t-llm-disabled"})
     assert resp.status_code == 200
     body = resp.json()
     assert "LLM disabled" in body["reply_text"]
@@ -19,7 +19,7 @@ def test_chat_llm_invalid_model(monkeypatch, authed_client):
     import app.api.routers.chat as chat_router
 
     chat_router.reset_chat_state_for_tests()
-    resp = authed_client.post("/chat", json={"mode": "ask", "message": "hello"})
+    resp = authed_client.post("/chat", json={"mode": "ask", "message": "hello", "thread_id": "t-llm-invalid"})
     assert resp.status_code == 200
     body = resp.json()
     assert "gpt-5" in body["reply_text"]
@@ -40,7 +40,7 @@ def test_chat_llm_uses_mock(monkeypatch, authed_client):
 
     chat_router.reset_chat_state_for_tests()
 
-    resp = authed_client.post("/chat", json={"mode": "ask", "message": "hi there"})
+    resp = authed_client.post("/chat", json={"mode": "ask", "message": "hi there", "thread_id": "t-llm-mock"})
     assert resp.status_code == 200
     body = resp.json()
     assert body["reply_text"] == "mocked llm reply"
@@ -55,22 +55,23 @@ def test_chat_llm_toggle(monkeypatch, authed_client):
 
     chat_router.reset_chat_state_for_tests()
     # start disabled by default (LLM_ENABLED unset)
-    resp = authed_client.post("/chat", json={"mode": "ask", "message": "hello"})
+    thread = "t-llm-toggle"
+    resp = authed_client.post("/chat", json={"mode": "ask", "message": "hello", "thread_id": thread})
     assert "LLM disabled" in resp.json()["reply_text"]
 
-    resp = authed_client.post("/chat", json={"mode": "ask", "message": "/llm on"})
+    resp = authed_client.post("/chat", json={"mode": "ask", "message": "/llm on", "thread_id": thread})
     assert "enabled" in resp.json()["reply_text"].lower()
 
     orig_generate = llm_client.LlmClient.generate_reply
     monkeypatch.setattr(llm_client.LlmClient, "generate_reply", staticmethod(lambda s, u: "live reply"))
 
-    resp = authed_client.post("/chat", json={"mode": "ask", "message": "hello"})
+    resp = authed_client.post("/chat", json={"mode": "ask", "message": "hello", "thread_id": thread})
     assert resp.json()["reply_text"] == "live reply"
 
-    resp = authed_client.post("/chat", json={"mode": "ask", "message": "/llm off"})
+    resp = authed_client.post("/chat", json={"mode": "ask", "message": "/llm off", "thread_id": thread})
     assert "disabled" in resp.json()["reply_text"].lower()
 
     monkeypatch.setattr(llm_client.LlmClient, "generate_reply", orig_generate)
 
-    resp = authed_client.post("/chat", json={"mode": "ask", "message": "hello"})
+    resp = authed_client.post("/chat", json={"mode": "ask", "message": "hello", "thread_id": thread})
     assert "LLM disabled" in resp.json()["reply_text"]

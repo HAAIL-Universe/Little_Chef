@@ -507,7 +507,7 @@ components:
 
     ChatRequest:
       type: object
-      required: [mode, message]
+      required: [mode, message, thread_id]
       properties:
         mode:
           $ref: "#/components/schemas/ChatMode"
@@ -517,6 +517,10 @@ components:
         include_user_library:
           type: boolean
           default: true
+        thread_id:
+          type: string
+          format: uuid
+          description: Stable thread identifier for this chat session.
 
     ChatResponse:
       type: object
@@ -539,14 +543,18 @@ components:
           items: { type: string }
           default: []
 
-  ConfirmProposalRequest:
-    type: object
-    required: [proposal_id, confirm]
-    properties:
-      proposal_id:
-        type: string
-      confirm:
-        type: boolean
+    ConfirmProposalRequest:
+      type: object
+      required: [proposal_id, confirm, thread_id]
+      properties:
+        proposal_id:
+          type: string
+        confirm:
+          type: boolean
+        thread_id:
+          type: string
+          format: uuid
+          description: Thread identifier for proposal confirmation.
         description: |
           true applies the proposed actions; false marks the proposal as declined (non-destructive). Declined proposals remain recoverable until a new clean thread starts.
 

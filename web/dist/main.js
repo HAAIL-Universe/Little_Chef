@@ -613,7 +613,7 @@ async function doPost(path, body) {
 }
 function shellOnlyDuetReply(userText) {
     var _a;
-    const thread = (_a = duetState.threadId) !== null && _a !== void 0 ? _a : "shell-local";
+    const thread = (_a = duetState.threadId) !== null && _a !== void 0 ? _a : crypto.randomUUID();
     duetState.threadId = thread;
     updateThreadLabel();
     const replyText = "(Shell) Phase 7.1: backend wiring lands in Phase 7.4.";
@@ -627,6 +627,13 @@ function shellOnlyDuetReply(userText) {
     return resp;
 }
 async function sendAsk(message, opts) {
+    const ensureThread = () => {
+        if (!duetState.threadId) {
+            duetState.threadId = crypto.randomUUID();
+            updateThreadLabel();
+        }
+        return duetState.threadId;
+    };
     const flowLabel = opts === null || opts === void 0 ? void 0 : opts.flowLabel;
     const displayText = flowLabel ? `[${flowLabel}] ${message}` : message;
     const userIndex = addHistory("user", displayText);
@@ -634,6 +641,7 @@ async function sendAsk(message, opts) {
     setDuetStatus("Contacting backend...");
     setComposerBusy(true);
     try {
+        const threadId = ensureThread();
         const res = await fetch("/chat", {
             method: "POST",
             headers: headers(),
@@ -641,6 +649,7 @@ async function sendAsk(message, opts) {
                 mode: "ask",
                 message,
                 include_user_library: true,
+                thread_id: threadId,
             }),
         });
         const json = await res.json().catch(() => null);
