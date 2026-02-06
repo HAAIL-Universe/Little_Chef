@@ -1,3 +1,5 @@
+import { formatProposalSummary } from "./proposalRenderer.js";
+
 const state = {
   token: "",
   lastPlan: null as any,
@@ -728,7 +730,12 @@ async function sendAsk(message: string, opts?: { flowLabel?: string; updateChatP
       throw new Error(json?.message || `ASK failed (status ${res.status})`);
     }
     setModeFromResponse(json);
-    updateHistory(thinkingIndex, json.reply_text);
+    const proposalSummary = formatProposalSummary(json);
+    const assistantText = proposalSummary ? `${json.reply_text}\n\n${proposalSummary}` : json.reply_text;
+    updateHistory(thinkingIndex, assistantText);
+    state.proposalId = json.proposal_id ?? null;
+    state.proposedActions = Array.isArray(json.proposed_actions) ? json.proposed_actions : [];
+    renderProposal();
     if (opts?.updateChatPanel) {
       setText("chat-reply", { status: res.status, json });
     }

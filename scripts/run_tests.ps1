@@ -210,6 +210,11 @@ try {
     $failingTests = ($nonEmpty | Where-Object { $_ -match "FAILED" -or $_ -match "::" }) -join "`n"
   }
   if ($pytestExit -eq 0) { Info "pytest: ok" } else { Err "pytest failed ($pytestExit)" }
+
+  Info "npm --prefix web run build"
+  & npm --prefix web run build
+  Info "node scripts/ui_proposal_renderer_test.mjs"
+  & node "$PSScriptRoot\ui_proposal_renderer_test.mjs"
 }
 finally {
   $endUtc = (Get-Date).ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ")

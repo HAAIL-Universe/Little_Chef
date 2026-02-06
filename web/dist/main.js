@@ -1,4 +1,4 @@
-"use strict";
+import { formatProposalSummary } from "./proposalRenderer.js";
 const state = {
     token: "",
     lastPlan: null,
@@ -656,6 +656,7 @@ function shellOnlyDuetReply(userText) {
     return resp;
 }
 async function sendAsk(message, opts) {
+    var _a;
     const ensureThread = () => {
         if (!duetState.threadId) {
             duetState.threadId = crypto.randomUUID();
@@ -686,7 +687,12 @@ async function sendAsk(message, opts) {
             throw new Error((json === null || json === void 0 ? void 0 : json.message) || `ASK failed (status ${res.status})`);
         }
         setModeFromResponse(json);
-        updateHistory(thinkingIndex, json.reply_text);
+        const proposalSummary = formatProposalSummary(json);
+        const assistantText = proposalSummary ? `${json.reply_text}\n\n${proposalSummary}` : json.reply_text;
+        updateHistory(thinkingIndex, assistantText);
+        state.proposalId = (_a = json.proposal_id) !== null && _a !== void 0 ? _a : null;
+        state.proposedActions = Array.isArray(json.proposed_actions) ? json.proposed_actions : [];
+        renderProposal();
         if (opts === null || opts === void 0 ? void 0 : opts.updateChatPanel) {
             setText("chat-reply", { status: res.status, json });
         }
