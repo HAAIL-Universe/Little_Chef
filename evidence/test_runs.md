@@ -10203,3 +10203,589 @@ M  tests/test_inventory_proposals.py
  2 files changed, 135 insertions(+), 33 deletions(-)
 ```
 
+## Test Run 2026-02-07T01:01:34Z
+- Status: FAIL
+- Start: 2026-02-07T01:01:34Z
+- End: 2026-02-07T01:01:43Z
+- Python: Z:\LittleChef\.venv\\Scripts\\python.exe
+- Branch: main
+- HEAD: 0af57dfa8b6422de03bde0046e8736648a75a534
+- compileall exit: 0
+- import app.main exit: 0
+- pytest exit: 1
+- pytest summary: 1 failed, 66 passed, 1 warning in 3.65s
+- git status -sb:
+```
+## main...origin/main
+ M app/services/inventory_agent.py
+MM evidence/updatedifflog.md
+ M scripts/ui_proposal_renderer_test.mjs
+ M tests/test_inventory_agent.py
+ M web/src/proposalRenderer.ts
+```
+- git diff --stat:
+```
+ app/services/inventory_agent.py       |  242 +-
+ evidence/updatedifflog.md             | 5550 ++++++++++++++++++++++++++++++++-
+ scripts/ui_proposal_renderer_test.mjs |   32 +
+ tests/test_inventory_agent.py         |   24 +
+ web/src/proposalRenderer.ts           |   12 +-
+ 5 files changed, 5645 insertions(+), 215 deletions(-)
+```
+- Failure payload:
+```
+=== pytest (exit 1) ===
+..............................F....................................      [100%]
+================================== FAILURES ===================================
+________________ test_inventory_agent_parse_coerces_event_type ________________
+
+    def test_inventory_agent_parse_coerces_event_type():
+        agent, _ = _make_agent()
+        action, warnings = agent._parse_inventory_action("used 2 apples")
+        assert action is not None
+        assert action.event.event_type == "add"
+>       assert warnings == ["Note: treated as add in Phase 8."]
+E       AssertionError: assert ['Note: treat...ING_QUANTITY'] == ['Note: treat... in Phase 8.']
+E         
+E         Left contains one more item: 'FALLBACK_MISSING_QUANTITY'
+E         Use -v to get more diff
+
+tests\test_inventory_agent.py:85: AssertionError
+============================== warnings summary ===============================
+.venv\Lib\site-packages\starlette\formparsers.py:12
+  Z:\LittleChef\.venv\Lib\site-packages\starlette\formparsers.py:12: PendingDeprecationWarning: Please use `import python_multipart` instead.
+    import multipart
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED tests/test_inventory_agent.py::test_inventory_agent_parse_coerces_event_type
+1 failed, 66 passed, 1 warning in 3.65s
+```
+
+## Test Run 2026-02-07T01:02:25Z
+- Status: FAIL
+- Start: 2026-02-07T01:02:25Z
+- End: 2026-02-07T01:02:33Z
+- Python: Z:\LittleChef\.venv\\Scripts\\python.exe
+- Branch: main
+- HEAD: 0af57dfa8b6422de03bde0046e8736648a75a534
+- compileall exit: 0
+- import app.main exit: 0
+- pytest exit: 1
+- pytest summary: 1 failed, 66 passed, 1 warning in 3.04s
+- git status -sb:
+```
+## main...origin/main
+ M app/services/inventory_agent.py
+ M evidence/test_runs.md
+ M evidence/test_runs_latest.md
+MM evidence/updatedifflog.md
+ M scripts/ui_proposal_renderer_test.mjs
+ M tests/test_inventory_agent.py
+ M web/dist/proposalRenderer.js
+ M web/src/proposalRenderer.ts
+```
+- git diff --stat:
+```
+ app/services/inventory_agent.py       |  242 +-
+ evidence/test_runs.md                 |   59 +
+ evidence/test_runs_latest.md          |   62 +-
+ evidence/updatedifflog.md             | 5550 ++++++++++++++++++++++++++++++++-
+ scripts/ui_proposal_renderer_test.mjs |   32 +
+ tests/test_inventory_agent.py         |   24 +
+ web/dist/proposalRenderer.js          |   13 +-
+ web/src/proposalRenderer.ts           |   12 +-
+ 8 files changed, 5765 insertions(+), 229 deletions(-)
+```
+- Failure payload:
+```
+=== pytest (exit 1) ===
+..............................F....................................      [100%]
+================================== FAILURES ===================================
+________________ test_inventory_agent_parse_coerces_event_type ________________
+
+    def test_inventory_agent_parse_coerces_event_type():
+        agent, _ = _make_agent()
+        action, warnings = agent._parse_inventory_action("used 2 apples")
+        assert action is not None
+        assert action.event.event_type == "add"
+>       assert warnings == ["Note: treated as add in Phase 8."]
+E       AssertionError: assert ['Note: treat...ING_QUANTITY'] == ['Note: treat... in Phase 8.']
+E         
+E         Left contains one more item: 'FALLBACK_MISSING_QUANTITY'
+E         Use -v to get more diff
+
+tests\test_inventory_agent.py:85: AssertionError
+============================== warnings summary ===============================
+.venv\Lib\site-packages\starlette\formparsers.py:12
+  Z:\LittleChef\.venv\Lib\site-packages\starlette\formparsers.py:12: PendingDeprecationWarning: Please use `import python_multipart` instead.
+    import multipart
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED tests/test_inventory_agent.py::test_inventory_agent_parse_coerces_event_type
+1 failed, 66 passed, 1 warning in 3.04s
+```
+
+## Test Run 2026-02-07T01:03:07Z
+- Status: FAIL
+- Start: 2026-02-07T01:03:07Z
+- End: 2026-02-07T01:03:15Z
+- Python: Z:\LittleChef\.venv\\Scripts\\python.exe
+- Branch: main
+- HEAD: 0af57dfa8b6422de03bde0046e8736648a75a534
+- compileall exit: 0
+- import app.main exit: 0
+- pytest exit: 1
+- pytest summary: 1 failed, 66 passed, 1 warning in 3.03s
+- git status -sb:
+```
+## main...origin/main
+ M app/services/inventory_agent.py
+ M evidence/test_runs.md
+ M evidence/test_runs_latest.md
+MM evidence/updatedifflog.md
+ M scripts/ui_proposal_renderer_test.mjs
+ M tests/test_inventory_agent.py
+ M web/dist/proposalRenderer.js
+ M web/src/proposalRenderer.ts
+```
+- git diff --stat:
+```
+ app/services/inventory_agent.py       |  242 +-
+ evidence/test_runs.md                 |  124 +
+ evidence/test_runs_latest.md          |   64 +-
+ evidence/updatedifflog.md             | 5550 ++++++++++++++++++++++++++++++++-
+ scripts/ui_proposal_renderer_test.mjs |   32 +
+ tests/test_inventory_agent.py         |   24 +
+ web/dist/proposalRenderer.js          |   13 +-
+ web/src/proposalRenderer.ts           |   12 +-
+ 8 files changed, 5834 insertions(+), 227 deletions(-)
+```
+- Failure payload:
+```
+=== pytest (exit 1) ===
+..............................F....................................      [100%]
+================================== FAILURES ===================================
+________________ test_inventory_agent_parse_coerces_event_type ________________
+
+    def test_inventory_agent_parse_coerces_event_type():
+        agent, _ = _make_agent()
+        action, warnings = agent._parse_inventory_action("used 2 apples")
+        assert action is not None
+        assert action.event.event_type == "add"
+>       assert warnings == ["Note: treated as add in Phase 8."]
+E       AssertionError: assert ['Note: treat...ING_QUANTITY'] == ['Note: treat... in Phase 8.']
+E         
+E         Left contains one more item: 'FALLBACK_MISSING_QUANTITY'
+E         Use -v to get more diff
+
+tests\test_inventory_agent.py:85: AssertionError
+============================== warnings summary ===============================
+.venv\Lib\site-packages\starlette\formparsers.py:12
+  Z:\LittleChef\.venv\Lib\site-packages\starlette\formparsers.py:12: PendingDeprecationWarning: Please use `import python_multipart` instead.
+    import multipart
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED tests/test_inventory_agent.py::test_inventory_agent_parse_coerces_event_type
+1 failed, 66 passed, 1 warning in 3.03s
+```
+
+## Test Run 2026-02-07T01:04:16Z
+- Status: FAIL
+- Start: 2026-02-07T01:04:16Z
+- End: 2026-02-07T01:04:24Z
+- Python: Z:\LittleChef\.venv\\Scripts\\python.exe
+- Branch: main
+- HEAD: 0af57dfa8b6422de03bde0046e8736648a75a534
+- compileall exit: 0
+- import app.main exit: 0
+- pytest exit: 1
+- pytest summary: 1 failed, 66 passed, 1 warning in 3.00s
+- git status -sb:
+```
+## main...origin/main
+ M app/services/inventory_agent.py
+ M evidence/test_runs.md
+ M evidence/test_runs_latest.md
+MM evidence/updatedifflog.md
+ M scripts/ui_proposal_renderer_test.mjs
+ M tests/test_inventory_agent.py
+ M web/dist/proposalRenderer.js
+ M web/src/proposalRenderer.ts
+```
+- git diff --stat:
+```
+ app/services/inventory_agent.py       |  242 +-
+ evidence/test_runs.md                 |  189 ++
+ evidence/test_runs_latest.md          |   64 +-
+ evidence/updatedifflog.md             | 5550 ++++++++++++++++++++++++++++++++-
+ scripts/ui_proposal_renderer_test.mjs |   32 +
+ tests/test_inventory_agent.py         |   24 +
+ web/dist/proposalRenderer.js          |   13 +-
+ web/src/proposalRenderer.ts           |   13 +-
+ 8 files changed, 5900 insertions(+), 227 deletions(-)
+```
+- Failure payload:
+```
+=== pytest (exit 1) ===
+..............................F....................................      [100%]
+================================== FAILURES ===================================
+________________ test_inventory_agent_parse_coerces_event_type ________________
+
+    def test_inventory_agent_parse_coerces_event_type():
+        agent, _ = _make_agent()
+        action, warnings = agent._parse_inventory_action("used 2 apples")
+        assert action is not None
+        assert action.event.event_type == "add"
+>       assert warnings == ["Note: treated as add in Phase 8."]
+E       AssertionError: assert ['Note: treat...ING_QUANTITY'] == ['Note: treat... in Phase 8.']
+E         
+E         Left contains one more item: 'FALLBACK_MISSING_QUANTITY'
+E         Use -v to get more diff
+
+tests\test_inventory_agent.py:85: AssertionError
+============================== warnings summary ===============================
+.venv\Lib\site-packages\starlette\formparsers.py:12
+  Z:\LittleChef\.venv\Lib\site-packages\starlette\formparsers.py:12: PendingDeprecationWarning: Please use `import python_multipart` instead.
+    import multipart
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED tests/test_inventory_agent.py::test_inventory_agent_parse_coerces_event_type
+1 failed, 66 passed, 1 warning in 3.00s
+```
+
+## Test Run 2026-02-07T01:05:04Z
+- Status: FAIL
+- Start: 2026-02-07T01:05:04Z
+- End: 2026-02-07T01:05:12Z
+- Python: Z:\LittleChef\.venv\\Scripts\\python.exe
+- Branch: main
+- HEAD: 0af57dfa8b6422de03bde0046e8736648a75a534
+- compileall exit: 0
+- import app.main exit: 0
+- pytest exit: 1
+- pytest summary: 1 failed, 66 passed, 1 warning in 3.03s
+- git status -sb:
+```
+## main...origin/main
+ M app/services/inventory_agent.py
+ M evidence/test_runs.md
+ M evidence/test_runs_latest.md
+MM evidence/updatedifflog.md
+ M scripts/ui_proposal_renderer_test.mjs
+ M tests/test_inventory_agent.py
+ M web/dist/proposalRenderer.js
+ M web/src/proposalRenderer.ts
+```
+- git diff --stat:
+```
+ app/services/inventory_agent.py       |  242 +-
+ evidence/test_runs.md                 |  254 ++
+ evidence/test_runs_latest.md          |   64 +-
+ evidence/updatedifflog.md             | 5550 ++++++++++++++++++++++++++++++++-
+ scripts/ui_proposal_renderer_test.mjs |   32 +
+ tests/test_inventory_agent.py         |   24 +
+ web/dist/proposalRenderer.js          |   13 +-
+ web/src/proposalRenderer.ts           |   13 +-
+ 8 files changed, 5965 insertions(+), 227 deletions(-)
+```
+- Failure payload:
+```
+=== pytest (exit 1) ===
+..............................F....................................      [100%]
+================================== FAILURES ===================================
+________________ test_inventory_agent_parse_coerces_event_type ________________
+
+    def test_inventory_agent_parse_coerces_event_type():
+        agent, _ = _make_agent()
+        action, warnings = agent._parse_inventory_action("used 2 apples")
+        assert action is not None
+        assert action.event.event_type == "add"
+>       assert warnings == ["Note: treated as add in Phase 8."]
+E       AssertionError: assert ['Note: treat...ING_QUANTITY'] == ['Note: treat... in Phase 8.']
+E         
+E         Left contains one more item: 'FALLBACK_MISSING_QUANTITY'
+E         Use -v to get more diff
+
+tests\test_inventory_agent.py:85: AssertionError
+============================== warnings summary ===============================
+.venv\Lib\site-packages\starlette\formparsers.py:12
+  Z:\LittleChef\.venv\Lib\site-packages\starlette\formparsers.py:12: PendingDeprecationWarning: Please use `import python_multipart` instead.
+    import multipart
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED tests/test_inventory_agent.py::test_inventory_agent_parse_coerces_event_type
+1 failed, 66 passed, 1 warning in 3.03s
+```
+
+## Test Run 2026-02-07T01:06:18Z
+- Status: FAIL
+- Start: 2026-02-07T01:06:18Z
+- End: 2026-02-07T01:06:27Z
+- Python: Z:\LittleChef\.venv\\Scripts\\python.exe
+- Branch: main
+- HEAD: 0af57dfa8b6422de03bde0046e8736648a75a534
+- compileall exit: 0
+- import app.main exit: 0
+- pytest exit: 1
+- pytest summary: 1 failed, 66 passed, 1 warning in 3.01s
+- git status -sb:
+```
+## main...origin/main
+ M app/services/inventory_agent.py
+ M evidence/test_runs.md
+ M evidence/test_runs_latest.md
+MM evidence/updatedifflog.md
+ M scripts/ui_proposal_renderer_test.mjs
+ M tests/test_inventory_agent.py
+ M web/dist/proposalRenderer.js
+ M web/src/proposalRenderer.ts
+```
+- git diff --stat:
+```
+ app/services/inventory_agent.py       |  242 +-
+ evidence/test_runs.md                 |  319 ++
+ evidence/test_runs_latest.md          |   64 +-
+ evidence/updatedifflog.md             | 5550 ++++++++++++++++++++++++++++++++-
+ scripts/ui_proposal_renderer_test.mjs |   32 +
+ tests/test_inventory_agent.py         |   24 +
+ web/dist/proposalRenderer.js          |   13 +-
+ web/src/proposalRenderer.ts           |   13 +-
+ 8 files changed, 6030 insertions(+), 227 deletions(-)
+```
+- Failure payload:
+```
+=== pytest (exit 1) ===
+..............................F....................................      [100%]
+================================== FAILURES ===================================
+________________ test_inventory_agent_parse_coerces_event_type ________________
+
+    def test_inventory_agent_parse_coerces_event_type():
+        agent, _ = _make_agent()
+        action, warnings = agent._parse_inventory_action("used 2 apples")
+        assert action is not None
+        assert action.event.event_type == "add"
+>       assert warnings == ["Note: treated as add in Phase 8."]
+E       AssertionError: assert ['Note: treat...ING_QUANTITY'] == ['Note: treat... in Phase 8.']
+E         
+E         Left contains one more item: 'FALLBACK_MISSING_QUANTITY'
+E         Use -v to get more diff
+
+tests\test_inventory_agent.py:85: AssertionError
+============================== warnings summary ===============================
+.venv\Lib\site-packages\starlette\formparsers.py:12
+  Z:\LittleChef\.venv\Lib\site-packages\starlette\formparsers.py:12: PendingDeprecationWarning: Please use `import python_multipart` instead.
+    import multipart
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED tests/test_inventory_agent.py::test_inventory_agent_parse_coerces_event_type
+1 failed, 66 passed, 1 warning in 3.01s
+```
+
+## Test Run 2026-02-07T01:07:11Z
+- Status: FAIL
+- Start: 2026-02-07T01:07:11Z
+- End: 2026-02-07T01:07:20Z
+- Python: Z:\LittleChef\.venv\\Scripts\\python.exe
+- Branch: main
+- HEAD: 0af57dfa8b6422de03bde0046e8736648a75a534
+- compileall exit: 0
+- import app.main exit: 0
+- pytest exit: 1
+- pytest summary: 1 failed, 66 passed, 1 warning in 3.69s
+- git status -sb:
+```
+## main...origin/main
+ M app/services/inventory_agent.py
+ M evidence/test_runs.md
+ M evidence/test_runs_latest.md
+MM evidence/updatedifflog.md
+ M scripts/ui_proposal_renderer_test.mjs
+ M tests/test_inventory_agent.py
+ M web/dist/proposalRenderer.js
+ M web/src/proposalRenderer.ts
+```
+- git diff --stat:
+```
+ app/services/inventory_agent.py       |  242 +-
+ evidence/test_runs.md                 |  384 +++
+ evidence/test_runs_latest.md          |   64 +-
+ evidence/updatedifflog.md             | 5550 ++++++++++++++++++++++++++++++++-
+ scripts/ui_proposal_renderer_test.mjs |   32 +
+ tests/test_inventory_agent.py         |   24 +
+ web/dist/proposalRenderer.js          |   13 +-
+ web/src/proposalRenderer.ts           |   28 +-
+ 8 files changed, 6109 insertions(+), 228 deletions(-)
+```
+- Failure payload:
+```
+=== pytest (exit 1) ===
+..............................F....................................      [100%]
+================================== FAILURES ===================================
+________________ test_inventory_agent_parse_coerces_event_type ________________
+
+    def test_inventory_agent_parse_coerces_event_type():
+        agent, _ = _make_agent()
+        action, warnings = agent._parse_inventory_action("used 2 apples")
+        assert action is not None
+        assert action.event.event_type == "add"
+>       assert warnings == ["Note: treated as add in Phase 8."]
+E       AssertionError: assert ['Note: treat...ING_QUANTITY'] == ['Note: treat... in Phase 8.']
+E         
+E         Left contains one more item: 'FALLBACK_MISSING_QUANTITY'
+E         Use -v to get more diff
+
+tests\test_inventory_agent.py:85: AssertionError
+============================== warnings summary ===============================
+.venv\Lib\site-packages\starlette\formparsers.py:12
+  Z:\LittleChef\.venv\Lib\site-packages\starlette\formparsers.py:12: PendingDeprecationWarning: Please use `import python_multipart` instead.
+    import multipart
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED tests/test_inventory_agent.py::test_inventory_agent_parse_coerces_event_type
+1 failed, 66 passed, 1 warning in 3.69s
+```
+
+## Test Run 2026-02-07T01:08:16Z
+- Status: FAIL
+- Start: 2026-02-07T01:08:16Z
+- End: 2026-02-07T01:08:25Z
+- Python: Z:\LittleChef\.venv\\Scripts\\python.exe
+- Branch: main
+- HEAD: 0af57dfa8b6422de03bde0046e8736648a75a534
+- compileall exit: 0
+- import app.main exit: 0
+- pytest exit: 1
+- pytest summary: 1 failed, 66 passed, 1 warning in 3.02s
+- git status -sb:
+```
+## main...origin/main
+ M app/services/inventory_agent.py
+ M evidence/test_runs.md
+ M evidence/test_runs_latest.md
+MM evidence/updatedifflog.md
+ M scripts/ui_proposal_renderer_test.mjs
+ M tests/test_inventory_agent.py
+ M web/dist/proposalRenderer.js
+ M web/src/proposalRenderer.ts
+```
+- git diff --stat:
+```
+ app/services/inventory_agent.py       |  242 +-
+ evidence/test_runs.md                 |  449 +++
+ evidence/test_runs_latest.md          |   64 +-
+ evidence/updatedifflog.md             | 5550 ++++++++++++++++++++++++++++++++-
+ scripts/ui_proposal_renderer_test.mjs |   32 +
+ tests/test_inventory_agent.py         |   24 +
+ web/dist/proposalRenderer.js          |   30 +-
+ web/src/proposalRenderer.ts           |   32 +-
+ 8 files changed, 6193 insertions(+), 230 deletions(-)
+```
+- Failure payload:
+```
+=== pytest (exit 1) ===
+..............................F....................................      [100%]
+================================== FAILURES ===================================
+________________ test_inventory_agent_parse_coerces_event_type ________________
+
+    def test_inventory_agent_parse_coerces_event_type():
+        agent, _ = _make_agent()
+        action, warnings = agent._parse_inventory_action("used 2 apples")
+        assert action is not None
+        assert action.event.event_type == "add"
+>       assert warnings == ["Note: treated as add in Phase 8."]
+E       AssertionError: assert ['Note: treat...ING_QUANTITY'] == ['Note: treat... in Phase 8.']
+E         
+E         Left contains one more item: 'FALLBACK_MISSING_QUANTITY'
+E         Use -v to get more diff
+
+tests\test_inventory_agent.py:85: AssertionError
+============================== warnings summary ===============================
+.venv\Lib\site-packages\starlette\formparsers.py:12
+  Z:\LittleChef\.venv\Lib\site-packages\starlette\formparsers.py:12: PendingDeprecationWarning: Please use `import python_multipart` instead.
+    import multipart
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED tests/test_inventory_agent.py::test_inventory_agent_parse_coerces_event_type
+1 failed, 66 passed, 1 warning in 3.02s
+```
+
+## Test Run 2026-02-07T01:09:28Z
+- Status: PASS
+- Start: 2026-02-07T01:09:28Z
+- End: 2026-02-07T01:09:36Z
+- Python: Z:\LittleChef\.venv\\Scripts\\python.exe
+- Branch: main
+- HEAD: 0af57dfa8b6422de03bde0046e8736648a75a534
+- compileall exit: 0
+- import app.main exit: 0
+- pytest exit: 0
+- pytest summary: 67 passed, 1 warning in 2.78s
+- git status -sb:
+```
+## main...origin/main
+ M app/services/inventory_agent.py
+ M evidence/test_runs.md
+ M evidence/test_runs_latest.md
+MM evidence/updatedifflog.md
+ M scripts/ui_proposal_renderer_test.mjs
+ M tests/test_inventory_agent.py
+ M web/dist/proposalRenderer.js
+ M web/src/proposalRenderer.ts
+```
+- git diff --stat:
+```
+ app/services/inventory_agent.py       |  239 +-
+ evidence/test_runs.md                 |  514 +++
+ evidence/test_runs_latest.md          |   64 +-
+ evidence/updatedifflog.md             | 5550 ++++++++++++++++++++++++++++++++-
+ scripts/ui_proposal_renderer_test.mjs |   32 +
+ tests/test_inventory_agent.py         |   24 +
+ web/dist/proposalRenderer.js          |   34 +-
+ web/src/proposalRenderer.ts           |   32 +-
+ 8 files changed, 6259 insertions(+), 230 deletions(-)
+```
+
+## Test Run 2026-02-07T01:29:49Z
+- Status: PASS
+- Start: 2026-02-07T01:29:49Z
+- End: 2026-02-07T01:29:58Z
+- Python: Z:\LittleChef\.venv\\Scripts\\python.exe
+- Branch: main
+- HEAD: 0af57dfa8b6422de03bde0046e8736648a75a534
+- compileall exit: 0
+- import app.main exit: 0
+- pytest exit: 0
+- pytest summary: 67 passed, 1 warning in 3.40s
+- git status -sb:
+```
+## main...origin/main
+ M app/services/inventory_agent.py
+ M evidence/test_runs.md
+ M evidence/test_runs_latest.md
+MM evidence/updatedifflog.md
+ M scripts/ui_proposal_renderer_test.mjs
+ M tests/test_inventory_agent.py
+ M web/dist/proposalRenderer.js
+ M web/src/proposalRenderer.ts
+```
+- git diff --stat:
+```
+ app/services/inventory_agent.py       | 239 ++++++++++++---
+ evidence/test_runs.md                 | 550 ++++++++++++++++++++++++++++++++++
+ evidence/test_runs_latest.md          |  28 +-
+ evidence/updatedifflog.md             | 208 ++++---------
+ scripts/ui_proposal_renderer_test.mjs |  32 ++
+ tests/test_inventory_agent.py         |  26 +-
+ web/dist/proposalRenderer.js          |  34 ++-
+ web/src/proposalRenderer.ts           |  32 +-
+ 8 files changed, 934 insertions(+), 215 deletions(-)
+```
+

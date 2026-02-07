@@ -30,6 +30,38 @@ assert(
   "heading should appear only once"
 );
 
+const inventoryResponse = {
+  confirmation_required: true,
+  proposed_actions: [
+    {
+      action_type: "create_inventory_event",
+      event: {
+        event_type: "add",
+        item_name: "cheddar",
+        quantity: 1,
+        unit: "count",
+        note: "",
+        source: "chat",
+      },
+    },
+  ],
+};
+const inventorySummary = formatProposalSummary(inventoryResponse);
+assert(
+  inventorySummary && inventorySummary.startsWith("Proposed inventory update"),
+  "inventory summary should use inventory prefix"
+);
+assert(
+  !inventorySummary.includes("Proposed preferences"),
+  "inventory summary should not mention preferences"
+);
+const inventoryReply = "Proposed inventory update\n\ninventory update text";
+const inventoryCleaned = stripProposalPrefix(inventoryReply);
+assert(
+  !inventoryCleaned.startsWith("Proposed inventory update"),
+  "inventory prefix should be stripped"
+);
+
 const rawReply =
   "Proposed preferences: servings 2, meals/day 2. Reply CONFIRM to save or continue editing.";
 const cleaned = stripProposalPrefix(rawReply);

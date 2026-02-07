@@ -1,7 +1,7 @@
 import re
 import uuid
 from dataclasses import dataclass
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Match, Optional, Tuple
 
 from app.schemas import (
     ChatRequest,
@@ -19,6 +19,30 @@ from app.services.inventory_parse_service import (
 from app.services.inventory_service import InventoryService
 from app.services.llm_client import LlmClient
 from app.services.proposal_store import ProposalStore
+
+
+SEPARATORS = [",", ";", " and ", " plus ", " also ", " then "]
+SPLIT_PATTERN = re.compile(r",|;|\band\b|\bplus\b|\balso\b|\bthen\b", re.IGNORECASE)
+QUANTITY_PATTERN = re.compile(
+    r"(\d+(?:\.\d+)?)\s*(g|gram|grams|kg|kilogram|kilograms|l|liter|liters|ml|milliliter|milliliters)?",
+    re.IGNORECASE,
+)
+FALLBACK_FILLERS = [
+    "i've got",
+    "i have",
+    "i got",
+    "i just got",
+    "i just bought",
+    "bought",
+    "picked up",
+    "grabbed",
+    "got",
+    "just got",
+    "the",
+    "a",
+]
+DATE_CONTEXT_PHRASES = ["use by", "sell by", "expires on", "best before", "due by"]
+ORDINAL_SUFFIXES = ("st", "nd", "rd", "th")
 
 
 @dataclass
@@ -91,17 +115,15 @@ class InventoryAgent:
 
         raw_items = extract_new_draft(request.message, self.llm_client)
         if not raw_items:
-            inv_action, parse_warnings = self._parse_inventory_action(
-                request.message
-            )
-            if inv_action:
+            inv_actions, parse_warnings = self._parse_inventory_actions(request.message)
+            if inv_actions:
                 proposal_id = str(uuid.uuid4())
                 actions, allowlist_warnings = self._filter_inventory_actions(
-                    [inv_action], extra_warnings=parse_warnings
+                    inv_actions, extra_warnings=parse_warnings
                 )
                 if not actions:
                     return ChatResponse(
-                        reply_text="The parsed action was dropped because only inventory events are allowed.",
+                        reply_text="The parsed actions were dropped because only inventory events are allowed.",
                         confirmation_required=False,
                         proposal_id=None,
                         proposed_actions=[],
@@ -316,29 +338,119 @@ class InventoryAgent:
                 )
         return unmatched
 
+    def _parse_inventory_actions(
+        self, message: str
+    ) -> Tuple[List[ProposedInventoryEventAction], List[str]]:
+        text = message.strip()
+        if not text:
+            return [], []
+        lower = text.lower()
+        actions: List[ProposedInventoryEventAction] = []
+        warnings: List[str] = []
+        event_type = self._infer_event_type(lower)
+        if event_type and event_type != "add":
+            self._append_warning(warnings, "Note: treated as add in Phase 8.")
+
+        segments = self._split_segments(text)
+        matches = list(QUANTITY_PATTERN.finditer(lower))
+        seen: set[str] = set()
+        fallback_missing_quantity = False
+
+        if matches:
+            for match in matches:
+                if self._looks_like_date_quantity(lower, match):
+                    continue
+                start = self._previous_separator(lower, match.start())
+                end = self._next_separator(lower, match.end())
+                segment = text[start:end]
+                rel_start = match.start() - start
+                rel_end = match.end() - start
+                name_candidate = self._remove_numeric_from_phrase(segment, rel_start, rel_end)
+                item_name = self._clean_segment_text(name_candidate)
+                if not item_name:
+                    item_name = self._guess_item_name(text, match.start())
+                if not item_name:
+                    item_name = "item"
+                quantity, unit = self._normalize_quantity_and_unit(
+                    match.group(1), match.group(2)
+                )
+                key = item_name.lower()
+                if key in seen:
+                    continue
+                seen.add(key)
+                actions.append(
+                    ProposedInventoryEventAction(
+                        event=InventoryEventCreateRequest(
+                            event_type="add",
+                            item_name=item_name,
+                            quantity=quantity,
+                            unit=unit,
+                            note="",
+                            source="chat",
+                        )
+                    )
+                )
+            for segment in segments:
+                cleaned = self._clean_segment_text(segment)
+                if not cleaned:
+                    continue
+                if re.search(r"\d", cleaned):
+                    continue
+                key = cleaned.lower()
+                if key in seen:
+                    continue
+                fallback_missing_quantity = True
+                seen.add(key)
+                actions.append(
+                    ProposedInventoryEventAction(
+                        event=InventoryEventCreateRequest(
+                            event_type="add",
+                            item_name=cleaned,
+                            quantity=1.0,
+                            unit="count",
+                            note="",
+                            source="chat",
+                        )
+                    )
+                )
+        else:
+            for segment in segments:
+                cleaned = self._clean_segment_text(segment)
+                if not cleaned:
+                    continue
+                key = cleaned.lower()
+                if key in seen:
+                    continue
+                fallback_missing_quantity = True
+                seen.add(key)
+                actions.append(
+                    ProposedInventoryEventAction(
+                        event=InventoryEventCreateRequest(
+                            event_type="add",
+                            item_name=cleaned,
+                            quantity=1.0,
+                            unit="count",
+                            note="",
+                            source="chat",
+                        )
+                    )
+                )
+
+        if fallback_missing_quantity:
+            self._append_warning(warnings, "FALLBACK_MISSING_QUANTITY")
+
+        if len(segments) > 1 and len(actions) == 1:
+            self._append_warning(warnings, "FALLBACK_MAY_HAVE_COLLAPSED_LIST")
+
+        return actions, warnings
+
     def _parse_inventory_action(
         self, message: str
     ) -> Tuple[Optional[ProposedInventoryEventAction], List[str]]:
-        lower = message.lower()
-        event_type = self._infer_event_type(lower)
-        warnings: List[str] = []
-        if event_type and event_type != "add":
-            warnings.append("Note: treated as add in Phase 8.")
-        parsed = self._extract_item_quantity_unit(lower)
-        if not parsed:
+        actions, warnings = self._parse_inventory_actions(message)
+        if not actions:
             return None, warnings
-        item_name, quantity, unit = parsed
-        if item_name in {"servings", "meal", "meals", "serving"}:
-            return None, warnings
-        req = InventoryEventCreateRequest(
-            event_type="add",
-            item_name=item_name,
-            quantity=quantity,
-            unit=unit,
-            note="",
-            source="chat",
-        )
-        return ProposedInventoryEventAction(event=req), warnings
+        return actions[0], warnings
 
     def _infer_event_type(self, text: str) -> Optional[str]:
         if any(k in text for k in ["bought", "added", "got", "picked up", "stocked"]):
@@ -355,23 +467,76 @@ class InventoryAgent:
             return "adjust"
         return None
 
-    def _extract_item_quantity_unit(self, text: str) -> Optional[tuple[str, float, str]]:
-        match = re.search(r"(\d+(?:\.\d+)?)\s*(g|gram|grams|ml|milliliter|milliliters|l|liter|liters)", text)
-        if match:
-            qty = float(match.group(1))
-            raw_unit = match.group(2)
-            unit = "g" if "g" in raw_unit else "ml"
-            name_part = text[match.end():].strip()
-            if not name_part:
-                name_part = "item"
-            return name_part, qty, unit
-        match = re.search(r"(\d+)", text)
-        if match:
-            qty = float(match.group(1))
-            words = text.split()
-            unit = "count"
-            item_name = words[-1] if words else "item"
-            if item_name.isdigit():
-                return None
-            return item_name, qty, unit
-        return None
+    def _previous_separator(self, lower_text: str, index: int) -> int:
+        boundary = 0
+        for sep in SEPARATORS:
+            pos = lower_text.rfind(sep, 0, index)
+            if pos != -1:
+                candidate = pos + len(sep)
+                if candidate > boundary:
+                    boundary = candidate
+        return boundary
+
+    def _next_separator(self, lower_text: str, index: int) -> int:
+        boundary = len(lower_text)
+        for sep in SEPARATORS:
+            pos = lower_text.find(sep, index)
+            if pos != -1 and pos < boundary:
+                boundary = pos
+        return boundary
+
+    def _remove_numeric_from_phrase(self, phrase: str, start: int, end: int) -> str:
+        before = phrase[:start]
+        after = phrase[end:]
+        candidate = f"{before} {after}"
+        return " ".join(candidate.split())
+
+    def _clean_segment_text(self, segment: str) -> str:
+        cleaned = re.sub(r"\s+", " ", segment).strip(" ,;.")
+        lowered = cleaned.lower()
+        for filler in FALLBACK_FILLERS:
+            if lowered.startswith(filler + " ") or lowered == filler:
+                cleaned = cleaned[len(filler) :].strip()
+                lowered = cleaned.lower()
+        return cleaned.strip(" ,;.")
+
+    def _guess_item_name(self, text: str, index: int, limit: int = 5) -> str:
+        window = text[max(0, index - 40) : index]
+        words = re.findall(r"[\w'-]+", window)
+        if not words:
+            return ""
+        return " ".join(words[-limit:])
+
+    def _normalize_quantity_and_unit(
+        self, quantity_str: str, unit_str: Optional[str]
+    ) -> Tuple[float, str]:
+        qty = float(quantity_str.replace(",", "."))
+        raw_unit = (unit_str or "").strip().lower()
+        if raw_unit in {"g", "gram", "grams"}:
+            return qty, "g"
+        if raw_unit in {"kg", "kilogram", "kilograms"}:
+            return qty * 1000, "g"
+        if raw_unit in {"ml", "milliliter", "milliliters"}:
+            return qty, "ml"
+        if raw_unit in {"l", "liter", "liters"}:
+            return qty * 1000, "ml"
+        return qty, "count"
+
+    def _split_segments(self, text: str) -> List[str]:
+        return [segment.strip() for segment in SPLIT_PATTERN.split(text) if segment.strip()]
+
+    def _append_warning(self, warnings: List[str], value: str) -> None:
+        if value not in warnings:
+            warnings.append(value)
+
+    def _looks_like_date_quantity(self, lower_text: str, match: Match[str]) -> bool:
+        start, end = match.span()
+# skip ordinals directly following the digits (e.g., "10th")
+        suffix = lower_text[end:end + 2]
+        if any(suffix.startswith(ord_suffix) for ord_suffix in ORDINAL_SUFFIXES):
+            return True
+        context_start = max(0, start - 30)
+        context = lower_text[context_start:start]
+        if any(phrase in context for phrase in DATE_CONTEXT_PHRASES):
+            return True
+        return False

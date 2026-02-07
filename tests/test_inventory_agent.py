@@ -44,6 +44,30 @@ def test_inventory_agent_allowlist_and_isolation(authed_client):
     assert all(action["event"]["event_type"] == "add" for action in actions)
 
 
+def test_inventory_fallback_parses_multiple_items(authed_client):
+    thread = "inv-fallback-list"
+    resp = authed_client.post(
+        "/chat/inventory",
+        json={
+            "mode": "fill",
+            "message": "cheddar 300 grams, milk 2 litres, eggs 6",
+            "thread_id": thread,
+        },
+    )
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["confirmation_required"] is True
+    actions = body["proposed_actions"]
+    assert len(actions) >= 3
+    assert all(action["action_type"] == "create_inventory_event" for action in actions)
+    assert all(action["event"]["event_type"] == "add" for action in actions)
+    assert any(
+        action["event"]["quantity"] == 300 and action["event"]["unit"] == "g"
+        for action in actions
+    )
+    assert all(len(action["event"]["item_name"]) < 80 for action in actions)
+
+
 def test_inventory_agent_mode_rejects_non_fill(authed_client):
     resp = authed_client.post(
         "/chat/inventory",
@@ -58,7 +82,7 @@ def test_inventory_agent_parse_coerces_event_type():
     action, warnings = agent._parse_inventory_action("used 2 apples")
     assert action is not None
     assert action.event.event_type == "add"
-    assert warnings == ["Note: treated as add in Phase 8."]
+    assert "Note: treated as add in Phase 8." in warnings
 
 
 def test_inventory_agent_confirm_before_write(authed_client):

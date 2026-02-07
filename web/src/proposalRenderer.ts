@@ -48,8 +48,6 @@ const describePrefs = (prefs: Prefs): string[] => {
   return lines;
 };
 
-const PROPOSAL_PREFIX_RE = /^Proposed preferences:[^.!?]*(?:[.!?]+)?[\s]*/i;
-
 export function formatProposalSummary(response: ChatResponse | null): string | null {
   if (!response || !response.confirmation_required) {
     return null;
@@ -66,14 +64,40 @@ export function formatProposalSummary(response: ChatResponse | null): string | n
   if (!details.length) {
     return null;
   }
-  return ["Proposed preferences", "", ...details].join("\n");
+  const allInventory = actions.every((action) => action.action_type === "create_inventory_event");
+  const hasPrefs = actions.some((action) => action.action_type === "upsert_prefs");
+  let prefix = "Proposed update";
+  if (allInventory) {
+    prefix = "Proposed inventory update";
+  } else if (hasPrefs) {
+    prefix = "Proposed preferences";
+  }
+  return [prefix, "", ...details].join("\n");
 }
 
 export function stripProposalPrefix(text: string | null): string | null {
   if (!text) {
     return text;
   }
-  return text.replace(PROPOSAL_PREFIX_RE, "").trimStart();
+  const trimmed = text.trimStart();
+  const prefixLength = text.length - trimmed.length;
+  if (!trimmed.toLowerCase().startsWith("proposed ")) {
+    return trimmed;
+  }
+  let rest = text.slice(prefixLength);
+  const newlineIdx = rest.indexOf("\n");
+  if (newlineIdx >= 0) {
+    rest = rest.slice(newlineIdx + 1);
+  } else {
+    const periodIdx = rest.indexOf(".");
+    if (periodIdx >= 0) {
+      rest = rest.slice(periodIdx + 1);
+    } else {
+      rest = "";
+    }
+  }
+  rest = rest.replace(/^\s*(\r?\n)*/, "");
+  return rest.trimStart();
 }
 
 const PROPOSAL_CONFIRM_COMMANDS = new Set(["confirm"]);
