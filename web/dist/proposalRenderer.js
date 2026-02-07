@@ -29,6 +29,27 @@ const describePrefs = (prefs) => {
     }
     return lines;
 };
+const formatInventoryAction = (action) => {
+    const event = action.event;
+    if (!event) {
+        return `• Proposal: ${action.action_type}`;
+    }
+    const components = [event.item_name];
+    const unitLabel = event.unit || "count";
+    if (event.quantity !== undefined && event.quantity !== null) {
+        components.push(`${event.quantity} ${unitLabel}`);
+    }
+    if (event.note) {
+        const notePieces = event.note
+            .split(";")
+            .map((piece) => piece.trim())
+            .filter(Boolean);
+        if (notePieces.length) {
+            components.push(notePieces.join("; "));
+        }
+    }
+    return `• ${components.join(" — ")}`;
+};
 export function formatProposalSummary(response) {
     var _a;
     if (!response || !response.confirmation_required) {
@@ -41,7 +62,7 @@ export function formatProposalSummary(response) {
             details.push(...describePrefs(action.prefs));
         }
         else {
-            details.push(`• Proposal: ${action.action_type}`);
+            details.push(formatInventoryAction(action));
         }
     });
     if (!details.length) {

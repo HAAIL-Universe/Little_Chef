@@ -40,7 +40,7 @@ const inventoryResponse = {
         item_name: "cheddar",
         quantity: 1,
         unit: "count",
-        note: "",
+        note: "weight_g=300",
         source: "chat",
       },
     },
@@ -54,6 +54,10 @@ assert(
 assert(
   !inventorySummary.includes("Proposed preferences"),
   "inventory summary should not mention preferences"
+);
+assert(
+  inventorySummary.includes("• cheddar — 1 count — weight_g=300"),
+  "inventory summary should describe the item name, quantity/unit, and note"
 );
 const inventoryReply = "Proposed inventory update\n\ninventory update text";
 const inventoryCleaned = stripProposalPrefix(inventoryReply);

@@ -8,9 +8,18 @@ type Prefs = {
   days?: number;
 };
 
+type InventoryEvent = {
+  event_type: string;
+  item_name: string;
+  quantity: number;
+  unit: string;
+  note?: string;
+};
+
 type ChatAction = {
   action_type: string;
   prefs?: Prefs;
+  event?: InventoryEvent;
 };
 
 type ChatResponse = {
@@ -48,6 +57,28 @@ const describePrefs = (prefs: Prefs): string[] => {
   return lines;
 };
 
+const formatInventoryAction = (action: ChatAction): string => {
+  const event = action.event;
+  if (!event) {
+    return `• Proposal: ${action.action_type}`;
+  }
+  const components: string[] = [event.item_name];
+  const unitLabel = event.unit || "count";
+  if (event.quantity !== undefined && event.quantity !== null) {
+    components.push(`${event.quantity} ${unitLabel}`);
+  }
+  if (event.note) {
+    const notePieces = event.note
+      .split(";")
+      .map((piece) => piece.trim())
+      .filter(Boolean);
+    if (notePieces.length) {
+      components.push(notePieces.join("; "));
+    }
+  }
+  return `• ${components.join(" — ")}`;
+};
+
 export function formatProposalSummary(response: ChatResponse | null): string | null {
   if (!response || !response.confirmation_required) {
     return null;
@@ -58,7 +89,7 @@ export function formatProposalSummary(response: ChatResponse | null): string | n
     if (action.action_type === "upsert_prefs" && action.prefs) {
       details.push(...describePrefs(action.prefs));
     } else {
-      details.push(`• Proposal: ${action.action_type}`);
+      details.push(formatInventoryAction(action));
     }
   });
   if (!details.length) {
