@@ -24,7 +24,7 @@ from app.services.proposal_store import ProposalStore
 SEPARATORS = [",", ";", " and ", " plus ", " also ", " then "]
 SPLIT_PATTERN = re.compile(r",|;|\band\b|\bplus\b|\balso\b|\bthen\b", re.IGNORECASE)
 QUANTITY_PATTERN = re.compile(
-    r"(\d+(?:\.\d+)?)\s*(g|gram|grams|kg|kilogram|kilograms|l|liter|liters|ml|milliliter|milliliters)?",
+    r"(\d+(?:\.\d+)?)(?:\s*(g|gram|grams|kg|kilogram|kilograms|kilo|kilos|l|liter|liters|litre|litres|ml|milliliter|milliliters)\b)?",
     re.IGNORECASE,
 )
 FALLBACK_FILLERS = [
@@ -43,6 +43,39 @@ FALLBACK_FILLERS = [
 ]
 DATE_CONTEXT_PHRASES = ["use by", "sell by", "expires on", "best before", "due by"]
 ORDINAL_SUFFIXES = ("st", "nd", "rd", "th")
+ORDINAL_PATTERN = r"\d+(?:st|nd|rd|th)"
+USE_BY_VALUE_PATTERN = re.compile(
+    rf"({ORDINAL_PATTERN})\s+(?:on|for)\s+(?:the\s+)?([\w'-]+(?:\s+[\w'-]+)?)",
+    re.IGNORECASE,
+)
+SENTENCE_TERMINATORS = (".", "!", "?")
+UNIT_KEYWORDS = {
+    "g",
+    "gram",
+    "grams",
+    "kg",
+    "kilogram",
+    "kilograms",
+    "kilo",
+    "kilos",
+    "ml",
+    "milliliter",
+    "milliliters",
+    "l",
+    "liter",
+    "liters",
+    "litre",
+    "litres",
+}
+CONTEXT_IGNORE_WORDS = {"of", "the", "and", "also", "plus", "with"}
+QUANTITY_ADVERBS = {"about", "around", "approx", "approximately"}
+FALLBACK_IGNORE_PHRASES = {"i've just been through the cupboard", "no idea how many"}
+AFTER_IGNORE_WORDS = CONTEXT_IGNORE_WORDS | QUANTITY_ADVERBS | UNIT_KEYWORDS
+BEFORE_IGNORE_WORDS = CONTEXT_IGNORE_WORDS | QUANTITY_ADVERBS
+INTRO_LOCATION_WORDS = {"cupboard", "fridge", "pantry"}
+CONTAINER_WORDS = {"bag", "bags", "pack", "packs", "bottle", "bottles", "jar", "jars", "can", "cans", "loaf", "loaves"}
+ITEM_STOP_WORDS = CONTEXT_IGNORE_WORDS | CONTAINER_WORDS | QUANTITY_ADVERBS | UNIT_KEYWORDS
+PARTIAL_KEYWORDS = UNIT_KEYWORDS | CONTAINER_WORDS
 NUMBER_WORDS = {
     "zero": 0,
     "one": 1,
@@ -378,88 +411,144 @@ class InventoryAgent:
 
         segments = self._split_segments(text)
         matches = list(QUANTITY_PATTERN.finditer(lower))
-        seen: set[str] = set()
+        seen: set[Tuple[str, float, str]] = set()
         fallback_missing_quantity = False
+        action_index: Dict[str, int] = {}
+        sentence_action_index: Dict[Tuple[int, int], int] = {}
+        use_by_values = self._extract_use_by_values(lower)
 
         if matches:
             for match in matches:
                 if self._looks_like_date_quantity(lower, match):
                     continue
-                start = self._previous_separator(lower, match.start())
-                end = self._next_separator(lower, match.end())
+                sentence_start = self._previous_sentence_boundary(lower, match.start())
+                sentence_end = self._next_sentence_boundary(lower, match.end())
+                start = max(
+                    self._previous_separator(lower, match.start()),
+                    sentence_start,
+                )
+                end = min(
+                    self._next_separator(lower, match.end()),
+                    sentence_end,
+                )
+                if end <= start:
+                    continue
                 segment = text[start:end]
-                rel_start = match.start() - start
-                rel_end = match.end() - start
-                name_candidate = self._remove_numeric_from_phrase(segment, rel_start, rel_end)
-                item_name = self._clean_segment_text(name_candidate)
+                rel_start = max(0, match.start() - start)
+                rel_end = max(0, match.end() - start)
+                candidate = self._extract_candidate_phrase(segment, rel_start, rel_end)
+                if not candidate:
+                    candidate = self._remove_numeric_from_phrase(segment, rel_start, rel_end)
+                item_name = self._clean_segment_text(candidate)
                 if not item_name:
                     item_name = self._guess_item_name(text, match.start())
                 if not item_name:
                     item_name = "item"
+                if self._is_filler_text(item_name):
+                    continue
                 quantity, unit = self._normalize_quantity_and_unit(
                     match.group(1), match.group(2)
                 )
-                key = item_name.lower()
+                normalized_key = self._normalize_item_key(item_name)
+                if not normalized_key:
+                    normalized_key = item_name.lower()
+                measurement_note = self._measurement_note_value(unit, quantity)
+                existing_index = action_index.get(normalized_key)
+                normalized_tokens = [
+                    word for word in re.findall(r"[\w'-]+", normalized_key) if word
+                ]
+                measurement_only_item = bool(normalized_tokens) and all(
+                    token in ITEM_STOP_WORDS for token in normalized_tokens
+                )
+                use_by_key = self._find_use_by_target(item_name, use_by_values)
+                sentence_key = (sentence_start, sentence_end)
+                target_index = existing_index
+                if measurement_note and target_index is None:
+                    if measurement_only_item:
+                        target_index = sentence_action_index.get(sentence_key)
+                if measurement_note and target_index is not None:
+                    self._add_note_value(actions[target_index], measurement_note)
+                    if use_by_key:
+                        self._add_note_value(actions[target_index], f"use_by={use_by_values[use_by_key]}")
+                    continue
+                key = (normalized_key, round(quantity, 3), unit)
                 if key in seen:
                     continue
                 seen.add(key)
-                actions.append(
-                    ProposedInventoryEventAction(
-                        event=InventoryEventCreateRequest(
-                            event_type="add",
-                            item_name=item_name,
-                            quantity=quantity,
-                            unit=unit,
-                            note="",
-                            source="chat",
-                        )
+                action = ProposedInventoryEventAction(
+                    event=InventoryEventCreateRequest(
+                        event_type="add",
+                        item_name=item_name,
+                        quantity=quantity,
+                        unit=unit,
+                        note="",
+                        source="chat",
                     )
                 )
+                if measurement_note:
+                    self._add_note_value(action, measurement_note)
+                if use_by_key:
+                    self._add_note_value(action, f"use_by={use_by_values[use_by_key]}")
+                actions.append(action)
+                action_index[normalized_key] = len(actions) - 1
+                sentence_action_index[sentence_key] = len(actions) - 1
             for segment in segments:
                 cleaned = self._clean_segment_text(segment)
-                if not cleaned:
+                if not cleaned or self._is_filler_text(cleaned):
                     continue
                 if re.search(r"\d", cleaned):
                     continue
-                key = cleaned.lower()
+                normalized_key = self._normalize_item_key(cleaned)
+                if not normalized_key:
+                    normalized_key = cleaned.lower()
+                key = (normalized_key, 1.0, "count")
                 if key in seen:
                     continue
                 fallback_missing_quantity = True
                 seen.add(key)
-                actions.append(
-                    ProposedInventoryEventAction(
-                        event=InventoryEventCreateRequest(
-                            event_type="add",
-                            item_name=cleaned,
-                            quantity=1.0,
-                            unit="count",
-                            note="",
-                            source="chat",
-                        )
+                action = ProposedInventoryEventAction(
+                    event=InventoryEventCreateRequest(
+                        event_type="add",
+                        item_name=cleaned,
+                        quantity=1.0,
+                        unit="count",
+                        note="",
+                        source="chat",
                     )
                 )
+                use_by_key = self._find_use_by_target(cleaned, use_by_values)
+                if use_by_key:
+                    self._add_note_value(action, f"use_by={use_by_values[use_by_key]}")
+                actions.append(action)
+                action_index[normalized_key] = len(actions) - 1
         else:
             for segment in segments:
                 cleaned = self._clean_segment_text(segment)
-                if not cleaned:
+                if not cleaned or self._is_filler_text(cleaned):
                     continue
-                key = cleaned.lower()
+                normalized_key = self._normalize_item_key(cleaned)
+                if not normalized_key:
+                    normalized_key = cleaned.lower()
+                key = (normalized_key, 1.0, "count")
                 if key in seen:
                     continue
                 fallback_missing_quantity = True
                 seen.add(key)
-                actions.append(
-                    ProposedInventoryEventAction(
-                        event=InventoryEventCreateRequest(
-                            event_type="add",
-                            item_name=cleaned,
-                            quantity=1.0,
-                            unit="count",
-                            note="",
-                            source="chat",
-                        )
+                action = ProposedInventoryEventAction(
+                    event=InventoryEventCreateRequest(
+                        event_type="add",
+                        item_name=cleaned,
+                        quantity=1.0,
+                        unit="count",
+                        note="",
+                        source="chat",
                     )
                 )
+                use_by_key = self._find_use_by_target(cleaned, use_by_values)
+                if use_by_key:
+                    self._add_note_value(action, f"use_by={use_by_values[use_by_key]}")
+                actions.append(action)
+                action_index[normalized_key] = len(actions) - 1
 
         if fallback_missing_quantity:
             self._append_warning(warnings, "FALLBACK_MISSING_QUANTITY")
@@ -510,6 +599,76 @@ class InventoryAgent:
                 boundary = pos
         return boundary
 
+    def _previous_sentence_boundary(self, lower_text: str, index: int) -> int:
+        boundary = 0
+        for sep in SENTENCE_TERMINATORS:
+            pos = lower_text.rfind(sep, 0, index)
+            if pos != -1:
+                candidate = pos + 1
+                if candidate > boundary:
+                    boundary = candidate
+        return boundary
+
+    def _next_sentence_boundary(self, lower_text: str, index: int) -> int:
+        boundary = len(lower_text)
+        for sep in SENTENCE_TERMINATORS:
+            pos = lower_text.find(sep, index)
+            if pos != -1 and pos < boundary:
+                boundary = pos
+        return boundary
+
+    def _extract_candidate_phrase(self, segment: str, rel_start: int, rel_end: int) -> str:
+        before = segment[:rel_start]
+        after = segment[rel_end:]
+        after_phrase = self._pick_contextual_words(after, leading=True)
+        if after_phrase and not self._looks_like_unit_phrase(after_phrase):
+            return after_phrase
+        before_phrase = self._pick_contextual_words(before, leading=False)
+        if before_phrase and not self._looks_like_unit_phrase(before_phrase):
+            return before_phrase
+        return before_phrase or after_phrase
+
+    def _pick_contextual_words(self, text: str, leading: bool) -> str:
+        words = re.findall(r"[\w'-]+", text)
+        if not words:
+            return ""
+        ignore = AFTER_IGNORE_WORDS if leading else BEFORE_IGNORE_WORDS
+        collected: List[str] = []
+        iterator = words if leading else reversed(words)
+        for word in iterator:
+            lower = word.lower()
+            if any(char.isdigit() for char in lower):
+                continue
+            if lower in ignore:
+                continue
+            collected.append(word)
+            if len(collected) >= 5:
+                break
+        if not collected:
+            return ""
+        if leading:
+            return " ".join(collected)
+        return " ".join(reversed(collected))
+
+    def _looks_like_unit_phrase(self, phrase: str) -> bool:
+        words = re.findall(r"[\w'-]+", phrase)
+        if not words:
+            return True
+        for word in words:
+            lower = word.lower()
+            if lower in ITEM_STOP_WORDS:
+                continue
+            if any(
+                keyword.startswith(lower)
+                or keyword.endswith(lower)
+                or lower.startswith(keyword)
+                or lower.endswith(keyword)
+                for keyword in PARTIAL_KEYWORDS
+            ):
+                continue
+            return False
+        return True
+
     def _remove_numeric_from_phrase(self, phrase: str, start: int, end: int) -> str:
         before = phrase[:start]
         after = phrase[end:]
@@ -523,7 +682,17 @@ class InventoryAgent:
             if lowered.startswith(filler + " ") or lowered == filler:
                 cleaned = cleaned[len(filler) :].strip()
                 lowered = cleaned.lower()
-        return cleaned.strip(" ,;.")
+        cleaned = cleaned.strip(" ,;.")
+        cleaned = self._strip_item_stop_words(cleaned)
+        cleaned = cleaned.strip(" ,;.")
+        if self._is_filler_text(cleaned):
+            return ""
+        return cleaned
+
+    def _strip_item_stop_words(self, text: str) -> str:
+        words = re.findall(r"[\w'-]+", text)
+        filtered = [word for word in words if word.lower() not in ITEM_STOP_WORDS]
+        return " ".join(filtered) if filtered else text
 
     def _guess_item_name(self, text: str, index: int, limit: int = 5) -> str:
         window = text[max(0, index - 40) : index]
@@ -541,9 +710,11 @@ class InventoryAgent:
             return qty, "g"
         if raw_unit in {"kg", "kilogram", "kilograms"}:
             return qty * 1000, "g"
+        if raw_unit in {"kilo", "kilos"}:
+            return qty * 1000, "g"
         if raw_unit in {"ml", "milliliter", "milliliters"}:
             return qty, "ml"
-        if raw_unit in {"l", "liter", "liters"}:
+        if raw_unit in {"l", "liter", "liters", "litre", "litres"}:
             return qty * 1000, "ml"
         return qty, "count"
 
@@ -553,6 +724,59 @@ class InventoryAgent:
     def _append_warning(self, warnings: List[str], value: str) -> None:
         if value not in warnings:
             warnings.append(value)
+
+    def _extract_use_by_values(self, lower_text: str) -> Dict[str, str]:
+        values: Dict[str, str] = {}
+        for match in USE_BY_VALUE_PATTERN.finditer(lower_text):
+            ordinal = match.group(1)
+            target = match.group(2).strip().lower()
+            tokens = re.findall(r"[\w'-]+", target)
+            while tokens and tokens[-1] in {"and", "also", "plus"}:
+                tokens.pop()
+            if not tokens:
+                continue
+            cleaned_target = " ".join(tokens)
+            values[cleaned_target] = ordinal
+        return values
+
+    def _find_use_by_target(self, item_name: str, use_by_values: Dict[str, str]) -> Optional[str]:
+        lower = item_name.lower()
+        for target in use_by_values:
+            if target in lower:
+                return target
+        return None
+
+    def _measurement_note_value(self, unit: str, quantity: float) -> Optional[str]:
+        if unit == "g":
+            qty = int(quantity) if float(quantity).is_integer() else quantity
+            return f"weight_g={qty}"
+        if unit == "ml":
+            qty = int(quantity) if float(quantity).is_integer() else quantity
+            return f"volume_ml={qty}"
+        return None
+
+    def _add_note_value(
+        self, action: ProposedInventoryEventAction, value: str
+    ) -> None:
+        note = (action.event.note or "").strip()
+        if note:
+            note = f"{note}; {value}"
+        else:
+            note = value
+        action.event.note = note
+
+    def _normalize_item_key(self, text: str) -> str:
+        cleaned = re.sub(r"[^\w\s]", " ", text.lower())
+        words = [
+            word
+            for word in cleaned.split()
+            if word not in CONTEXT_IGNORE_WORDS
+            and word not in CONTAINER_WORDS
+            and word not in QUANTITY_ADVERBS
+        ]
+        if not words:
+            return text.lower()
+        return " ".join(words)
 
     def _replace_number_words(self, text: str) -> str:
         if not text:
@@ -573,5 +797,22 @@ class InventoryAgent:
         context_start = max(0, start - 30)
         context = lower_text[context_start:start]
         if any(phrase in context for phrase in DATE_CONTEXT_PHRASES):
+            return True
+        return False
+
+    def _is_filler_text(self, text: str) -> bool:
+        if not text:
+            return True
+        cleaned = re.sub(r"\s+", " ", text).strip(" ,;.")
+        lowered = cleaned.lower()
+        if not lowered:
+            return True
+        if any(phrase in lowered for phrase in FALLBACK_IGNORE_PHRASES):
+            return True
+        if "i've just been through" in lowered and any(loc in lowered for loc in INTRO_LOCATION_WORDS):
+            return True
+        if "no idea how many" in lowered:
+            return True
+        if not re.search(r"[a-zA-Z]", lowered):
             return True
         return False

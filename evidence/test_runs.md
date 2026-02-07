@@ -10842,3 +10842,1054 @@ MM evidence/updatedifflog.md
  3 files changed, 363 insertions(+), 47 deletions(-)
 ```
 
+## Test Run 2026-02-07T20:16:26Z
+- Status: FAIL
+- Start: 2026-02-07T20:16:26Z
+- End: 2026-02-07T20:16:35Z
+- Python: Z:\LittleChef\.venv\\Scripts\\python.exe
+- Branch: main
+- HEAD: 3474fdbb9e701fca253d6555ff289fbc333ea476
+- compileall exit: 0
+- import app.main exit: 0
+- pytest exit: 1
+- pytest summary: 1 failed, 68 passed, 1 warning in 4.03s
+- git status -sb:
+```
+## main...origin/main [ahead 1]
+ M Contracts/builder_contract.md
+ M Contracts/director_contract.md
+ M app/services/inventory_agent.py
+ M evidence/updatedifflog.md
+ M tests/test_inventory_agent.py
+ M web/dist/proposalRenderer.js
+ M web/src/proposalRenderer.ts
+```
+- git diff --stat:
+```
+ Contracts/builder_contract.md   | 367 ++++++++++++------------
+ Contracts/director_contract.md  | 211 +++++++-------
+ app/services/inventory_agent.py | 127 ++++++++-
+ evidence/updatedifflog.md       | 605 +---------------------------------------
+ tests/test_inventory_agent.py   |  62 ++++
+ web/dist/proposalRenderer.js    |  56 +++-
+ web/src/proposalRenderer.ts     |  66 ++++-
+ 7 files changed, 570 insertions(+), 924 deletions(-)
+```
+- Failure payload:
+```
+=== pytest (exit 1) ===
+...............................F.....................................    [100%]
+================================== FAILURES ===================================
+______________ test_inventory_agent_parses_stt_inventory_message ______________
+
+    def test_inventory_agent_parses_stt_inventory_message():
+        agent, _ = _make_agent()
+        actions, _ = agent._parse_inventory_actions(STT_INVENTORY_MESSAGE)
+        assert actions, "Expected actions from the STT inventory message."
+    
+        rice_actions = [
+            action for action in actions if "basmati rice" in action.event.item_name.lower()
+        ]
+        assert len(rice_actions) == 1
+        assert "egg" not in rice_actions[0].event.item_name.lower()
+    
+        egg_actions = [
+            action for action in actions if "egg" in action.event.item_name.lower()
+        ]
+        assert len(egg_actions) == 1
+        assert egg_actions[0].event.quantity == 10
+        assert "rice" not in egg_actions[0].event.item_name.lower()
+    
+        bread_actions = [
+            action for action in actions if "bread" in action.event.item_name.lower()
+        ]
+>       assert any(
+            action.event.quantity == 2 and action.event.unit == "count"
+            for action in bread_actions
+        )
+E       assert False
+E        +  where False = any(<generator object test_inventory_agent_parses_stt_inventory_message.<locals>.<genexpr> at 0x0000021BD03B7440>)
+
+tests\test_inventory_agent.py:118: AssertionError
+============================== warnings summary ===============================
+.venv\Lib\site-packages\starlette\formparsers.py:12
+  Z:\LittleChef\.venv\Lib\site-packages\starlette\formparsers.py:12: PendingDeprecationWarning: Please use `import python_multipart` instead.
+    import multipart
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED tests/test_inventory_agent.py::test_inventory_agent_parses_stt_inventory_message
+1 failed, 68 passed, 1 warning in 4.03s
+```
+
+## Test Run 2026-02-07T20:17:01Z
+- Status: FAIL
+- Start: 2026-02-07T20:17:01Z
+- End: 2026-02-07T20:17:09Z
+- Python: Z:\LittleChef\.venv\\Scripts\\python.exe
+- Branch: main
+- HEAD: 3474fdbb9e701fca253d6555ff289fbc333ea476
+- compileall exit: 0
+- import app.main exit: 0
+- pytest exit: 1
+- pytest summary: 1 failed, 68 passed, 1 warning in 2.88s
+- git status -sb:
+```
+## main...origin/main [ahead 1]
+ M Contracts/builder_contract.md
+ M Contracts/director_contract.md
+ M app/services/inventory_agent.py
+ M evidence/test_runs.md
+ M evidence/test_runs_latest.md
+ M evidence/updatedifflog.md
+ M tests/test_inventory_agent.py
+ M web/dist/proposalRenderer.js
+ M web/src/proposalRenderer.ts
+```
+- git diff --stat:
+```
+ Contracts/builder_contract.md   | 367 ++++++++++++------------
+ Contracts/director_contract.md  | 211 +++++++-------
+ app/services/inventory_agent.py | 127 ++++++++-
+ evidence/test_runs.md           |  80 ++++++
+ evidence/test_runs_latest.md    |  84 +++++-
+ evidence/updatedifflog.md       | 605 +---------------------------------------
+ tests/test_inventory_agent.py   |  62 ++++
+ web/dist/proposalRenderer.js    |  42 ++-
+ web/src/proposalRenderer.ts     |  52 +++-
+ 9 files changed, 705 insertions(+), 925 deletions(-)
+```
+- Failure payload:
+```
+=== pytest (exit 1) ===
+...............................F.....................................    [100%]
+================================== FAILURES ===================================
+______________ test_inventory_agent_parses_stt_inventory_message ______________
+
+    def test_inventory_agent_parses_stt_inventory_message():
+        agent, _ = _make_agent()
+        actions, _ = agent._parse_inventory_actions(STT_INVENTORY_MESSAGE)
+        assert actions, "Expected actions from the STT inventory message."
+    
+        rice_actions = [
+            action for action in actions if "basmati rice" in action.event.item_name.lower()
+        ]
+        assert len(rice_actions) == 1
+        assert "egg" not in rice_actions[0].event.item_name.lower()
+    
+        egg_actions = [
+            action for action in actions if "egg" in action.event.item_name.lower()
+        ]
+        assert len(egg_actions) == 1
+        assert egg_actions[0].event.quantity == 10
+        assert "rice" not in egg_actions[0].event.item_name.lower()
+    
+        bread_actions = [
+            action for action in actions if "bread" in action.event.item_name.lower()
+        ]
+>       assert any(
+            action.event.quantity == 2 and action.event.unit == "count"
+            for action in bread_actions
+        )
+E       assert False
+E        +  where False = any(<generator object test_inventory_agent_parses_stt_inventory_message.<locals>.<genexpr> at 0x0000026C279E39F0>)
+
+tests\test_inventory_agent.py:118: AssertionError
+============================== warnings summary ===============================
+.venv\Lib\site-packages\starlette\formparsers.py:12
+  Z:\LittleChef\.venv\Lib\site-packages\starlette\formparsers.py:12: PendingDeprecationWarning: Please use `import python_multipart` instead.
+    import multipart
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED tests/test_inventory_agent.py::test_inventory_agent_parses_stt_inventory_message
+1 failed, 68 passed, 1 warning in 2.88s
+```
+
+## Test Run 2026-02-07T20:57:45Z
+- Status: FAIL
+- Start: 2026-02-07T20:57:45Z
+- End: 2026-02-07T20:57:58Z
+- Python: Z:\LittleChef\.venv\\Scripts\\python.exe
+- Branch: main
+- HEAD: 3474fdbb9e701fca253d6555ff289fbc333ea476
+- compileall exit: 0
+- import app.main exit: 0
+- pytest exit: 1
+- pytest summary: 9 failed, 60 passed, 1 warning in 6.61s
+- git status -sb:
+```
+## main...origin/main [ahead 1]
+ M app/services/inventory_agent.py
+ M evidence/test_runs.md
+ M evidence/test_runs_latest.md
+ M evidence/updatedifflog.md
+ M tests/test_inventory_agent.py
+```
+- git diff --stat:
+```
+ app/services/inventory_agent.py | 243 +++++++++++++---
+ evidence/test_runs.md           | 164 +++++++++++
+ evidence/test_runs_latest.md    |  88 +++++-
+ evidence/updatedifflog.md       | 605 +---------------------------------------
+ tests/test_inventory_agent.py   |  74 +++++
+ 5 files changed, 522 insertions(+), 652 deletions(-)
+```
+- Failure payload:
+```
+=== pytest (exit 1) ===
+        lower = text.lower()
+        actions: List[ProposedInventoryEventAction] = []
+        warnings: List[str] = []
+        event_type = self._infer_event_type(lower)
+        if event_type and event_type != "add":
+            self._append_warning(warnings, "Note: treated as add in Phase 8.")
+    
+        segments = self._split_segments(text)
+        matches = list(QUANTITY_PATTERN.finditer(lower))
+        seen: set[Tuple[str, float, str]] = set()
+        fallback_missing_quantity = False
+        action_index: Dict[str, int] = {}
+        use_by_values = self._extract_use_by_values(lower)
+    
+        if matches:
+            for match in matches:
+                if self._looks_like_date_quantity(lower, match):
+                    continue
+                start = max(
+                    self._previous_separator(lower, match.start()),
+                    self._previous_sentence_boundary(lower, match.start()),
+                )
+                end = min(
+                    self._next_separator(lower, match.end()),
+                    self._next_sentence_boundary(lower, match.end()),
+                )
+                if end <= start:
+                    continue
+                segment = text[start:end]
+                rel_start = max(0, match.start() - start)
+                rel_end = max(0, match.end() - start)
+>               candidate = self._extract_candidate_phrase(segment, rel_start, rel_end)
+                            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E               AttributeError: 'InventoryAgent' object has no attribute '_extract_candidate_phrase'
+
+app\services\inventory_agent.py:434: AttributeError
+______________________ test_inventory_agent_thread_scope ______________________
+
+authed_client = <starlette.testclient.TestClient object at 0x000001B25FF098B0>
+
+    def test_inventory_agent_thread_scope(authed_client):
+        thread_a = "inv-thread-a"
+        thread_b = "inv-thread-b"
+>       resp = authed_client.post(
+            "/chat/inventory",
+            json={"mode": "fill", "message": "bought 4 apples", "thread_id": thread_a},
+        )
+
+tests\test_inventory_agent.py:209: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+.venv\Lib\site-packages\starlette\testclient.py:633: in post
+    return super().post(
+.venv\Lib\site-packages\httpx\_client.py:1144: in post
+    return self.request(
+.venv\Lib\site-packages\starlette\testclient.py:516: in request
+    return super().request(
+.venv\Lib\site-packages\httpx\_client.py:825: in request
+    return self.send(request, auth=auth, follow_redirects=follow_redirects)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.venv\Lib\site-packages\httpx\_client.py:914: in send
+    response = self._send_handling_auth(
+.venv\Lib\site-packages\httpx\_client.py:942: in _send_handling_auth
+    response = self._send_handling_redirects(
+.venv\Lib\site-packages\httpx\_client.py:979: in _send_handling_redirects
+    response = self._send_single_request(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.venv\Lib\site-packages\httpx\_client.py:1014: in _send_single_request
+    response = transport.handle_request(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.venv\Lib\site-packages\starlette\testclient.py:398: in handle_request
+    raise exc
+.venv\Lib\site-packages\starlette\testclient.py:395: in handle_request
+    portal.call(self.app, scope, receive, send)
+.venv\Lib\site-packages\anyio\from_thread.py:334: in call
+    return cast(T_Retval, self.start_task_soon(func, *args).result())
+                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+C:\Users\krisd\AppData\Local\Programs\Python\Python312\Lib\concurrent\futures\_base.py:456: in result
+    return self.__get_result()
+           ^^^^^^^^^^^^^^^^^^^
+C:\Users\krisd\AppData\Local\Programs\Python\Python312\Lib\concurrent\futures\_base.py:401: in __get_result
+    raise self._exception
+.venv\Lib\site-packages\anyio\from_thread.py:259: in _call_func
+    retval = await retval_or_awaitable
+             ^^^^^^^^^^^^^^^^^^^^^^^^^
+.venv\Lib\site-packages\fastapi\applications.py:1054: in __call__
+    await super().__call__(scope, receive, send)
+.venv\Lib\site-packages\starlette\applications.py:123: in __call__
+    await self.middleware_stack(scope, receive, send)
+.venv\Lib\site-packages\starlette\middleware\errors.py:186: in __call__
+    raise exc
+.venv\Lib\site-packages\starlette\middleware\errors.py:164: in __call__
+    await self.app(scope, receive, _send)
+.venv\Lib\site-packages\starlette\middleware\exceptions.py:65: in __call__
+    await wrap_app_handling_exceptions(self.app, conn)(scope, receive, send)
+.venv\Lib\site-packages\starlette\_exception_handler.py:64: in wrapped_app
+    raise exc
+.venv\Lib\site-packages\starlette\_exception_handler.py:53: in wrapped_app
+    await app(scope, receive, sender)
+.venv\Lib\site-packages\starlette\routing.py:756: in __call__
+    await self.middleware_stack(scope, receive, send)
+.venv\Lib\site-packages\starlette\routing.py:776: in app
+    await route.handle(scope, receive, send)
+.venv\Lib\site-packages\starlette\routing.py:297: in handle
+    await self.app(scope, receive, send)
+.venv\Lib\site-packages\starlette\routing.py:77: in app
+    await wrap_app_handling_exceptions(app, request)(scope, receive, send)
+.venv\Lib\site-packages\starlette\_exception_handler.py:64: in wrapped_app
+    raise exc
+.venv\Lib\site-packages\starlette\_exception_handler.py:53: in wrapped_app
+    await app(scope, receive, sender)
+.venv\Lib\site-packages\starlette\routing.py:72: in app
+    response = await func(request)
+               ^^^^^^^^^^^^^^^^^^^
+.venv\Lib\site-packages\fastapi\routing.py:278: in app
+    raw_response = await run_endpoint_function(
+.venv\Lib\site-packages\fastapi\routing.py:193: in run_endpoint_function
+    return await run_in_threadpool(dependant.call, **values)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.venv\Lib\site-packages\starlette\concurrency.py:42: in run_in_threadpool
+    return await anyio.to_thread.run_sync(func, *args)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.venv\Lib\site-packages\anyio\to_thread.py:63: in run_sync
+    return await get_async_backend().run_sync_in_worker_thread(
+.venv\Lib\site-packages\anyio\_backends\_asyncio.py:2502: in run_sync_in_worker_thread
+    return await future
+           ^^^^^^^^^^^^
+.venv\Lib\site-packages\anyio\_backends\_asyncio.py:986: in run
+    result = context.run(func, *args)
+             ^^^^^^^^^^^^^^^^^^^^^^^^
+app\api\routers\chat.py:58: in chat_inventory
+    return _chat_service.inventory_agent.handle_fill(current_user, request)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app\services\inventory_agent.py:173: in handle_fill
+    inv_actions, parse_warnings = self._parse_inventory_actions(request.message)
+                                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+self = <app.services.inventory_agent.InventoryAgent object at 0x000001B25FF0AC00>
+message = 'bought 4 apples'
+
+    def _parse_inventory_actions(
+        self, message: str
+    ) -> Tuple[List[ProposedInventoryEventAction], List[str]]:
+        text = message.strip()
+        text = self._replace_number_words(text)
+        if not text:
+            return [], []
+        lower = text.lower()
+        actions: List[ProposedInventoryEventAction] = []
+        warnings: List[str] = []
+        event_type = self._infer_event_type(lower)
+        if event_type and event_type != "add":
+            self._append_warning(warnings, "Note: treated as add in Phase 8.")
+    
+        segments = self._split_segments(text)
+        matches = list(QUANTITY_PATTERN.finditer(lower))
+        seen: set[Tuple[str, float, str]] = set()
+        fallback_missing_quantity = False
+        action_index: Dict[str, int] = {}
+        use_by_values = self._extract_use_by_values(lower)
+    
+        if matches:
+            for match in matches:
+                if self._looks_like_date_quantity(lower, match):
+                    continue
+                start = max(
+                    self._previous_separator(lower, match.start()),
+                    self._previous_sentence_boundary(lower, match.start()),
+                )
+                end = min(
+                    self._next_separator(lower, match.end()),
+                    self._next_sentence_boundary(lower, match.end()),
+                )
+                if end <= start:
+                    continue
+                segment = text[start:end]
+                rel_start = max(0, match.start() - start)
+                rel_end = max(0, match.end() - start)
+>               candidate = self._extract_candidate_phrase(segment, rel_start, rel_end)
+                            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E               AttributeError: 'InventoryAgent' object has no attribute '_extract_candidate_phrase'
+
+app\services\inventory_agent.py:434: AttributeError
+============================== warnings summary ===============================
+.venv\Lib\site-packages\starlette\formparsers.py:12
+  Z:\LittleChef\.venv\Lib\site-packages\starlette\formparsers.py:12: PendingDeprecationWarning: Please use `import python_multipart` instead.
+    import multipart
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED tests/test_chat_inventory_fill_propose_confirm.py::test_chat_inventory_fill_propose_confirm
+FAILED tests/test_inventory_agent.py::test_inventory_agent_allowlist_and_isolation
+FAILED tests/test_inventory_agent.py::test_inventory_fallback_parses_multiple_items
+FAILED tests/test_inventory_agent.py::test_inventory_agent_parse_coerces_event_type
+FAILED tests/test_inventory_agent.py::test_inventory_agent_parses_stt_inventory_message
+FAILED tests/test_inventory_agent.py::test_inventory_agent_parses_number_words
+FAILED tests/test_inventory_agent.py::test_inventory_agent_confirm_before_write
+FAILED tests/test_inventory_agent.py::test_inventory_agent_deny_is_non_destructive
+FAILED tests/test_inventory_agent.py::test_inventory_agent_thread_scope - Att...
+9 failed, 60 passed, 1 warning in 6.61s
+```
+
+## Test Run 2026-02-07T21:23:08Z
+- Status: FAIL
+- Start: 2026-02-07T21:23:08Z
+- End: 2026-02-07T21:23:17Z
+- Python: Z:\LittleChef\.venv\\Scripts\\python.exe
+- Branch: git unavailable
+- HEAD: git unavailable
+- compileall exit: 0
+- import app.main exit: 0
+- pytest exit: 1
+- pytest summary: 2 failed, 67 passed, 1 warning in 3.74s
+- git status -sb:
+```
+git unavailable
+```
+- git diff --stat:
+```
+git unavailable
+```
+- Failure payload:
+```
+=== pytest (exit 1) ===
+............................F..F.....................................    [100%]
+================================== FAILURES ===================================
+________________ test_inventory_fallback_parses_multiple_items ________________
+
+authed_client = <starlette.testclient.TestClient object at 0x000001905D11F4D0>
+
+    def test_inventory_fallback_parses_multiple_items(authed_client):
+        thread = "inv-fallback-list"
+        resp = authed_client.post(
+            "/chat/inventory",
+            json={
+                "mode": "fill",
+                "message": "cheddar 300 grams, milk 2 litres, eggs 6",
+                "thread_id": thread,
+            },
+        )
+        assert resp.status_code == 200
+        body = resp.json()
+        assert body["confirmation_required"] is True
+        actions = body["proposed_actions"]
+>       assert len(actions) >= 3
+E       AssertionError: assert 2 >= 3
+E        +  where 2 = len([{'action_type': 'create_inventory_event', 'event': {'event_type': 'add', 'item_name': 'rams', 'note': 'weight_g=300; ...: 'create_inventory_event', 'event': {'event_type': 'add', 'item_name': 'eggs', 'note': '', 'occurred_at': None, ...}}])
+
+tests\test_inventory_agent.py:70: AssertionError
+______________ test_inventory_agent_parses_stt_inventory_message ______________
+
+    def test_inventory_agent_parses_stt_inventory_message():
+        agent, _ = _make_agent()
+        actions, _ = agent._parse_inventory_actions(STT_INVENTORY_MESSAGE)
+        assert actions, "Expected actions from the STT inventory message."
+    
+        rice_actions = [
+            action for action in actions if "basmati rice" in action.event.item_name.lower()
+        ]
+        assert len(rice_actions) == 1
+        assert "egg" not in rice_actions[0].event.item_name.lower()
+        assert "weight_g=1000" in (rice_actions[0].event.note or "")
+    
+        egg_actions = [
+            action for action in actions if "egg" in action.event.item_name.lower()
+        ]
+        assert len(egg_actions) == 1
+        assert egg_actions[0].event.quantity == 10
+        assert "rice" not in egg_actions[0].event.item_name.lower()
+    
+        bread_actions = [
+            action for action in actions if "bread" in action.event.item_name.lower()
+        ]
+>       assert any(
+            action.event.quantity == 2 and action.event.unit == "count"
+            for action in bread_actions
+        )
+E       assert False
+E        +  where False = any(<generator object test_inventory_agent_parses_stt_inventory_message.<locals>.<genexpr> at 0x000001905D204FB0>)
+
+tests\test_inventory_agent.py:119: AssertionError
+============================== warnings summary ===============================
+.venv\Lib\site-packages\starlette\formparsers.py:12
+  Z:\LittleChef\.venv\Lib\site-packages\starlette\formparsers.py:12: PendingDeprecationWarning: Please use `import python_multipart` instead.
+    import multipart
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED tests/test_inventory_agent.py::test_inventory_fallback_parses_multiple_items
+FAILED tests/test_inventory_agent.py::test_inventory_agent_parses_stt_inventory_message
+2 failed, 67 passed, 1 warning in 3.74s
+```
+
+## Test Run 2026-02-07T21:23:52Z
+- Status: FAIL
+- Start: 2026-02-07T21:23:52Z
+- End: 2026-02-07T21:24:01Z
+- Python: Z:\LittleChef\.venv\\Scripts\\python.exe
+- Branch: git unavailable
+- HEAD: git unavailable
+- compileall exit: 0
+- import app.main exit: 0
+- pytest exit: 1
+- pytest summary: 2 failed, 67 passed, 1 warning in 3.01s
+- git status -sb:
+```
+git unavailable
+```
+- git diff --stat:
+```
+git unavailable
+```
+- Failure payload:
+```
+=== pytest (exit 1) ===
+............................F..F.....................................    [100%]
+================================== FAILURES ===================================
+________________ test_inventory_fallback_parses_multiple_items ________________
+
+authed_client = <starlette.testclient.TestClient object at 0x000001C75B8C57F0>
+
+    def test_inventory_fallback_parses_multiple_items(authed_client):
+        thread = "inv-fallback-list"
+        resp = authed_client.post(
+            "/chat/inventory",
+            json={
+                "mode": "fill",
+                "message": "cheddar 300 grams, milk 2 litres, eggs 6",
+                "thread_id": thread,
+            },
+        )
+        assert resp.status_code == 200
+        body = resp.json()
+        assert body["confirmation_required"] is True
+        actions = body["proposed_actions"]
+>       assert len(actions) >= 3
+E       AssertionError: assert 2 >= 3
+E        +  where 2 = len([{'action_type': 'create_inventory_event', 'event': {'event_type': 'add', 'item_name': 'rams', 'note': 'weight_g=300; ...: 'create_inventory_event', 'event': {'event_type': 'add', 'item_name': 'eggs', 'note': '', 'occurred_at': None, ...}}])
+
+tests\test_inventory_agent.py:70: AssertionError
+______________ test_inventory_agent_parses_stt_inventory_message ______________
+
+    def test_inventory_agent_parses_stt_inventory_message():
+        agent, _ = _make_agent()
+        actions, _ = agent._parse_inventory_actions(STT_INVENTORY_MESSAGE)
+        assert actions, "Expected actions from the STT inventory message."
+    
+        rice_actions = [
+            action for action in actions if "basmati rice" in action.event.item_name.lower()
+        ]
+        assert len(rice_actions) == 1
+        assert "egg" not in rice_actions[0].event.item_name.lower()
+        assert "weight_g=1000" in (rice_actions[0].event.note or "")
+    
+        egg_actions = [
+            action for action in actions if "egg" in action.event.item_name.lower()
+        ]
+        assert len(egg_actions) == 1
+        assert egg_actions[0].event.quantity == 10
+        assert "rice" not in egg_actions[0].event.item_name.lower()
+    
+        bread_actions = [
+            action for action in actions if "bread" in action.event.item_name.lower()
+        ]
+>       assert any(
+            action.event.quantity == 2 and action.event.unit == "count"
+            for action in bread_actions
+        )
+E       assert False
+E        +  where False = any(<generator object test_inventory_agent_parses_stt_inventory_message.<locals>.<genexpr> at 0x000001C75BA24FB0>)
+
+tests\test_inventory_agent.py:119: AssertionError
+============================== warnings summary ===============================
+.venv\Lib\site-packages\starlette\formparsers.py:12
+  Z:\LittleChef\.venv\Lib\site-packages\starlette\formparsers.py:12: PendingDeprecationWarning: Please use `import python_multipart` instead.
+    import multipart
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED tests/test_inventory_agent.py::test_inventory_fallback_parses_multiple_items
+FAILED tests/test_inventory_agent.py::test_inventory_agent_parses_stt_inventory_message
+2 failed, 67 passed, 1 warning in 3.01s
+```
+
+## Test Run 2026-02-07T21:24:50Z
+- Status: FAIL
+- Start: 2026-02-07T21:24:50Z
+- End: 2026-02-07T21:24:58Z
+- Python: Z:\LittleChef\.venv\\Scripts\\python.exe
+- Branch: git unavailable
+- HEAD: git unavailable
+- compileall exit: 0
+- import app.main exit: 0
+- pytest exit: 1
+- pytest summary: 2 failed, 67 passed, 1 warning in 3.04s
+- git status -sb:
+```
+git unavailable
+```
+- git diff --stat:
+```
+git unavailable
+```
+- Failure payload:
+```
+=== pytest (exit 1) ===
+............................F..F.....................................    [100%]
+================================== FAILURES ===================================
+________________ test_inventory_fallback_parses_multiple_items ________________
+
+authed_client = <starlette.testclient.TestClient object at 0x000001621A0E2FC0>
+
+    def test_inventory_fallback_parses_multiple_items(authed_client):
+        thread = "inv-fallback-list"
+        resp = authed_client.post(
+            "/chat/inventory",
+            json={
+                "mode": "fill",
+                "message": "cheddar 300 grams, milk 2 litres, eggs 6",
+                "thread_id": thread,
+            },
+        )
+        assert resp.status_code == 200
+        body = resp.json()
+        assert body["confirmation_required"] is True
+        actions = body["proposed_actions"]
+>       assert len(actions) >= 3
+E       AssertionError: assert 2 >= 3
+E        +  where 2 = len([{'action_type': 'create_inventory_event', 'event': {'event_type': 'add', 'item_name': 'cheddar', 'note': 'weight_g=30...: 'create_inventory_event', 'event': {'event_type': 'add', 'item_name': 'eggs', 'note': '', 'occurred_at': None, ...}}])
+
+tests\test_inventory_agent.py:70: AssertionError
+______________ test_inventory_agent_parses_stt_inventory_message ______________
+
+    def test_inventory_agent_parses_stt_inventory_message():
+        agent, _ = _make_agent()
+        actions, _ = agent._parse_inventory_actions(STT_INVENTORY_MESSAGE)
+        assert actions, "Expected actions from the STT inventory message."
+    
+        rice_actions = [
+            action for action in actions if "basmati rice" in action.event.item_name.lower()
+        ]
+        assert len(rice_actions) == 1
+        assert "egg" not in rice_actions[0].event.item_name.lower()
+        assert "weight_g=1000" in (rice_actions[0].event.note or "")
+    
+        egg_actions = [
+            action for action in actions if "egg" in action.event.item_name.lower()
+        ]
+        assert len(egg_actions) == 1
+        assert egg_actions[0].event.quantity == 10
+        assert "rice" not in egg_actions[0].event.item_name.lower()
+    
+        bread_actions = [
+            action for action in actions if "bread" in action.event.item_name.lower()
+        ]
+>       assert any(
+            action.event.quantity == 2 and action.event.unit == "count"
+            for action in bread_actions
+        )
+E       assert False
+E        +  where False = any(<generator object test_inventory_agent_parses_stt_inventory_message.<locals>.<genexpr> at 0x000001621AE14FB0>)
+
+tests\test_inventory_agent.py:119: AssertionError
+============================== warnings summary ===============================
+.venv\Lib\site-packages\starlette\formparsers.py:12
+  Z:\LittleChef\.venv\Lib\site-packages\starlette\formparsers.py:12: PendingDeprecationWarning: Please use `import python_multipart` instead.
+    import multipart
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED tests/test_inventory_agent.py::test_inventory_fallback_parses_multiple_items
+FAILED tests/test_inventory_agent.py::test_inventory_agent_parses_stt_inventory_message
+2 failed, 67 passed, 1 warning in 3.04s
+```
+
+## Test Run 2026-02-07T21:25:49Z
+- Status: FAIL
+- Start: 2026-02-07T21:25:49Z
+- End: 2026-02-07T21:25:57Z
+- Python: Z:\LittleChef\.venv\\Scripts\\python.exe
+- Branch: git unavailable
+- HEAD: git unavailable
+- compileall exit: 0
+- import app.main exit: 0
+- pytest exit: 1
+- pytest summary: 1 failed, 68 passed, 1 warning in 3.08s
+- git status -sb:
+```
+git unavailable
+```
+- git diff --stat:
+```
+git unavailable
+```
+- Failure payload:
+```
+=== pytest (exit 1) ===
+...............................F.....................................    [100%]
+================================== FAILURES ===================================
+______________ test_inventory_agent_parses_stt_inventory_message ______________
+
+    def test_inventory_agent_parses_stt_inventory_message():
+        agent, _ = _make_agent()
+        actions, _ = agent._parse_inventory_actions(STT_INVENTORY_MESSAGE)
+        assert actions, "Expected actions from the STT inventory message."
+    
+        rice_actions = [
+            action for action in actions if "basmati rice" in action.event.item_name.lower()
+        ]
+        assert len(rice_actions) == 1
+        assert "egg" not in rice_actions[0].event.item_name.lower()
+        assert "weight_g=1000" in (rice_actions[0].event.note or "")
+    
+        egg_actions = [
+            action for action in actions if "egg" in action.event.item_name.lower()
+        ]
+        assert len(egg_actions) == 1
+        assert egg_actions[0].event.quantity == 10
+        assert "rice" not in egg_actions[0].event.item_name.lower()
+    
+        bread_actions = [
+            action for action in actions if "bread" in action.event.item_name.lower()
+        ]
+>       assert any(
+            action.event.quantity == 2 and action.event.unit == "count"
+            for action in bread_actions
+        )
+E       assert False
+E        +  where False = any(<generator object test_inventory_agent_parses_stt_inventory_message.<locals>.<genexpr> at 0x000001D5276CBC60>)
+
+tests\test_inventory_agent.py:119: AssertionError
+============================== warnings summary ===============================
+.venv\Lib\site-packages\starlette\formparsers.py:12
+  Z:\LittleChef\.venv\Lib\site-packages\starlette\formparsers.py:12: PendingDeprecationWarning: Please use `import python_multipart` instead.
+    import multipart
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED tests/test_inventory_agent.py::test_inventory_agent_parses_stt_inventory_message
+1 failed, 68 passed, 1 warning in 3.08s
+```
+
+## Test Run 2026-02-07T21:27:20Z
+- Status: FAIL
+- Start: 2026-02-07T21:27:20Z
+- End: 2026-02-07T21:27:29Z
+- Python: Z:\LittleChef\.venv\\Scripts\\python.exe
+- Branch: git unavailable
+- HEAD: git unavailable
+- compileall exit: 0
+- import app.main exit: 0
+- pytest exit: 1
+- pytest summary: 1 failed, 68 passed, 1 warning in 3.11s
+- git status -sb:
+```
+git unavailable
+```
+- git diff --stat:
+```
+git unavailable
+```
+- Failure payload:
+```
+=== pytest (exit 1) ===
+...............................F.....................................    [100%]
+================================== FAILURES ===================================
+______________ test_inventory_agent_parses_stt_inventory_message ______________
+
+    def test_inventory_agent_parses_stt_inventory_message():
+        agent, _ = _make_agent()
+        actions, _ = agent._parse_inventory_actions(STT_INVENTORY_MESSAGE)
+        assert actions, "Expected actions from the STT inventory message."
+    
+        rice_actions = [
+            action for action in actions if "basmati rice" in action.event.item_name.lower()
+        ]
+        assert len(rice_actions) == 1
+        assert "egg" not in rice_actions[0].event.item_name.lower()
+        assert "weight_g=1000" in (rice_actions[0].event.note or "")
+    
+        egg_actions = [
+            action for action in actions if "egg" in action.event.item_name.lower()
+        ]
+        assert len(egg_actions) == 1
+        assert egg_actions[0].event.quantity == 10
+        assert "rice" not in egg_actions[0].event.item_name.lower()
+    
+        bread_actions = [
+            action for action in actions if "bread" in action.event.item_name.lower()
+        ]
+>       assert any(
+            action.event.quantity == 2 and action.event.unit == "count"
+            for action in bread_actions
+        )
+E       assert False
+E        +  where False = any(<generator object test_inventory_agent_parses_stt_inventory_message.<locals>.<genexpr> at 0x000001E9DD167C60>)
+
+tests\test_inventory_agent.py:119: AssertionError
+---------------------------- Captured stdout call -----------------------------
+DEBUG BREAD 2000.0 ml volume_ml=2000
+============================== warnings summary ===============================
+.venv\Lib\site-packages\starlette\formparsers.py:12
+  Z:\LittleChef\.venv\Lib\site-packages\starlette\formparsers.py:12: PendingDeprecationWarning: Please use `import python_multipart` instead.
+    import multipart
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED tests/test_inventory_agent.py::test_inventory_agent_parses_stt_inventory_message
+1 failed, 68 passed, 1 warning in 3.11s
+```
+
+## Test Run 2026-02-07T21:28:02Z
+- Status: FAIL
+- Start: 2026-02-07T21:28:02Z
+- End: 2026-02-07T21:28:11Z
+- Python: Z:\LittleChef\.venv\\Scripts\\python.exe
+- Branch: git unavailable
+- HEAD: git unavailable
+- compileall exit: 0
+- import app.main exit: 0
+- pytest exit: 1
+- pytest summary: 3 failed, 66 passed, 1 warning in 3.84s
+- git status -sb:
+```
+git unavailable
+```
+- git diff --stat:
+```
+git unavailable
+```
+- Failure payload:
+```
+=== pytest (exit 1) ===
+DEBUG BREAD 2000.0 ml volume_ml=2000
+DEBUG MATCH about about volume_ml=750 True None
+DEBUG MATCH itres milk itres milk volume_ml=2000 False 7
+DEBUG MATCH cheddar cheddar weight_g=250 False None
+DEBUG MATCH ham ham weight_g=200 False None
+__________________ test_inventory_agent_confirm_before_write __________________
+
+authed_client = <starlette.testclient.TestClient object at 0x000001866C15F620>
+
+    def test_inventory_agent_confirm_before_write(authed_client):
+        thread = "inv-confirm"
+        before = len(_inventory_events(authed_client))
+>       resp = authed_client.post(
+            "/chat/inventory",
+            json={"mode": "fill", "message": "bought 1 loaf", "thread_id": thread},
+        )
+
+tests\test_inventory_agent.py:172: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+.venv\Lib\site-packages\starlette\testclient.py:633: in post
+    return super().post(
+.venv\Lib\site-packages\httpx\_client.py:1144: in post
+    return self.request(
+.venv\Lib\site-packages\starlette\testclient.py:516: in request
+    return super().request(
+.venv\Lib\site-packages\httpx\_client.py:825: in request
+    return self.send(request, auth=auth, follow_redirects=follow_redirects)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.venv\Lib\site-packages\httpx\_client.py:914: in send
+    response = self._send_handling_auth(
+.venv\Lib\site-packages\httpx\_client.py:942: in _send_handling_auth
+    response = self._send_handling_redirects(
+.venv\Lib\site-packages\httpx\_client.py:979: in _send_handling_redirects
+    response = self._send_single_request(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.venv\Lib\site-packages\httpx\_client.py:1014: in _send_single_request
+    response = transport.handle_request(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.venv\Lib\site-packages\starlette\testclient.py:398: in handle_request
+    raise exc
+.venv\Lib\site-packages\starlette\testclient.py:395: in handle_request
+    portal.call(self.app, scope, receive, send)
+.venv\Lib\site-packages\anyio\from_thread.py:334: in call
+    return cast(T_Retval, self.start_task_soon(func, *args).result())
+                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+C:\Users\krisd\AppData\Local\Programs\Python\Python312\Lib\concurrent\futures\_base.py:456: in result
+    return self.__get_result()
+           ^^^^^^^^^^^^^^^^^^^
+C:\Users\krisd\AppData\Local\Programs\Python\Python312\Lib\concurrent\futures\_base.py:401: in __get_result
+    raise self._exception
+.venv\Lib\site-packages\anyio\from_thread.py:259: in _call_func
+    retval = await retval_or_awaitable
+             ^^^^^^^^^^^^^^^^^^^^^^^^^
+.venv\Lib\site-packages\fastapi\applications.py:1054: in __call__
+    await super().__call__(scope, receive, send)
+.venv\Lib\site-packages\starlette\applications.py:123: in __call__
+    await self.middleware_stack(scope, receive, send)
+.venv\Lib\site-packages\starlette\middleware\errors.py:186: in __call__
+    raise exc
+.venv\Lib\site-packages\starlette\middleware\errors.py:164: in __call__
+    await self.app(scope, receive, _send)
+.venv\Lib\site-packages\starlette\middleware\exceptions.py:65: in __call__
+    await wrap_app_handling_exceptions(self.app, conn)(scope, receive, send)
+.venv\Lib\site-packages\starlette\_exception_handler.py:64: in wrapped_app
+    raise exc
+.venv\Lib\site-packages\starlette\_exception_handler.py:53: in wrapped_app
+    await app(scope, receive, sender)
+.venv\Lib\site-packages\starlette\routing.py:756: in __call__
+    await self.middleware_stack(scope, receive, send)
+.venv\Lib\site-packages\starlette\routing.py:776: in app
+    await route.handle(scope, receive, send)
+.venv\Lib\site-packages\starlette\routing.py:297: in handle
+    await self.app(scope, receive, send)
+.venv\Lib\site-packages\starlette\routing.py:77: in app
+    await wrap_app_handling_exceptions(app, request)(scope, receive, send)
+.venv\Lib\site-packages\starlette\_exception_handler.py:64: in wrapped_app
+    raise exc
+.venv\Lib\site-packages\starlette\_exception_handler.py:53: in wrapped_app
+    await app(scope, receive, sender)
+.venv\Lib\site-packages\starlette\routing.py:72: in app
+    response = await func(request)
+               ^^^^^^^^^^^^^^^^^^^
+.venv\Lib\site-packages\fastapi\routing.py:278: in app
+    raw_response = await run_endpoint_function(
+.venv\Lib\site-packages\fastapi\routing.py:193: in run_endpoint_function
+    return await run_in_threadpool(dependant.call, **values)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.venv\Lib\site-packages\starlette\concurrency.py:42: in run_in_threadpool
+    return await anyio.to_thread.run_sync(func, *args)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.venv\Lib\site-packages\anyio\to_thread.py:63: in run_sync
+    return await get_async_backend().run_sync_in_worker_thread(
+.venv\Lib\site-packages\anyio\_backends\_asyncio.py:2502: in run_sync_in_worker_thread
+    return await future
+           ^^^^^^^^^^^^
+.venv\Lib\site-packages\anyio\_backends\_asyncio.py:986: in run
+    result = context.run(func, *args)
+             ^^^^^^^^^^^^^^^^^^^^^^^^
+app\api\routers\chat.py:58: in chat_inventory
+    return _chat_service.inventory_agent.handle_fill(current_user, request)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app\services\inventory_agent.py:175: in handle_fill
+    inv_actions, parse_warnings = self._parse_inventory_actions(request.message)
+                                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+self = <app.services.inventory_agent.InventoryAgent object at 0x000001866C15F2C0>
+message = 'bought 1 loaf'
+
+    def _parse_inventory_actions(
+        self, message: str
+    ) -> Tuple[List[ProposedInventoryEventAction], List[str]]:
+        text = message.strip()
+        text = self._replace_number_words(text)
+        if not text:
+            return [], []
+        lower = text.lower()
+        actions: List[ProposedInventoryEventAction] = []
+        warnings: List[str] = []
+        event_type = self._infer_event_type(lower)
+        if event_type and event_type != "add":
+            self._append_warning(warnings, "Note: treated as add in Phase 8.")
+    
+        segments = self._split_segments(text)
+        matches = list(QUANTITY_PATTERN.finditer(lower))
+        seen: set[Tuple[str, float, str]] = set()
+        fallback_missing_quantity = False
+        action_index: Dict[str, int] = {}
+        sentence_action_index: Dict[Tuple[int, int], int] = {}
+        use_by_values = self._extract_use_by_values(lower)
+    
+        if matches:
+            for match in matches:
+                if self._looks_like_date_quantity(lower, match):
+                    continue
+                sentence_start = self._previous_sentence_boundary(lower, match.start())
+                sentence_end = self._next_sentence_boundary(lower, match.end())
+                start = max(
+                    self._previous_separator(lower, match.start()),
+                    sentence_start,
+                )
+                end = min(
+                    self._next_separator(lower, match.end()),
+                    sentence_end,
+                )
+                if end <= start:
+                    continue
+                segment = text[start:end]
+                rel_start = max(0, match.start() - start)
+                rel_end = max(0, match.end() - start)
+                candidate = self._extract_candidate_phrase(segment, rel_start, rel_end)
+                if not candidate:
+                    candidate = self._remove_numeric_from_phrase(segment, rel_start, rel_end)
+                item_name = self._clean_segment_text(candidate)
+                if not item_name:
+                    item_name = self._guess_item_name(text, match.start())
+                if not item_name:
+                    item_name = "item"
+                if self._is_filler_text(item_name):
+                    continue
+                quantity, unit = self._normalize_quantity_and_unit(
+                    match.group(1), match.group(2)
+                )
+                normalized_key = self._normalize_item_key(item_name)
+                if not normalized_key:
+                    normalized_key = item_name.lower()
+                measurement_note = self._measurement_note_value(unit, quantity)
+                existing_index = action_index.get(normalized_key)
+                normalized_tokens = [
+                    word for word in re.findall(r"[\w'-]+", normalized_key) if word
+                ]
+                measurement_only_item = bool(normalized_tokens) and all(
+                    token in ITEM_STOP_WORDS for token in normalized_tokens
+                )
+                use_by_key = self._find_use_by_target(item_name, use_by_values)
+                sentence_key = (sentence_start, sentence_end)
+                if measurement_note or "bread" in item_name.lower():
+                    print(
+                        "DEBUG MATCH",
+                        item_name,
+                        normalized_key,
+                        measurement_note,
+                        measurement_only_item,
+>                       target_index,
+                        ^^^^^^^^^^^^
+                    )
+E                   UnboundLocalError: cannot access local variable 'target_index' where it is not associated with a value
+
+app\services\inventory_agent.py:472: UnboundLocalError
+============================== warnings summary ===============================
+.venv\Lib\site-packages\starlette\formparsers.py:12
+  Z:\LittleChef\.venv\Lib\site-packages\starlette\formparsers.py:12: PendingDeprecationWarning: Please use `import python_multipart` instead.
+    import multipart
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED tests/test_inventory_agent.py::test_inventory_fallback_parses_multiple_items
+FAILED tests/test_inventory_agent.py::test_inventory_agent_parses_stt_inventory_message
+FAILED tests/test_inventory_agent.py::test_inventory_agent_confirm_before_write
+3 failed, 66 passed, 1 warning in 3.84s
+```
+
+## Test Run 2026-02-07T21:31:58Z
+- Status: PASS
+- Start: 2026-02-07T21:31:58Z
+- End: 2026-02-07T21:32:07Z
+- Python: Z:\LittleChef\.venv\\Scripts\\python.exe
+- Branch: git unavailable
+- HEAD: git unavailable
+- compileall exit: 0
+- import app.main exit: 0
+- pytest exit: 0
+- pytest summary: 69 passed, 1 warning in 3.41s
+- git status -sb:
+```
+git unavailable
+```
+- git diff --stat:
+```
+git unavailable
+```
+

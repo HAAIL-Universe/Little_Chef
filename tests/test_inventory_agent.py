@@ -1,6 +1,15 @@
 from app.services.inventory_agent import InventoryAgent
 from app.services.proposal_store import ProposalStore
 
+STT_INVENTORY_MESSAGE = (
+    "I've just been through the cupboard and fridge. Added three onions, two tins of chopped tomatoes, "
+    "and one bag of basmati rice about 1 kilo. I've got 10 eggs in the fridge, a 500g pack of pasta, "
+    "2 loaves of bread, and six yoghurts. Also 1 bottle of olive oil, about 750ml, and 2 litres of milk. "
+    "There's 250g cheddar and 200g ham. I've got four cans of tuna and one jar of peanut butter. "
+    "Use by the 10th on the milk and the 12th on the ham. Also got bananas and garlic, no idea how many, "
+    "and a bag of frozen peas."
+)
+
 
 def _inventory_events(client):
     resp = client.get("/inventory/events")
@@ -83,6 +92,71 @@ def test_inventory_agent_parse_coerces_event_type():
     assert action is not None
     assert action.event.event_type == "add"
     assert "Note: treated as add in Phase 8." in warnings
+
+
+def test_inventory_agent_parses_stt_inventory_message():
+    agent, _ = _make_agent()
+    actions, _ = agent._parse_inventory_actions(STT_INVENTORY_MESSAGE)
+    assert actions, "Expected actions from the STT inventory message."
+
+    rice_actions = [
+        action for action in actions if "basmati rice" in action.event.item_name.lower()
+    ]
+    assert len(rice_actions) == 1
+    assert "egg" not in rice_actions[0].event.item_name.lower()
+    assert "weight_g=1000" in (rice_actions[0].event.note or "")
+
+    egg_actions = [
+        action for action in actions if "egg" in action.event.item_name.lower()
+    ]
+    assert len(egg_actions) == 1
+    assert egg_actions[0].event.quantity == 10
+    assert "rice" not in egg_actions[0].event.item_name.lower()
+
+    bread_actions = [
+        action for action in actions if "bread" in action.event.item_name.lower()
+    ]
+    assert any(
+        action.event.quantity == 2 and action.event.unit == "count"
+        for action in bread_actions
+    )
+
+    milk_actions = [
+        action for action in actions if "milk" in action.event.item_name.lower()
+    ]
+    assert len(milk_actions) == 1
+    milk_event = milk_actions[0].event
+    assert milk_event.unit == "ml"
+    assert milk_event.quantity == 2000.0
+    assert "use_by=10th" in (milk_event.note or "")
+
+    olive_actions = [
+        action for action in actions if "olive oil" in action.event.item_name.lower()
+    ]
+    assert len(olive_actions) == 1
+    olive_event = olive_actions[0].event
+    assert olive_event.quantity == 1
+    assert olive_event.unit == "count"
+    assert "volume_ml=750" in (olive_event.note or "")
+
+    fillers = [
+        "i've just been through the cupboard",
+        "no idea how many",
+    ]
+    for filler in fillers:
+        assert not any(
+            filler in action.event.item_name.lower() for action in actions
+        )
+
+    assert not any(
+        action.event.item_name.strip().lower() == "about" for action in actions
+    )
+
+    ham_actions = [
+        action for action in actions if "ham" in action.event.item_name.lower()
+    ]
+    assert len(ham_actions) == 1
+    assert "use_by=12th" in (ham_actions[0].event.note or "")
 
 
 def test_inventory_agent_parses_number_words():
