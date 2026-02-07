@@ -43,6 +43,30 @@ FALLBACK_FILLERS = [
 ]
 DATE_CONTEXT_PHRASES = ["use by", "sell by", "expires on", "best before", "due by"]
 ORDINAL_SUFFIXES = ("st", "nd", "rd", "th")
+NUMBER_WORDS = {
+    "zero": 0,
+    "one": 1,
+    "two": 2,
+    "three": 3,
+    "four": 4,
+    "five": 5,
+    "six": 6,
+    "seven": 7,
+    "eight": 8,
+    "nine": 9,
+    "ten": 10,
+    "eleven": 11,
+    "twelve": 12,
+    "thirteen": 13,
+    "fourteen": 14,
+    "fifteen": 15,
+    "sixteen": 16,
+    "seventeen": 17,
+    "eighteen": 18,
+    "nineteen": 19,
+    "twenty": 20,
+}
+NUMBER_WORD_PATTERN = re.compile(r"\b(" + r"|".join(re.escape(word) for word in NUMBER_WORDS) + r")\b", re.IGNORECASE)
 
 
 @dataclass
@@ -342,6 +366,7 @@ class InventoryAgent:
         self, message: str
     ) -> Tuple[List[ProposedInventoryEventAction], List[str]]:
         text = message.strip()
+        text = self._replace_number_words(text)
         if not text:
             return [], []
         lower = text.lower()
@@ -528,6 +553,16 @@ class InventoryAgent:
     def _append_warning(self, warnings: List[str], value: str) -> None:
         if value not in warnings:
             warnings.append(value)
+
+    def _replace_number_words(self, text: str) -> str:
+        if not text:
+            return text
+
+        def repl(match: Match[str]) -> str:
+            word = match.group(1).lower()
+            return str(NUMBER_WORDS.get(word, word))
+
+        return NUMBER_WORD_PATTERN.sub(repl, text)
 
     def _looks_like_date_quantity(self, lower_text: str, match: Match[str]) -> bool:
         start, end = match.span()

@@ -85,6 +85,13 @@ def test_inventory_agent_parse_coerces_event_type():
     assert "Note: treated as add in Phase 8." in warnings
 
 
+def test_inventory_agent_parses_number_words():
+    agent, _ = _make_agent()
+    action, _ = agent._parse_inventory_action("added three onions")
+    assert action is not None
+    assert action.event.quantity == 3
+
+
 def test_inventory_agent_confirm_before_write(authed_client):
     thread = "inv-confirm"
     before = len(_inventory_events(authed_client))
