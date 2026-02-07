@@ -1016,11 +1016,13 @@ async function sendAsk(message: string, opts?: { flowLabel?: string; updateChatP
   setComposerBusy(true);
   try {
     const threadId = ensureThread();
-    const res = await fetch("/chat", {
+    const endpoint = currentFlowKey === "inventory" ? "/chat/inventory" : "/chat";
+    const mode = currentFlowKey === "inventory" ? "fill" : currentModeLower();
+    const res = await fetch(endpoint, {
       method: "POST",
       headers: headers(),
       body: JSON.stringify({
-        mode: currentModeLower(),
+        mode,
         message,
         include_user_library: true,
         thread_id: threadId,

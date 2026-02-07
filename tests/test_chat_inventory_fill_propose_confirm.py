@@ -1,6 +1,9 @@
 def test_chat_inventory_fill_propose_confirm(authed_client):
     thread = "t-inv-fill"
-    resp = authed_client.post("/chat", json={"mode": "fill", "message": "bought 2 eggs", "thread_id": thread, "location": "pantry"})
+    resp = authed_client.post(
+        "/chat/inventory",
+        json={"mode": "fill", "message": "bought 2 eggs", "thread_id": thread},
+    )
     assert resp.status_code == 200
     body = resp.json()
     assert body["confirmation_required"] is True
@@ -8,6 +11,7 @@ def test_chat_inventory_fill_propose_confirm(authed_client):
     action = body["proposed_actions"][0]
     assert action["action_type"] == "create_inventory_event"
     assert action["event"]["item_name"]
+    assert action["event"]["event_type"] == "add"
 
     resp = authed_client.post(
         "/chat/confirm",

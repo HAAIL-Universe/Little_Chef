@@ -7,9 +7,7 @@ from app.schemas import (
     ChatRequest,
     ChatResponse,
     ProposedUpsertPrefsAction,
-    ProposedInventoryEventAction,
     UserPrefs,
-    InventoryEventCreateRequest,
     UserMe,
 )
 from app.services.prefs_service import PrefsPersistenceError, PrefsService
@@ -21,8 +19,7 @@ from app.services.llm_client import (
     current_model,
     set_runtime_model,
 )
-from app.services.inventory_parse_service import extract_new_draft, extract_edit_ops
-from app.services.inventory_normalizer import normalize_items
+from app.services.inventory_agent import InventoryAgent
 
 NUMBER_WORDS: dict[str, int] = {
     "zero": 0,
@@ -80,13 +77,16 @@ class ChatService:
         proposal_store: ProposalStore,
         llm_client: LlmClient | None = None,
         thread_messages_repo=None,
+        inventory_agent: InventoryAgent | None = None,
     ) -> None:
         self.prefs_service = prefs_service
         self.inventory_service = inventory_service
         self.proposal_store = proposal_store
         self.llm_client = llm_client
         self.thread_messages_repo = thread_messages_repo
-        self.pending_raw: dict[str, dict[str, object]] = {}
+        self.inventory_agent = inventory_agent or InventoryAgent(
+            inventory_service, proposal_store, llm_client
+        )
         self.prefs_drafts: dict[tuple[str, str], UserPrefs] = {}
         self.thread_modes: dict[tuple[str, str], str] = {}
 
@@ -190,51 +190,9 @@ class ChatService:
             return resp
 
         if effective_mode == "fill":
-            # Preferences flow (no location) with thread-scoped draft
-            if not request.location:
-                response = self._handle_prefs_flow_threaded(user, request, effective_mode)
-                self._append_messages(request.thread_id, user.user_id, request.message, response.reply_text)
-                return response
-            # Inventory proposal state machine if location provided
-            if request.location:
-                response = self._handle_inventory_flow(user, request, key, effective_mode)
-                self._append_messages(request.thread_id, user.user_id, request.message, response.reply_text)
-                return response
-            inv_action = self._parse_inventory_action(message)
-            if inv_action:
-                proposal_id = str(uuid.uuid4())
-                self.proposal_store.save(user_id, proposal_id, inv_action)
-                return ChatResponse(
-                    reply_text="I prepared an inventory update. Please confirm to apply.",
-                    confirmation_required=True,
-                    proposal_id=proposal_id,
-                    proposed_actions=[inv_action],
-                    suggested_next_questions=[],
-                )
-
-            parsed = self._parse_prefs_from_message(message)
-            missing_questions = self._collect_missing_questions(parsed)
-            if missing_questions:
-                return ChatResponse(
-                    reply_text="I need a bit more info to propose your prefs.",
-                    confirmation_required=False,
-                    proposal_id=None,
-                    proposed_actions=[],
-                    suggested_next_questions=missing_questions,
-                )
-
-            prefs = self._merge_with_defaults(user_id, parsed)
-            proposal_id = str(uuid.uuid4())
-            action = ProposedUpsertPrefsAction(prefs=prefs)
-            self.proposal_store.save(user_id, proposal_id, action)
-
-            return ChatResponse(
-                reply_text="I prepared a prefs update. Please confirm to apply.",
-                confirmation_required=True,
-                proposal_id=proposal_id,
-                proposed_actions=[action],
-                suggested_next_questions=[],
-            )
+            response = self._handle_prefs_flow_threaded(user, request, effective_mode)
+            self._append_messages(request.thread_id, user.user_id, request.message, response.reply_text)
+            return response
 
         return ChatResponse(
             reply_text="Unsupported mode. Use ask or fill.",
@@ -259,123 +217,6 @@ class ChatService:
         if assistant_text:
             self.thread_messages_repo.append_message(thread_id, user_id, "assistant", assistant_text)
 
-    def _handle_inventory_flow(self, user: UserMe, request: ChatRequest, key: str, effective_mode: str) -> ChatResponse:
-        location = request.location or "pantry"
-        pending = self.pending_raw.get(key)
-
-        if pending:
-            # State 1: apply edit ops
-            ops = extract_edit_ops(request.message, self.llm_client)
-            raw_items = pending["raw_items"]
-            unmatched = self._apply_ops(raw_items, ops.get("ops", []))
-            normalized = normalize_items(raw_items, location)
-            proposal_id = pending["proposal_id"]
-            actions = self._to_actions(normalized)
-            self.proposal_store.save(user.user_id, proposal_id, actions)
-            reply = self._render_proposal(normalized, unmatched, location)
-            return ChatResponse(
-                reply_text=reply,
-                confirmation_required=True,
-                proposal_id=proposal_id,
-                proposed_actions=actions,
-                suggested_next_questions=[],
-                mode=effective_mode,
-            )
-
-        # State 0: new draft
-        raw_items = extract_new_draft(request.message, self.llm_client)
-        if not raw_items:
-            inv_action = self._parse_inventory_action(request.message)
-            if inv_action:
-                proposal_id = str(uuid.uuid4())
-                actions = [inv_action]
-                self.proposal_store.save(user.user_id, proposal_id, actions)
-                self.pending_raw[key] = {"raw_items": [], "location": location, "proposal_id": proposal_id}
-                return ChatResponse(
-                    reply_text="I prepared an inventory update. Please confirm to apply.",
-                    confirmation_required=True,
-                    proposal_id=proposal_id,
-                    proposed_actions=actions,
-                    suggested_next_questions=[],
-                    mode=effective_mode,
-                )
-        normalized = normalize_items(raw_items, location)
-        proposal_id = str(uuid.uuid4())
-        actions = self._to_actions(normalized)
-        self.proposal_store.save(user.user_id, proposal_id, actions)
-        self.pending_raw[key] = {"raw_items": raw_items, "location": location, "proposal_id": proposal_id}
-        reply = self._render_proposal(normalized, [], location)
-        return ChatResponse(
-            reply_text=reply,
-            confirmation_required=True,
-            proposal_id=proposal_id,
-            proposed_actions=actions,
-            suggested_next_questions=[],
-            mode=effective_mode,
-        )
-
-    def _render_proposal(self, normalized: list[dict], unmatched: list[str], location: str) -> str:
-        lines = [f"Location: {location}"]
-        for idx, item in enumerate(normalized, 1):
-            it = item["item"]
-            warnings = item.get("warnings", [])
-            warn_txt = " ".join(f"[{w}]" for w in warnings) if warnings else ""
-            qty = f"{it.get('quantity') or ''}{it.get('unit') or ''}".strip()
-            expiry = it.get("expires_on") or ""
-            lines.append(f"{idx}. {it.get('base_name')} {qty} {expiry} {warn_txt}".strip())
-        if unmatched:
-            lines.append(f"Unmatched edits: {', '.join(unmatched)}")
-        lines.append("Confirm / Deny / Edit")
-        return "\n".join(lines)
-
-    def _to_actions(self, normalized: list[dict]) -> list[ProposedInventoryEventAction]:
-        actions: list[ProposedInventoryEventAction] = []
-        for n in normalized:
-            it = n["item"]
-            action = ProposedInventoryEventAction(
-                event=InventoryEventCreateRequest(
-                    event_type="add",
-                    item_name=it.get("item_key"),
-                    quantity=it.get("quantity") or 0,
-                    unit=it.get("unit") or "g",
-                    note=it.get("notes") or "",
-                    source="chat",
-                )
-            )
-            actions.append(action)
-        return actions
-
-    def _apply_ops(self, raw_items: list, ops: list[dict]) -> list[str]:
-        unmatched: list[str] = []
-        for op in ops:
-            name = (op.get("target") or "").strip().lower()
-            if not name:
-                continue
-            matches = [ri for ri in raw_items if (ri.get("name_raw") or "").strip().lower().startswith(name)]
-            if not matches:
-                unmatched.append(name)
-                continue
-            if op.get("op") == "remove":
-                raw_items[:] = [ri for ri in raw_items if ri not in matches]
-            elif op.get("op") == "set_quantity":
-                for m in matches:
-                    m["quantity_raw"] = str(op.get("quantity"))
-                    m["unit_raw"] = op.get("unit")
-            elif op.get("op") == "set_expires_on":
-                for m in matches:
-                    m["expires_raw"] = op.get("expires_on")
-            elif op.get("op") == "add":
-                raw_items.append(
-                    {
-                        "name_raw": op.get("name_raw"),
-                        "quantity_raw": op.get("quantity_raw"),
-                        "unit_raw": op.get("unit_raw"),
-                        "expires_raw": op.get("expires_raw"),
-                        "notes_raw": op.get("notes_raw"),
-                    }
-                )
-        return unmatched
-
     def confirm(
         self,
         user: UserMe,
@@ -383,16 +224,14 @@ class ChatService:
         confirm: bool,
         thread_id: str | None = None,
     ) -> tuple[bool, List[str], str | None]:
+        if self.inventory_agent.handles_proposal(user.user_id, proposal_id):
+            if not self.inventory_agent.handles_proposal(user.user_id, proposal_id, thread_id):
+                return False, [], None
+            return self.inventory_agent.confirm(user, proposal_id, confirm, thread_id)
         action = self.proposal_store.peek(user.user_id, proposal_id)
         if not action:
-            pending = self.pending_raw.get(user.user_id)
-            if pending:
-                normalized = normalize_items(pending.get("raw_items", []), pending.get("location", "pantry"))
-                action = self._to_actions(normalized)
-            else:
-                return False, [], None
+            return False, [], None
         if not confirm:
-            self.pending_raw.pop(user.user_id, None)
             if thread_id:
                 self.prefs_drafts.pop((user.user_id, thread_id), None)
             self.proposal_store.pop(user.user_id, proposal_id)
@@ -416,25 +255,8 @@ class ChatService:
                     )
                     applied_event_ids.append(event_id)
                 else:
-                    payload = getattr(act, "event", act)
-                    ev = None
-                    if hasattr(self.inventory_service, "events"):
-                        self.inventory_service.events.append(payload)
-                        applied_event_ids.append(f"ev{len(self.inventory_service.events)}")
-                    else:
-                        try:
-                            ev = self.inventory_service.create_event(
-                                user.user_id,
-                                user.provider_subject,
-                                user.email,
-                                payload,
-                            )
-                        except Exception:
-                            # Fallback in tests or when DB is unavailable
-                            applied_event_ids.append(f"ev{len(applied_event_ids)+1}")
-                            ev = None
-                    if ev is not None and hasattr(ev, "event_id"):
-                        applied_event_ids.append(ev.event_id)
+                    # Non-prefs actions should be handled elsewhere
+                    continue
             success = True
         except PrefsPersistenceError as exc:
             logger.warning("Prefs confirm failed (%s): %s", proposal_id, exc)
@@ -445,7 +267,6 @@ class ChatService:
         finally:
             if success:
                 self.proposal_store.pop(user.user_id, proposal_id)
-                self.pending_raw.pop(user.user_id, None)
                 if thread_id:
                     self.prefs_drafts.pop((user.user_id, thread_id), None)
         return success, applied_event_ids, reason
@@ -677,60 +498,3 @@ class ChatService:
             )
         return None
 
-    def _parse_inventory_action(self, message: str) -> Optional[ProposedInventoryEventAction]:
-        lower = message.lower()
-        event_type = self._infer_event_type(lower)
-        if not event_type:
-            return None
-        parsed = self._extract_item_quantity_unit(lower)
-        if not parsed:
-            return None
-        item_name, quantity, unit = parsed
-        if item_name in {"servings", "meal", "meals", "serving"}:
-            return None
-        req = InventoryEventCreateRequest(
-            event_type=event_type,
-            item_name=item_name,
-            quantity=quantity,
-            unit=unit,
-            note="",
-            source="chat",
-        )
-        return ProposedInventoryEventAction(event=req)
-
-    def _infer_event_type(self, text: str) -> Optional[str]:
-        if any(k in text for k in ["bought", "added", "got", "picked up", "stocked"]):
-            return "add"
-        if any(k in text for k in ["cooked", "made", "meal"]):
-            return "consume_cooked"
-        if any(k in text for k in ["used", "used up", "for recipe"]):
-            return "consume_used_separately"
-        if any(k in text for k in ["threw", "binned", "expired", "gone off"]):
-            return "consume_thrown_away"
-        if any(k in text for k in ["set", "correct", "actually have"]):
-            if "serving" in text or "meal" in text:
-                return None
-            return "adjust"
-        return None
-
-    def _extract_item_quantity_unit(self, text: str) -> Optional[tuple[str, float, str]]:
-        match = re.search(r"(\d+(?:\.\d+)?)\s*(g|gram|grams|ml|milliliter|milliliters|l|liter|liters)", text)
-        if match:
-            qty = float(match.group(1))
-            raw_unit = match.group(2)
-            unit = "g" if "g" in raw_unit else "ml"
-            name_part = text[match.end():].strip()
-            if not name_part:
-                name_part = "item"
-            return name_part, qty, unit
-        match = re.search(r"(\d+)", text)
-        if match:
-            qty = float(match.group(1))
-            words = text.split()
-            unit = "count"
-            # naive item name: last word
-            item_name = words[-1] if words else "item"
-            if item_name.isdigit():
-                return None
-            return item_name, qty, unit
-        return None

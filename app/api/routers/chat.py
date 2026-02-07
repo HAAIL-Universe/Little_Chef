@@ -40,6 +40,25 @@ def chat(
 
 
 @router.post(
+    "/chat/inventory",
+    response_model=ChatResponse,
+    responses={
+        "400": {"model": ErrorResponse},
+        "401": {"model": ErrorResponse},
+    },
+)
+def chat_inventory(
+    request: ChatRequest,
+    current_user: UserMe = Depends(get_current_user),
+) -> ChatResponse:
+    if not request.thread_id:
+        raise BadRequestError("Thread id is required for inventory flow.")
+    if not request.mode or (request.mode or "").lower() != "fill":
+        raise BadRequestError("inventory supports fill only in Phase 8 (use mode='fill').")
+    return _chat_service.inventory_agent.handle_fill(current_user, request)
+
+
+@router.post(
     "/chat/confirm",
     response_model=ConfirmProposalResponse,
     responses={
