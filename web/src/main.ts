@@ -130,6 +130,7 @@ const OVERLAY_ROOT_ID = "duet-overlay-root";
 const OVERLAY_ROOT_Z_INDEX = 2147483640;
 const ONBOARD_MENU_EDGE_MARGIN = 8;
 const USER_BUBBLE_ELLIPSIS = "…";
+const NORMAL_CHAT_FLOW_KEYS = new Set(["general", "inventory", "mealplan", "prefs"]);
 let overlayRoot: HTMLDivElement | null = null;
 let onboardPressTimer: number | null = null;
 let onboardPressStart: { x: number; y: number } | null = null;
@@ -562,13 +563,13 @@ function updateDuetBubbles() {
     "Welcome — I’m Little Chef. To start onboarding, please fill out your preferences (allergies, likes/dislikes, servings, days).";
   const userFallback = "Press and hold to start onboarding with preferences.";
   setBubbleText(assistant, lastAssistant?.text ?? assistantFallback);
-  const showEllipsis = userBubbleEllipsisActive && isGeneralFlow();
-  const fallbackText = isGeneralFlow() ? userFallback : lastUser?.text ?? userFallback;
+  const showEllipsis = userBubbleEllipsisActive && isNormalChatFlow();
+  const fallbackText = isNormalChatFlow() ? userFallback : lastUser?.text ?? userFallback;
   setBubbleText(user, showEllipsis ? USER_BUBBLE_ELLIPSIS : fallbackText);
 }
 
-function isGeneralFlow() {
-  return currentFlowKey === "general";
+function isNormalChatFlow() {
+  return NORMAL_CHAT_FLOW_KEYS.has(currentFlowKey);
 }
 
 function setUserBubbleEllipsis(enabled: boolean) {
@@ -1210,8 +1211,8 @@ async function sendAsk(message: string, opts?: { flowLabel?: string; updateChatP
   const normalizedMessage = message.trim();
   const flowLabel = opts?.flowLabel;
   const displayText = flowLabel ? `[${flowLabel}] ${normalizedMessage}` : normalizedMessage;
-  const isGeneralChat = isGeneralFlow();
-  if (isGeneralChat) {
+  const isNormalChat = isNormalChatFlow();
+  if (isNormalChat) {
     setUserBubbleEllipsis(true);
     incrementHistoryBadge();
   }
