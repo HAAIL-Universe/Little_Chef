@@ -63,6 +63,102 @@ assert(
   !inventorySummary.includes("weight_g="),
   "inventory summary should not surface backend measurement notes"
 );
+
+const RealDate = Date;
+const frozenDate = new RealDate("2026-02-08T00:00:00Z");
+class FrozenDate extends RealDate {
+  constructor(...args) {
+    if (args.length === 0) {
+      return new RealDate(frozenDate);
+    }
+    return new RealDate(...args);
+  }
+  static now() {
+    return frozenDate.getTime();
+  }
+  static parse(...args) {
+    return RealDate.parse(...args);
+  }
+  static UTC(...args) {
+    return RealDate.UTC(...args);
+  }
+}
+
+globalThis.Date = FrozenDate;
+try {
+  const useByResponse = {
+    confirmation_required: true,
+    proposed_actions: [
+      {
+        action_type: "create_inventory_event",
+        event: {
+          event_type: "add",
+          item_name: "olive oil",
+          quantity: 500,
+          unit: "ml",
+          note: "weight_g=1200; use_by=9th",
+          source: "chat",
+        },
+      },
+    ],
+  };
+  const useBySummary = formatProposalSummary(useByResponse);
+  assert(useBySummary, "use_by summary should exist");
+  assert(
+    useBySummary.includes("USE BY: 09/02"),
+    "inventory summary should render USE BY with fixed month/day format"
+  );
+  assert(
+    !useBySummary.includes("weight_g="),
+    "measurements should remain hidden even when use_by is present"
+  );
+
+  const useBySecondResponse = {
+    confirmation_required: true,
+    proposed_actions: [
+      {
+        action_type: "create_inventory_event",
+        event: {
+          event_type: "add",
+          item_name: "tins chopped tomatoes",
+          quantity: 4,
+          unit: "count",
+          note: "volume_ml=2000; use_by=11th",
+          source: "chat",
+        },
+      },
+    ],
+  };
+  const useBySecondSummary = formatProposalSummary(useBySecondResponse);
+  assert(
+    useBySecondSummary && useBySecondSummary.includes("USE BY: 11/02"),
+    "second use_by entry should show updated day"
+  );
+
+  const useByInvalidResponse = {
+    confirmation_required: true,
+    proposed_actions: [
+      {
+        action_type: "create_inventory_event",
+        event: {
+          event_type: "add",
+          item_name: "frozen peas",
+          quantity: 900,
+          unit: "g",
+          note: "use_by=??",
+          source: "chat",
+        },
+      },
+    ],
+  };
+  const useByInvalidSummary = formatProposalSummary(useByInvalidResponse);
+  assert(
+    useByInvalidSummary && !useByInvalidSummary.includes("USE BY:"),
+    "invalid use_by tokens should not render"
+  );
+} finally {
+  globalThis.Date = RealDate;
+}
 const inventoryReply = "Proposed inventory update\n\ninventory update text";
 const inventoryCleaned = stripProposalPrefix(inventoryReply);
 assert(

@@ -29,26 +29,82 @@ const describePrefs = (prefs) => {
     }
     return lines;
 };
+const parseNoteKeyValues = (note) => {
+    const fields = {};
+    note.split(";").forEach((piece) => {
+        const trimmed = piece.trim();
+        if (!trimmed) {
+            return;
+        }
+        const equalsIndex = trimmed.indexOf("=");
+        if (equalsIndex < 0) {
+            return;
+        }
+        const key = trimmed.slice(0, equalsIndex).trim().toLowerCase();
+        const value = trimmed.slice(equalsIndex + 1).trim();
+        if (!key || !value) {
+            return;
+        }
+        fields[key] = value;
+    });
+    return fields;
+};
+const formatUseByToken = (value) => {
+    if (!value) {
+        return null;
+    }
+    const digits = value.replace(/\D/g, "");
+    if (!digits) {
+        return null;
+    }
+    const dayNum = parseInt(digits, 10);
+    if (Number.isNaN(dayNum) || dayNum < 1 || dayNum > 31) {
+        return null;
+    }
+    const now = new Date();
+    const month = now.getMonth() + 1;
+    const dayText = String(dayNum).padStart(2, "0");
+    const monthText = String(month).padStart(2, "0");
+    return `USE BY: ${dayText}/${monthText}`;
+};
 const formatInventoryAction = (action) => {
     const event = action.event;
     if (!event) {
         return `• Proposal: ${action.action_type}`;
     }
     const components = [event.item_name];
-    const unitLabel = event.unit || "count";
+    // Quantity formatting (hide "count", humanize g/ml when sensible)
     if (event.quantity !== undefined && event.quantity !== null) {
-        components.push(`${event.quantity} ${unitLabel}`);
+        const unit = (event.unit || "").trim().toLowerCase();
+        let qtyText = "";
+        if (!unit || unit === "count") {
+            qtyText = `${event.quantity}`;
+        }
+        else if (unit === "g" &&
+            typeof event.quantity === "number" &&
+            event.quantity >= 1000 &&
+            event.quantity % 1000 === 0) {
+            qtyText = `${event.quantity / 1000} kg`;
+        }
+        else if (unit === "ml" &&
+            typeof event.quantity === "number" &&
+            event.quantity >= 1000 &&
+            event.quantity % 1000 === 0) {
+            qtyText = `${event.quantity / 1000} L`;
+        }
+        else {
+            qtyText = `${event.quantity} ${unit}`;
+        }
+        components.push(qtyText);
     }
     if (event.note) {
-        const notePieces = event.note
-            .split(";")
-            .map((piece) => piece.trim())
-            .filter(Boolean);
-        if (notePieces.length) {
-            components.push(notePieces.join("; "));
+        const noteFields = parseNoteKeyValues(event.note);
+        const useByToken = formatUseByToken(noteFields["use_by"]);
+        if (useByToken) {
+            components.push(useByToken);
         }
     }
-    return `• ${components.join(" — ")}`;
+    return `• ${components.join(" ")}`;
 };
 export function formatProposalSummary(response) {
     var _a;
