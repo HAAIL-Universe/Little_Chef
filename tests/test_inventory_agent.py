@@ -1,3 +1,5 @@
+import re
+
 from app.services.inventory_agent import InventoryAgent
 from app.services.proposal_store import ProposalStore
 
@@ -20,6 +22,11 @@ STT_CUPBOARD_FRIDGE_LONG = (
     "how much flour is left, maybe half a bag, and I've got frozen peas in the freezer about 900 grams total. Now I'm "
     "at the fridge. Two packs of chicken thighs, about 1.2 kilos total, use by the 9th, six eggs, two loaves of bread, milk "
     "2 litres use by the 11th, and orange juice 1 litre. That's everything, cheers, ignore that last bit."
+)
+
+STT_CONTAINER_SCAN = (
+    "Tinned chopped tomatoes, six tins best before February 2027. Greek yoghurt, two pots. "
+    "Chicken breast, two pieces. Garlic, one bulb. Milk, two litres, about half left. Cheddar, best before 5 March."
 )
 
 
@@ -170,6 +177,87 @@ def test_inventory_agent_parses_stt_inventory_message():
     ]
     assert len(ham_actions) == 1
     assert "use_by=12th" in (ham_actions[0].event.note or "")
+
+
+def test_inventory_agent_prefers_food_names_over_containers():
+    agent, _ = _make_agent()
+    actions, _ = agent._parse_inventory_actions(STT_CONTAINER_SCAN)
+    assert actions, "Expected actions from the container scan."
+
+    container_words = {
+        "tin",
+        "tins",
+        "can",
+        "cans",
+        "jar",
+        "bottle",
+        "bag",
+        "pack",
+        "box",
+        "pot",
+        "pots",
+        "piece",
+        "pieces",
+        "bulb",
+        "loaf",
+        "slice",
+        "slices",
+    }
+
+    for action in actions:
+        name = action.event.item_name.lower()
+        assert name not in container_words
+        assert "best before" not in name
+        assert not re.search(r"\\b(march|february)\\b", name)
+
+    assert any("tomato" in action.event.item_name.lower() for action in actions)
+    assert any("yoghurt" in action.event.item_name.lower() for action in actions)
+    assert any("chicken" in action.event.item_name.lower() for action in actions)
+
+    expected_foods = {
+        "tomato": False,
+        "yoghurt": False,
+        "chicken": False,
+        "garlic": False,
+        "milk": False,
+        "cheddar": False,
+    }
+    for action in actions:
+        lower_name = action.event.item_name.lower()
+        for food in expected_foods:
+            if food in lower_name:
+                expected_foods[food] = True
+    assert all(expected_foods.values())
+
+    date_terms = {"best before", "use by", "use-by", "february", "march"}
+    for action in actions:
+        lower_name = action.event.item_name.lower()
+        assert not any(term in lower_name for term in date_terms)
+
+    milk_actions = [
+        action for action in actions if "milk" in action.event.item_name.lower()
+    ]
+    assert milk_actions
+    assert any(
+        action.event.quantity == 2000 and action.event.unit == "ml"
+        for action in milk_actions
+    )
+
+    garlic_actions = [
+        action for action in actions if "garlic" in action.event.item_name.lower()
+    ]
+    assert garlic_actions
+    assert garlic_actions[0].event.quantity == 1
+    assert garlic_actions[0].event.unit == "count"
+
+    cheddar = next(
+        (action for action in actions if "cheddar" in action.event.item_name.lower()),
+        None,
+    )
+    assert cheddar
+    cheddar_name = cheddar.event.item_name.lower()
+    assert "march" not in cheddar_name
+    assert "best before" not in cheddar_name
 
 
 def test_inventory_agent_handles_chicken_use_by_stt():
