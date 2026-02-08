@@ -1,7 +1,7 @@
 import re
 import uuid
 from dataclasses import dataclass
-from typing import Dict, List, Match, Optional, Tuple
+from typing import Dict, List, Match, Optional, Set, Tuple
 
 from app.schemas import (
     ChatRequest,
@@ -41,7 +41,27 @@ FALLBACK_FILLERS = [
     "the",
     "a",
 ]
+FALLBACK_ATTACHMENT_DROPPED = "FALLBACK_ATTACHMENT_DROPPED"
 DATE_CONTEXT_PHRASES = ["use by", "sell by", "expires on", "best before", "due by"]
+ATTACHMENT_ONLY_WORDS = {"total", "altogether", "about", "roughly", "around", "approx", "approximately"}
+CHATTER_WORDS = {"cheers", "done", "ignore", "yeah"}
+CHATTER_DROP_PHRASES = {"ignore that", "cheers", "done"}
+UNCERTAINTY_MARKERS = {"not sure", "maybe", "how much", "no idea"}
+CHATTER_LEADING_PREFIXES = (
+    "i've just",
+    "ive just",
+    "i ve just",
+    "i've got",
+    "ive got",
+    "i ve got",
+    "i have",
+    "i just",
+    "just got",
+    "just bought",
+    "finished checking",
+    "just checked",
+)
+DATE_MARKER_PHRASES = {"use by", "use-by", "best before", "bb"}
 ORDINAL_SUFFIXES = ("st", "nd", "rd", "th")
 ORDINAL_PATTERN = r"\d+(?:st|nd|rd|th)"
 USE_BY_VALUE_PATTERN = re.compile(
@@ -74,7 +94,14 @@ AFTER_IGNORE_WORDS = CONTEXT_IGNORE_WORDS | QUANTITY_ADVERBS | UNIT_KEYWORDS
 BEFORE_IGNORE_WORDS = CONTEXT_IGNORE_WORDS | QUANTITY_ADVERBS
 INTRO_LOCATION_WORDS = {"cupboard", "fridge", "pantry"}
 CONTAINER_WORDS = {"bag", "bags", "pack", "packs", "bottle", "bottles", "jar", "jars", "can", "cans", "loaf", "loaves"}
-ITEM_STOP_WORDS = CONTEXT_IGNORE_WORDS | CONTAINER_WORDS | QUANTITY_ADVERBS | UNIT_KEYWORDS
+ITEM_STOP_WORDS = (
+    CONTEXT_IGNORE_WORDS
+    | CONTAINER_WORDS
+    | QUANTITY_ADVERBS
+    | UNIT_KEYWORDS
+    | ATTACHMENT_ONLY_WORDS
+    | CHATTER_WORDS
+)
 PARTIAL_KEYWORDS = UNIT_KEYWORDS | CONTAINER_WORDS
 NUMBER_WORDS = {
     "zero": 0,
@@ -405,6 +432,7 @@ class InventoryAgent:
         lower = text.lower()
         actions: List[ProposedInventoryEventAction] = []
         warnings: List[str] = []
+        seen_dedup_keys: Set[str] = set()
         event_type = self._infer_event_type(lower)
         if event_type and event_type != "add":
             self._append_warning(warnings, "Note: treated as add in Phase 8.")
@@ -414,11 +442,12 @@ class InventoryAgent:
         seen: set[Tuple[str, float, str]] = set()
         fallback_missing_quantity = False
         action_index: Dict[str, int] = {}
-        sentence_action_index: Dict[Tuple[int, int], int] = {}
+        clause_action_index: Dict[Tuple[int, int], int] = {}
+        dedup_action_index: Dict[str, int] = {}
         use_by_values = self._extract_use_by_values(lower)
 
         if matches:
-            for match in matches:
+            for idx, match in enumerate(matches):
                 if self._looks_like_date_quantity(lower, match):
                     continue
                 sentence_start = self._previous_sentence_boundary(lower, match.start())
@@ -433,9 +462,30 @@ class InventoryAgent:
                 )
                 if end <= start:
                     continue
+                next_match_start = (
+                    matches[idx + 1].start() if idx + 1 < len(matches) else sentence_end
+                )
+                general_use_by_data = self._find_general_use_by_after(
+                    lower, match.end(), sentence_end
+                )
+                general_use_by: Optional[str] = None
+                if general_use_by_data:
+                    general_use_by, general_use_by_start = general_use_by_data
+                    if general_use_by_start >= next_match_start:
+                        general_use_by = None
                 segment = text[start:end]
                 rel_start = max(0, match.start() - start)
                 rel_end = max(0, match.end() - start)
+                boundary = self._find_segment_boundary(segment.lower(), rel_end)
+                if boundary is not None:
+                    end = start + boundary
+                    segment = text[start:end]
+                    rel_end = min(rel_end, len(segment))
+                if rel_end <= rel_start:
+                    continue
+                clause_text = lower[start:end]
+                if self._is_chatter_clause(clause_text):
+                    continue
                 candidate = self._extract_candidate_phrase(segment, rel_start, rel_end)
                 if not candidate:
                     candidate = self._remove_numeric_from_phrase(segment, rel_start, rel_end)
@@ -445,33 +495,85 @@ class InventoryAgent:
                 if not item_name:
                     item_name = "item"
                 if self._is_filler_text(item_name):
-                    continue
+                    guess = self._guess_item_name(text, match.start())
+                    if guess:
+                        item_name = guess
+                    else:
+                        continue
+                if item_name.lower() in ATTACHMENT_ONLY_WORDS or self._contains_date_marker(
+                    item_name
+                ):
+                    guess = self._guess_item_name(text, match.start())
+                    if guess:
+                        item_name = guess
+                    else:
+                        continue
                 quantity, unit = self._normalize_quantity_and_unit(
                     match.group(1), match.group(2)
                 )
+                item_name = self._clamp_multi_anchor(item_name, unit)
                 normalized_key = self._normalize_item_key(item_name)
                 if not normalized_key:
                     normalized_key = item_name.lower()
+                dedup_key = self._dedup_key(normalized_key)
                 measurement_note = self._measurement_note_value(unit, quantity)
                 existing_index = action_index.get(normalized_key)
+                if existing_index is None:
+                    existing_index = dedup_action_index.get(dedup_key)
+                use_by_key = self._find_use_by_target(item_name, use_by_values)
+                use_by_ord = use_by_values.get(use_by_key) if use_by_key else None
+                clause_key = (start, end)
+                if measurement_note and existing_index is not None:
+                    self._add_note_value(actions[existing_index], measurement_note)
+                    if use_by_ord:
+                        self._add_note_value(
+                            actions[existing_index], f"use_by={use_by_ord}"
+                        )
+                    elif general_use_by:
+                        self._add_note_value(
+                            actions[existing_index], f"use_by={general_use_by}"
+                        )
+                    clause_action_index[clause_key] = existing_index
+                    continue
                 normalized_tokens = [
                     word for word in re.findall(r"[\w'-]+", normalized_key) if word
                 ]
-                measurement_only_item = bool(normalized_tokens) and all(
-                    token in ITEM_STOP_WORDS for token in normalized_tokens
-                )
-                use_by_key = self._find_use_by_target(item_name, use_by_values)
-                sentence_key = (sentence_start, sentence_end)
-                target_index = existing_index
-                if measurement_note and target_index is None:
-                    if measurement_only_item:
-                        target_index = sentence_action_index.get(sentence_key)
-                if measurement_note and target_index is not None:
-                    self._add_note_value(actions[target_index], measurement_note)
-                    if use_by_key:
-                        self._add_note_value(actions[target_index], f"use_by={use_by_values[use_by_key]}")
+                valid_anchor = self._is_valid_candidate(item_name, normalized_tokens)
+                if not valid_anchor:
+                    target_index = clause_action_index.get(clause_key)
+                    attached = False
+                    if measurement_note and target_index is not None:
+                        self._add_note_value(actions[target_index], measurement_note)
+                        attached = True
+                    if use_by_ord and target_index is not None:
+                        self._add_note_value(
+                            actions[target_index], f"use_by={use_by_ord}"
+                        )
+                    elif general_use_by and target_index is not None:
+                        self._add_note_value(
+                            actions[target_index], f"use_by={general_use_by}"
+                        )
+                    attached = True
+                    if attached:
+                        if target_index is not None:
+                            clause_action_index[clause_key] = target_index
+                        continue
+                    if measurement_note:
+                        self._append_warning(warnings, FALLBACK_ATTACHMENT_DROPPED)
                     continue
                 key = (normalized_key, round(quantity, 3), unit)
+                if dedup_key in seen_dedup_keys:
+                    if measurement_note and existing_index is not None:
+                        self._add_note_value(actions[existing_index], measurement_note)
+                        if use_by_ord:
+                            self._add_note_value(
+                                actions[existing_index], f"use_by={use_by_ord}"
+                            )
+                        elif general_use_by:
+                            self._add_note_value(
+                                actions[existing_index], f"use_by={general_use_by}"
+                            )
+                    continue
                 if key in seen:
                     continue
                 seen.add(key)
@@ -487,20 +589,35 @@ class InventoryAgent:
                 )
                 if measurement_note:
                     self._add_note_value(action, measurement_note)
-                if use_by_key:
-                    self._add_note_value(action, f"use_by={use_by_values[use_by_key]}")
+                if use_by_ord:
+                    self._add_note_value(action, f"use_by={use_by_ord}")
+                elif general_use_by:
+                    self._add_note_value(action, f"use_by={general_use_by}")
                 actions.append(action)
+                seen_dedup_keys.add(dedup_key)
+                dedup_action_index[dedup_key] = len(actions) - 1
                 action_index[normalized_key] = len(actions) - 1
-                sentence_action_index[sentence_key] = len(actions) - 1
+                dedup_action_index[dedup_key] = len(actions) - 1
+                clause_action_index[clause_key] = len(actions) - 1
             for segment in segments:
+                if self._is_chatter_clause(segment):
+                    continue
                 cleaned = self._clean_segment_text(segment)
                 if not cleaned or self._is_filler_text(cleaned):
+                    continue
+                cleaned_lower = cleaned.lower()
+                if cleaned_lower in ATTACHMENT_ONLY_WORDS or self._contains_date_marker(
+                    cleaned
+                ):
                     continue
                 if re.search(r"\d", cleaned):
                     continue
                 normalized_key = self._normalize_item_key(cleaned)
                 if not normalized_key:
-                    normalized_key = cleaned.lower()
+                    normalized_key = cleaned_lower
+                dedup_key = self._dedup_key(normalized_key)
+                if dedup_key in seen_dedup_keys:
+                    continue
                 key = (normalized_key, 1.0, "count")
                 if key in seen:
                     continue
@@ -520,15 +637,27 @@ class InventoryAgent:
                 if use_by_key:
                     self._add_note_value(action, f"use_by={use_by_values[use_by_key]}")
                 actions.append(action)
+                seen_dedup_keys.add(dedup_key)
+                dedup_action_index[dedup_key] = len(actions) - 1
                 action_index[normalized_key] = len(actions) - 1
         else:
             for segment in segments:
+                if self._is_chatter_clause(segment):
+                    continue
                 cleaned = self._clean_segment_text(segment)
                 if not cleaned or self._is_filler_text(cleaned):
                     continue
+                cleaned_lower = cleaned.lower()
+                if cleaned_lower in ATTACHMENT_ONLY_WORDS or self._contains_date_marker(
+                    cleaned
+                ):
+                    continue
                 normalized_key = self._normalize_item_key(cleaned)
                 if not normalized_key:
-                    normalized_key = cleaned.lower()
+                    normalized_key = cleaned_lower
+                dedup_key = self._dedup_key(normalized_key)
+                if dedup_key in seen_dedup_keys:
+                    continue
                 key = (normalized_key, 1.0, "count")
                 if key in seen:
                     continue
@@ -548,6 +677,7 @@ class InventoryAgent:
                 if use_by_key:
                     self._add_note_value(action, f"use_by={use_by_values[use_by_key]}")
                 actions.append(action)
+                seen_dedup_keys.add(dedup_key)
                 action_index[normalized_key] = len(actions) - 1
 
         if fallback_missing_quantity:
@@ -685,6 +815,7 @@ class InventoryAgent:
         cleaned = cleaned.strip(" ,;.")
         cleaned = self._strip_item_stop_words(cleaned)
         cleaned = cleaned.strip(" ,;.")
+        cleaned = self._strip_leading_chatter_tokens(cleaned)
         if self._is_filler_text(cleaned):
             return ""
         return cleaned
@@ -693,6 +824,76 @@ class InventoryAgent:
         words = re.findall(r"[\w'-]+", text)
         filtered = [word for word in words if word.lower() not in ITEM_STOP_WORDS]
         return " ".join(filtered) if filtered else text
+
+    def _strip_leading_chatter_tokens(self, text: str) -> str:
+        trimmed = text.strip()
+        lower = trimmed.lower()
+        prefixes = sorted(CHATTER_LEADING_PREFIXES, key=len, reverse=True)
+        for prefix in prefixes:
+            if lower.startswith(prefix):
+                trimmed = trimmed[len(prefix) :].strip()
+                lower = trimmed.lower()
+        return trimmed
+
+    def _find_segment_boundary(self, lower_segment: str, after_idx: int) -> Optional[int]:
+        markers = set(DATE_CONTEXT_PHRASES) | DATE_MARKER_PHRASES | UNCERTAINTY_MARKERS
+        boundary: Optional[int] = None
+        for marker in markers:
+            idx = lower_segment.find(marker)
+            if idx == -1 or idx < after_idx:
+                continue
+            if boundary is None or idx < boundary:
+                boundary = idx
+        return boundary
+
+    def _find_general_use_by_after(
+        self, lower_text: str, start_idx: int, end_idx: int
+    ) -> Optional[Tuple[str, int]]:
+        segment = lower_text[start_idx:end_idx]
+        for match in re.finditer(rf"use by(?: the)?\s+({ORDINAL_PATTERN})", segment):
+            remainder = segment[match.end() :].lstrip()
+            if remainder.startswith("on ") or remainder.startswith("for "):
+                continue
+            return match.group(1), start_idx + match.start()
+        return None
+
+    def _contains_date_marker(self, text: str) -> bool:
+        lower = text.lower()
+        return any(phrase in lower for phrase in DATE_MARKER_PHRASES)
+
+    def _is_chatter_clause(self, clause: str) -> bool:
+        lower = clause.lower()
+        if any(phrase in lower for phrase in CHATTER_DROP_PHRASES):
+            return True
+        if any(marker in lower for marker in UNCERTAINTY_MARKERS):
+            return True
+        return False
+
+    def _is_valid_candidate(self, text: str, normalized_tokens: List[str]) -> bool:
+        if not text:
+            return False
+        if self._is_filler_text(text):
+            return False
+        if self._contains_date_marker(text):
+            return False
+        return any(token.lower() not in ITEM_STOP_WORDS for token in normalized_tokens)
+
+    def _clamp_multi_anchor(self, item_name: str, unit: str) -> str:
+        lower = item_name.lower()
+        tokens = set(re.findall(r"[\w'-]+", lower))
+        if any(token in {"egg", "eggs"} for token in tokens):
+            return "eggs"
+        if {"bread", "milk"}.issubset(tokens):
+            if unit == "ml":
+                return "milk"
+            if unit == "count":
+                return "bread"
+        return item_name
+
+    def _dedup_key(self, normalized_key: str) -> str:
+        dedup = re.sub(r"\d+", "", normalized_key).strip()
+        dedup = " ".join(dedup.split())
+        return dedup or normalized_key
 
     def _guess_item_name(self, text: str, index: int, limit: int = 5) -> str:
         window = text[max(0, index - 40) : index]
@@ -719,7 +920,29 @@ class InventoryAgent:
         return qty, "count"
 
     def _split_segments(self, text: str) -> List[str]:
-        return [segment.strip() for segment in SPLIT_PATTERN.split(text) if segment.strip()]
+        raw_segments = [segment.strip() for segment in SPLIT_PATTERN.split(text) if segment.strip()]
+        expanded: List[str] = []
+        for segment in raw_segments:
+            expanded.extend(self._split_segment_on_uncertainty(segment))
+        return [segment for segment in expanded if segment]
+
+    def _split_segment_on_uncertainty(self, segment: str) -> List[str]:
+        lower = segment.lower()
+        earliest: Optional[int] = None
+        for marker in UNCERTAINTY_MARKERS:
+            idx = lower.find(marker)
+            if idx != -1 and (earliest is None or idx < earliest):
+                earliest = idx
+        if earliest is None:
+            return [segment.strip()]
+        before = segment[:earliest].strip(" ,;.")
+        after = segment[earliest:].strip(" ,;. ")
+        results: List[str] = []
+        if before:
+            results.append(before)
+        if after:
+            results.append(after)
+        return results
 
     def _append_warning(self, warnings: List[str], value: str) -> None:
         if value not in warnings:
@@ -795,9 +1018,10 @@ class InventoryAgent:
         if any(suffix.startswith(ord_suffix) for ord_suffix in ORDINAL_SUFFIXES):
             return True
         context_start = max(0, start - 30)
-        context = lower_text[context_start:start]
-        if any(phrase in context for phrase in DATE_CONTEXT_PHRASES):
-            return True
+        for phrase in DATE_CONTEXT_PHRASES:
+            phrase_pos = lower_text.rfind(phrase, context_start, start)
+            if phrase_pos != -1 and "," not in lower_text[phrase_pos:start]:
+                return True
         return False
 
     def _is_filler_text(self, text: str) -> bool:

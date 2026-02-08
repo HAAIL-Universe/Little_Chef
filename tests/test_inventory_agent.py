@@ -10,6 +10,19 @@ STT_INVENTORY_MESSAGE = (
     "and a bag of frozen peas."
 )
 
+STT_CHICKEN_USE_BY = "Two chicken thighs about 1.2 kilos total. Use by the 9th on the chicken thighs."
+STT_MILK_BREAD = "Two loaves of bread. Milk 2 litres use by the 11th on the milk."
+
+
+STT_CUPBOARD_FRIDGE_LONG = (
+    "I'm at the cupboard now. I've got pasta 500 grams, basmati rice about 1 kilo total, four tins of chopped tomatoes, "
+    "three tins of tuna, one jar of peanut butter, one bottle of olive oil about 500 ml, and a box of cereal. Not sure "
+    "how much flour is left, maybe half a bag, and I've got frozen peas in the freezer about 900 grams total. Now I'm "
+    "at the fridge. Two packs of chicken thighs, about 1.2 kilos total, use by the 9th, six eggs, two loaves of bread, milk "
+    "2 litres use by the 11th, and orange juice 1 litre. That's everything, cheers, ignore that last bit."
+)
+
+
 
 def _inventory_events(client):
     resp = client.get("/inventory/events")
@@ -157,6 +170,125 @@ def test_inventory_agent_parses_stt_inventory_message():
     ]
     assert len(ham_actions) == 1
     assert "use_by=12th" in (ham_actions[0].event.note or "")
+
+
+def test_inventory_agent_handles_chicken_use_by_stt():
+    agent, _ = _make_agent()
+    actions, _ = agent._parse_inventory_actions(STT_CHICKEN_USE_BY)
+    assert actions
+
+    chicken = [
+        action for action in actions if "chicken thighs" in action.event.item_name.lower()
+    ]
+    assert chicken
+    chicken_event = next(
+        (action.event for action in chicken if "weight_g=1200" in (action.event.note or "")),
+        chicken[0].event,
+    )
+    chicken_note = chicken_event.note or ""
+    assert "weight_g=1200" in chicken_note
+    assert "use_by=9th" in chicken_note
+
+    banned = {"total", "use by", "use-by", "best before", "cheers", "ignore"}
+    for action in actions:
+        assert not any(phrase in action.event.item_name.lower() for phrase in banned)
+
+
+def test_inventory_agent_handles_milk_bread_stt():
+    agent, _ = _make_agent()
+    actions, _ = agent._parse_inventory_actions(STT_MILK_BREAD)
+    assert actions
+
+    bread = [action for action in actions if "bread" in action.event.item_name.lower()]
+    assert bread
+    assert any(action.event.quantity == 2 for action in bread)
+
+    milk = [action for action in actions if "milk" in action.event.item_name.lower()]
+    assert milk
+    milk_note = milk[0].event.note or ""
+    assert "volume_ml=2000" in milk_note
+    assert "use_by=11th" in milk_note
+
+
+def test_inventory_agent_dedupes_salmon_and_soy():
+    agent, _ = _make_agent()
+    stt = "Two salmon fillets, 360g total. One bottle of soy sauce, 150ml. Done."
+    actions, _ = agent._parse_inventory_actions(stt)
+
+    salmon_weight = [
+        action
+        for action in actions
+        if "salmon" in action.event.item_name.lower()
+        and "weight_g=360" in (action.event.note or "")
+    ]
+    assert salmon_weight
+
+    soy_volume = [
+        action
+        for action in actions
+        if "soy sauce" in action.event.item_name.lower()
+        and "volume_ml=150" in (action.event.note or "")
+    ]
+    assert soy_volume
+
+    assert len(actions) == 2, "Expected only salmon and soy sauce proposals."
+    assert not any(
+        action.event.item_name.strip().lower() in {"total", "done"} for action in actions
+    )
+
+
+def test_inventory_agent_handles_long_cupboard_fridge_message():
+    agent, _ = _make_agent()
+    actions, warnings = agent._parse_inventory_actions(STT_CUPBOARD_FRIDGE_LONG)
+    assert actions, "Expected actions from the long cupboard/fridge STT message."
+
+    chicken = [
+        action for action in actions if "chicken thighs" in action.event.item_name.lower()
+    ]
+    assert chicken
+    chicken_note = chicken[0].event.note or ""
+    assert "weight_g=1200" in chicken_note
+    assert "use_by=9th" in chicken_note
+
+    eggs = [action for action in actions if "egg" in action.event.item_name.lower()]
+    assert eggs
+    egg_event = eggs[0].event
+    assert egg_event.quantity == 6
+    assert egg_event.unit == "count"
+
+    bread = [action for action in actions if "bread" in action.event.item_name.lower()]
+    assert bread
+    assert any(action.event.quantity == 2 and action.event.unit == "count" for action in bread)
+
+    milk = [action for action in actions if "milk" in action.event.item_name.lower()]
+    assert milk
+    milk_event = milk[0].event
+    assert milk_event.unit == "ml"
+    assert milk_event.quantity == 2000.0
+    milk_note = milk_event.note or ""
+    assert "volume_ml=2000" in milk_note
+    assert "use_by=11th" in milk_note
+
+    assert any(
+        "orange juice" in action.event.item_name.lower() for action in actions
+    ), "Orange juice should be parsed from the fridge clause."
+
+    cereal = [action for action in actions if "cereal" in action.event.item_name.lower()]
+    assert cereal, "Box of cereal should survive the uncertainty clause."
+
+    cereal_note = cereal[0].event.note or ""
+    assert "use_by" not in cereal_note
+
+    eggs_note = egg_event.note or ""
+    assert "use_by=11th" not in eggs_note
+
+    bread_note = bread[0].event.note or ""
+    assert "use_by=11th" not in bread_note
+
+    banned = {"not sure", "maybe", "cheers", "ignore", "total", "use by"}
+    for action in actions:
+        assert not any(phrase in action.event.item_name.lower() for phrase in banned)
+
 
 
 def test_inventory_agent_parses_number_words():

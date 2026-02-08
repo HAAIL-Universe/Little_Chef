@@ -1,3 +1,11 @@
+import warnings
+
+warnings.filterwarnings(
+    "ignore",
+    message=".*'app' shortcut is now deprecated.*",
+    category=DeprecationWarning,
+)
+
 import pytest
 from fastapi.testclient import TestClient
 

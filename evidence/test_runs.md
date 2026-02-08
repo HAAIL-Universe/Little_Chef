@@ -1,3 +1,69 @@
+## Test Run 2026-02-08T00:40:46Z
+- Status: PASS
+- Start: 2026-02-08T00:40:40Z
+- End: 2026-02-08T00:40:47Z
+- Python: Z:\LittleChef\.venv\Scripts\python.exe
+- Branch: main
+- HEAD: 3797435293716b050ac0545794e6bba04fac0a1b
+- compileall exit: 0
+- python -m pytest -q exit: 0
+- pytest summary: 73 passed, 0 warnings in 3.60s
+- git status -sb:
+```
+## main...origin/main [ahead 1]
+MM app/services/inventory_agent.py
+M  evidence/test_runs.md
+M  evidence/test_runs_latest.md
+MM evidence/updatedifflog.md
+M  tests/conftest.py
+MM tests/test_inventory_agent.py
+?? multipart/
+?? pytest.ini
+```
+- git diff --stat:
+```
+ app/services/inventory_agent.py |   55 +-
+ evidence/updatedifflog.md       | 1265 ++++++++++++++++++++++++++++++++++-----
+ tests/conftest.py              |    5 +
+ tests/test_inventory_agent.py   |   12 +
+ multipart/__init__.py           |    3 +
+ multipart/multipart.py          |    3 +
+ pytest.ini                      |    3 +
+ 6 files changed, 1289 insertions(+), 105 deletions(-)
+```
+
+## Test Run 2026-02-08T00:32:04Z
+
+## Test Run 2026-02-08T00:20:10Z
+- Status: PASS
+- Start: 2026-02-08T00:20:10Z
+- End: 2026-02-08T00:20:20Z
+- Python: Z:\LittleChef\.venv\Scripts\python.exe
+- Branch: main
+- HEAD: 3797435293716b050ac0545794e6bba04fac0a1b
+- compileall exit: 0
+- import app.main exit: 0
+- python -m pytest -q exit: 0
+- pytest summary: 73 passed, 50 warnings in 3.73s
+- git status -sb:
+```
+## main...origin/main [ahead 1]
+ M app/services/inventory_agent.py
+ M evidence/test_runs.md
+ M evidence/test_runs_latest.md
+ M evidence/updatedifflog.md
+ M tests/test_inventory_agent.py
+```
+- git diff --stat:
+```
+ app/services/inventory_agent.py | 239 ++++++++--
+ evidence/test_runs.md           | 113 +++++
+ evidence/test_runs_latest.md    |  26 +-
+ evidence/updatedifflog.md       | 946 +++++++++++++++++++++++++++++++---------
+ tests/test_inventory_agent.py   | 120 +++++
+ 5 files changed, 1214 insertions(+), 230 deletions(-)
+```
+
 ## Test Run 2026-02-07T00:16:52Z
 - Status: PASS
 - Start: 2026-02-07T00:16:52Z
@@ -11904,6 +11970,139 @@ git unavailable
 - import app.main exit: 0
 - pytest exit: 0
 - pytest summary: 69 passed, 1 warning in 3.20s
+- git status -sb:
+```
+git unavailable
+```
+- git diff --stat:
+```
+git unavailable
+```
+
+## Test Run 2026-02-07T23:35:30Z
+- Status: FAIL
+- Start: 2026-02-07T23:35:30Z
+- End: 2026-02-07T23:35:41Z
+- Python: Z:\LittleChef\.venv\\Scripts\\python.exe
+- Branch: main
+- HEAD: 3797435293716b050ac0545794e6bba04fac0a1b
+- compileall exit: 0
+- import app.main exit: 0
+- pytest exit: 1
+- pytest summary: 3 failed, 68 passed, 1 warning in 4.69s
+- git status -sb:
+```
+## main...origin/main [ahead 1]
+ M app/services/inventory_agent.py
+ M evidence/updatedifflog.md
+ M tests/test_inventory_agent.py
+```
+- git diff --stat:
+```
+ app/services/inventory_agent.py | 147 ++++++++++++++++++++--
+ evidence/updatedifflog.md       | 266 ++--------------------------------------
+ tests/test_inventory_agent.py   |  77 ++++++++++++
+ 3 files changed, 221 insertions(+), 269 deletions(-)
+```
+- Failure payload:
+```
+=== pytest (exit 1) ===
+...............................FFF.....................................  [100%]
+================================== FAILURES ===================================
+______________ test_inventory_agent_parses_stt_inventory_message ______________
+
+    def test_inventory_agent_parses_stt_inventory_message():
+        agent, _ = _make_agent()
+        actions, _ = agent._parse_inventory_actions(STT_INVENTORY_MESSAGE)
+        assert actions, "Expected actions from the STT inventory message."
+    
+        rice_actions = [
+            action for action in actions if "basmati rice" in action.event.item_name.lower()
+        ]
+>       assert len(rice_actions) == 1
+E       AssertionError: assert 2 == 1
+E        +  where 2 = len([ProposedInventoryEventAction(action_type='create_inventory_event', event=InventoryEventCreateRequest(occurred_at=None..._at=None, event_type='add', item_name='basmati rice', quantity=1000.0, unit='g', note='weight_g=1000', source='chat'))])
+
+tests\test_inventory_agent.py:116: AssertionError
+________________ test_inventory_agent_regression_long_message _________________
+
+    def test_inventory_agent_regression_long_message():
+        agent, _ = _make_agent()
+        actions, _ = agent._parse_inventory_actions(STT_REGRESSION_MESSAGE)
+        assert actions, "Expected actions from the regression STT message."
+    
+        eggs = [action for action in actions if "egg" in action.event.item_name.lower()]
+>       assert len(eggs) == 1
+E       assert 0 == 1
+E        +  where 0 = len([])
+
+tests\test_inventory_agent.py:179: AssertionError
+_________________ test_inventory_agent_dedupes_salmon_and_soy _________________
+
+    def test_inventory_agent_dedupes_salmon_and_soy():
+        agent, _ = _make_agent()
+        stt = "Two salmon fillets, 360g total. One bottle of soy sauce, 150ml. Done."
+        actions, _ = agent._parse_inventory_actions(stt)
+>       assert len(actions) == 2, "Expected only salmon and soy sauce proposals."
+E       AssertionError: Expected only salmon and soy sauce proposals.
+E       assert 3 == 2
+E        +  where 3 = len([ProposedInventoryEventAction(action_type='create_inventory_event', event=InventoryEventCreateRequest(occurred_at=None... event_type='add', item_name='1 bottle of soy sauce', quantity=150.0, unit='ml', note='volume_ml=150', source='chat'))])
+
+tests\test_inventory_agent.py:214: AssertionError
+============================== warnings summary ===============================
+.venv\Lib\site-packages\starlette\formparsers.py:12
+  Z:\LittleChef\.venv\Lib\site-packages\starlette\formparsers.py:12: PendingDeprecationWarning: Please use `import python_multipart` instead.
+    import multipart
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED tests/test_inventory_agent.py::test_inventory_agent_parses_stt_inventory_message
+FAILED tests/test_inventory_agent.py::test_inventory_agent_regression_long_message
+FAILED tests/test_inventory_agent.py::test_inventory_agent_dedupes_salmon_and_soy
+3 failed, 68 passed, 1 warning in 4.69s
+```
+
+## Test Run 2026-02-07T23:45:47Z
+- Status: PASS
+- Start: 2026-02-07T23:45:47Z
+- End: 2026-02-07T23:45:56Z
+- Python: Z:\LittleChef\.venv\\Scripts\\python.exe
+- Branch: main
+- HEAD: 3797435293716b050ac0545794e6bba04fac0a1b
+- compileall exit: 0
+- import app.main exit: 0
+- pytest exit: 0
+- pytest summary: 72 passed, 1 warning in 3.00s
+- git status -sb:
+```
+## main...origin/main [ahead 1]
+ M app/services/inventory_agent.py
+ M evidence/test_runs.md
+ M evidence/test_runs_latest.md
+ M evidence/updatedifflog.md
+ M tests/test_inventory_agent.py
+```
+- git diff --stat:
+```
+ app/services/inventory_agent.py | 125 ++++++++++++++++---
+ evidence/test_runs.md           |  83 +++++++++++++
+ evidence/test_runs_latest.md    |  86 +++++++++++--
+ evidence/updatedifflog.md       | 266 ++--------------------------------------
+ tests/test_inventory_agent.py   |  68 ++++++++++
+ 5 files changed, 349 insertions(+), 279 deletions(-)
+```
+
+## Test Run 2026-02-08T00:41:35Z
+- Status: PASS
+- Start: 2026-02-08T00:41:35Z
+- End: 2026-02-08T00:41:43Z
+- Python: Z:\LittleChef\.venv\\Scripts\\python.exe
+- Branch: git unavailable
+- HEAD: git unavailable
+- compileall exit: 0
+- import app.main exit: 0
+- pytest exit: 0
+- pytest summary: 73 passed in 2.70s
 - git status -sb:
 ```
 git unavailable
