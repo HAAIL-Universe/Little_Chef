@@ -130,6 +130,10 @@ let onboardMenuActive = false;
 let onboardActiveItem: HTMLElement | null = null;
 let onboardIgnoreDocClickUntilMs = 0;
 let onboardDragActive = false;
+const COMPOSER_TRIPLE_TAP_WINDOW_MS = 450;
+let composerVisible = false;
+let stageTripleTapCount = 0;
+let stageTripleTapResetTimer: number | null = null;
 
 function headers() {
   const h: Record<string, string> = { "Content-Type": "application/json" };
@@ -478,14 +482,7 @@ function renderFlowMenu() {
   dropdown.appendChild(devItem);
 
   const currentLabel = flowDisplayLabel(currentFlowKey);
-  trigger.innerHTML = "";
-  const title = document.createElement("span");
-  title.textContent = "Options";
-  const mode = document.createElement("span");
-  mode.className = "current-label";
-  mode.textContent = `Mode: ${currentLabel}`;
-  trigger.appendChild(title);
-  trigger.appendChild(mode);
+  trigger.textContent = "⚙";
   trigger.setAttribute("aria-label", `Options (current: ${currentLabel})`);
 }
 
@@ -1334,6 +1331,7 @@ function wire() {
   setupDevPanel();
   applyRememberedJwtInput(jwtInput);
   wireDuetComposer();
+  wireFloatingComposerTrigger(document.querySelector(".duet-stage") as HTMLElement | null);
   setupHistoryDrawerUi();
   wireHistoryHotkeys();
   bindOnboardingLongPress();
@@ -1355,6 +1353,8 @@ function wireDuetComposer() {
   const micBtn = document.getElementById("duet-mic");
   if (!input || !sendBtn) return;
 
+  hideFloatingComposer();
+
   const syncButtons = () => {
     sendBtn.disabled = composerBusy || input.value.trim().length === 0;
   };
@@ -1373,6 +1373,7 @@ function wireDuetComposer() {
     sendAsk(text, { flowLabel: flow.label });
     input.value = "";
     syncButtons();
+    hideFloatingComposer();
   };
 
   input.addEventListener("input", syncButtons);
@@ -1392,9 +1393,62 @@ function wireDuetComposer() {
   setComposerPlaceholder();
 }
 
+function showFloatingComposer() {
+  const composer = document.getElementById("duet-composer") as HTMLElement | null;
+  if (!composer || composerVisible) return;
+  composer.classList.add("visible");
+  composer.setAttribute("aria-hidden", "false");
+  composerVisible = true;
+  syncFlowMenuVisibility();
+  setFlowMenuOpen(false);
+  const input = document.getElementById("duet-input") as HTMLInputElement | null;
+  setComposerPlaceholder();
+  window.requestAnimationFrame(() => input?.focus());
+}
+
+function hideFloatingComposer() {
+  const composer = document.getElementById("duet-composer") as HTMLElement | null;
+  if (!composer) return;
+  composer.classList.remove("visible");
+  composer.setAttribute("aria-hidden", "true");
+  composerVisible = false;
+  syncFlowMenuVisibility();
+  const input = document.getElementById("duet-input") as HTMLInputElement | null;
+  input?.blur();
+}
+
+function wireFloatingComposerTrigger(stage: HTMLElement | null) {
+  if (!stage) return;
+  stage.addEventListener("pointerdown", () => {
+    stageTripleTapCount += 1;
+    if (stageTripleTapResetTimer !== null) {
+      window.clearTimeout(stageTripleTapResetTimer);
+    }
+    stageTripleTapResetTimer = window.setTimeout(() => {
+      stageTripleTapCount = 0;
+      stageTripleTapResetTimer = null;
+    }, COMPOSER_TRIPLE_TAP_WINDOW_MS);
+    if (stageTripleTapCount < 3) {
+      return;
+    }
+    stageTripleTapCount = 0;
+    if (stageTripleTapResetTimer !== null) {
+      window.clearTimeout(stageTripleTapResetTimer);
+      stageTripleTapResetTimer = null;
+    }
+    showFloatingComposer();
+  });
+}
+
+function syncFlowMenuVisibility() {
+  if (!flowMenuContainer) return;
+  flowMenuContainer.classList.toggle("hidden", composerVisible);
+}
+
 function setupFlowChips() {
   const shell = document.getElementById("duet-shell");
   const composer = document.getElementById("duet-composer");
+  const stage = shell?.querySelector(".duet-stage") as HTMLElement | null;
   if (!shell || !composer) return;
 
   if (!flowMenuContainer) {
@@ -1409,7 +1463,7 @@ function setupFlowChips() {
   const trigger = document.createElement("button");
   trigger.type = "button";
   trigger.id = "flow-menu-trigger";
-  trigger.className = "flow-menu-btn";
+  trigger.className = "flow-menu-toggle";
   trigger.setAttribute("aria-haspopup", "true");
   trigger.setAttribute("aria-expanded", "false");
   trigger.addEventListener("click", () => setFlowMenuOpen(!flowMenuOpen));
@@ -1420,7 +1474,6 @@ function setupFlowChips() {
   dropdown.style.display = "none";
   dropdown.style.position = "absolute";
   dropdown.style.top = "calc(100% + 6px)";
-  dropdown.style.left = "0";
 
   flowMenuContainer.appendChild(trigger);
   flowMenuContainer.appendChild(dropdown);
@@ -1430,8 +1483,9 @@ function setupFlowChips() {
   setFlowMenuOpen(false);
   renderFlowMenu();
 
-  if (flowMenuContainer && flowMenuContainer.parentElement !== shell) {
-    shell.insertBefore(flowMenuContainer, composer);
+  const menuHost = stage ?? shell;
+  if (flowMenuContainer && menuHost && flowMenuContainer.parentElement !== menuHost) {
+    menuHost.appendChild(flowMenuContainer);
   }
 
   if (!flowMenuListenersBound) {
@@ -1719,13 +1773,17 @@ function positionFlowMenuDropdown() {
 
   dropdown.style.top = "";
   dropdown.style.bottom = "";
+  dropdown.style.left = "";
+  dropdown.style.right = "-4px";
 
   if (spaceBelow >= dropdownHeight + 8) {
     dropdown.style.top = `${trigger.offsetHeight + 6}px`;
   } else if (spaceAbove >= dropdownHeight + 8) {
     dropdown.style.bottom = `${trigger.offsetHeight + 6}px`;
-  } else {
+  } else if (spaceBelow >= spaceAbove) {
     dropdown.style.top = `${Math.max(6, spaceBelow - 2)}px`;
+  } else {
+    dropdown.style.bottom = `${Math.max(6, spaceAbove - 2)}px`;
   }
 
   dropdown.style.display = prevDisplay;
