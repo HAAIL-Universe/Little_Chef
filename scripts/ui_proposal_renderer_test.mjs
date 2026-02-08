@@ -56,8 +56,12 @@ assert(
   "inventory summary should not mention preferences"
 );
 assert(
-  inventorySummary.includes("• cheddar — 1 count — weight_g=300"),
-  "inventory summary should describe the item name, quantity/unit, and note"
+  inventorySummary.includes("• cheddar 1"),
+  "inventory summary should describe the item name and quantity"
+);
+assert(
+  !inventorySummary.includes("weight_g="),
+  "inventory summary should not surface backend measurement notes"
 );
 const inventoryReply = "Proposed inventory update\n\ninventory update text";
 const inventoryCleaned = stripProposalPrefix(inventoryReply);

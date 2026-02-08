@@ -62,21 +62,55 @@ const formatInventoryAction = (action: ChatAction): string => {
   if (!event) {
     return `• Proposal: ${action.action_type}`;
   }
+
   const components: string[] = [event.item_name];
-  const unitLabel = event.unit || "count";
+
+  // Quantity formatting (hide "count", humanize g/ml when sensible)
   if (event.quantity !== undefined && event.quantity !== null) {
-    components.push(`${event.quantity} ${unitLabel}`);
+    const unit = (event.unit || "").trim().toLowerCase();
+
+    let qtyText = "";
+
+    if (!unit || unit === "count") {
+      qtyText = `${event.quantity}`;
+    } else if (
+      unit === "g" &&
+      typeof event.quantity === "number" &&
+      event.quantity >= 1000 &&
+      event.quantity % 1000 === 0
+    ) {
+      qtyText = `${event.quantity / 1000} kg`;
+    } else if (
+      unit === "ml" &&
+      typeof event.quantity === "number" &&
+      event.quantity >= 1000 &&
+      event.quantity % 1000 === 0
+    ) {
+      qtyText = `${event.quantity / 1000} L`;
+    } else {
+      qtyText = `${event.quantity} ${unit}`;
+    }
+
+    components.push(qtyText);
   }
+
+  // Note formatting: drop internal measurement echoes like weight_g=500, volume_ml=500
   if (event.note) {
     const notePieces = event.note
       .split(";")
       .map((piece) => piece.trim())
-      .filter(Boolean);
+      .filter(Boolean)
+      .filter((piece) => {
+        const p = piece.toLowerCase();
+        return !(p.startsWith("weight_g=") || p.startsWith("volume_ml="));
+      });
+
     if (notePieces.length) {
       components.push(notePieces.join("; "));
     }
   }
-  return `• ${components.join(" — ")}`;
+
+  return `• ${components.join(" ")}`;
 };
 
 export function formatProposalSummary(response: ChatResponse | null): string | null {

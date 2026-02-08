@@ -12303,3 +12303,68 @@ A  web/playwright.config.ts
  1 file changed, 154 insertions(+)
 ```
 
+## Test Run 2026-02-08T04:06:08Z
+- Status: PASS
+- Start: 2026-02-08T04:06:08Z
+- End: 2026-02-08T04:06:26Z
+- Python: Z:\LittleChef\.venv\\Scripts\\python.exe
+- Branch: main
+- HEAD: 0101586431fb65e71c3cf6a8dc350e0d727fcc9d
+- compileall exit: 0
+- import app.main exit: 0
+- pytest exit: 0
+- pytest summary: 73 passed in 3.46s
+- playwright test:e2e exit: 0
+- playwright summary:   1 passed (4.9s)
+- git status -sb:
+```
+## main...origin/main [ahead 1]
+A  evidence/inventory_proposal_format_audit.md
+MM evidence/updatedifflog.md
+ M web/dist/proposalRenderer.js
+ M web/src/proposalRenderer.ts
+```
+- git diff --stat:
+```
+ evidence/updatedifflog.md    | 84 ++++++++++++++++++++++++++++++++++++--------
+ web/dist/proposalRenderer.js | 33 ++++++++++++++---
+ web/src/proposalRenderer.ts  | 42 +++++++++++++++++++---
+ 3 files changed, 136 insertions(+), 23 deletions(-)
+```
+
+## Test Run 2026-02-08T04:06:48Z
+- Status: PASS
+- Start: 2026-02-08T04:06:48Z
+- End: 2026-02-08T04:07:04Z
+- Python: Z:\LittleChef\.venv\\Scripts\\python.exe
+- Branch: main
+- HEAD: 0101586431fb65e71c3cf6a8dc350e0d727fcc9d
+- compileall exit: 0
+- import app.main exit: 0
+- pytest exit: 0
+- pytest summary: 73 passed in 2.78s
+- playwright test:e2e exit: 0
+- playwright summary:   1 passed (3.1s)
+- git status -sb:
+```
+## main...origin/main [ahead 1]
+A  evidence/inventory_proposal_format_audit.md
+ M evidence/test_runs.md
+ M evidence/test_runs_latest.md
+MM evidence/updatedifflog.md
+ M scripts/ui_proposal_renderer_test.mjs
+ M web/dist/proposalRenderer.js
+ M web/src/proposalRenderer.ts
+?? web/test-results/
+```
+- git diff --stat:
+```
+ evidence/test_runs.md                 | 29 ++++++++++++
+ evidence/test_runs_latest.md          | 31 ++++++-------
+ evidence/updatedifflog.md             | 84 ++++++++++++++++++++++++++++-------
+ scripts/ui_proposal_renderer_test.mjs |  8 +++-
+ web/dist/proposalRenderer.js          | 33 ++++++++++++--
+ web/src/proposalRenderer.ts           | 42 ++++++++++++++++--
+ 6 files changed, 185 insertions(+), 42 deletions(-)
+```
+
