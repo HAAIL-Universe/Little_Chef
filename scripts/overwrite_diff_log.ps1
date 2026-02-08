@@ -135,9 +135,12 @@ try {
     Warn "If you truly want unstaged, re-run with -IncludeUnstaged."
   }
 
-  $summaryLines = Bullets $Summary "TODO: 1–5 bullets (what changed, why, scope)."
-  $verificationLines = Bullets $Verification "TODO: verification evidence (static -> runtime -> behavior -> contract)."
-  $nextStepsLines = Bullets $NextSteps "TODO: next actions (small, specific)."
+  $summaryTodo = "TODO: 1-5 bullets (what changed, why, scope)."
+  $verificationTodo = "TODO: verification evidence (static -> runtime -> behavior -> contract)."
+  $nextStepsTodo = "TODO: next actions (small, specific)."
+  $summaryLines = Bullets -items $Summary -todo $summaryTodo
+  $verificationLines = Bullets -items $Verification -todo $verificationTodo
+  $nextStepsLines = Bullets -items $NextSteps -todo $nextStepsTodo
 
   $filesLines = if ($changedFiles.Count -gt 0) { @($changedFiles | ForEach-Object { "- $_" }) } else { @("- (none detected)") }
 
