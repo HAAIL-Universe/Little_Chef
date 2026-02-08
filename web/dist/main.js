@@ -9,6 +9,66 @@ const state = {
     onboarded: null,
     inventoryOnboarded: null,
 };
+const DEV_JWT_STORAGE_KEY = "lc_dev_jwt";
+const DEV_JWT_EXP_KEY = "lc_dev_jwt_exp_utc_ms";
+const DEV_JWT_DURATION_KEY = "lc_dev_jwt_duration_ms";
+const DEV_JWT_DEFAULT_TTL_MS = 24 * 60 * 60 * 1000;
+const DEV_JWT_DURATION_OPTIONS = [
+    { value: DEV_JWT_DEFAULT_TTL_MS, label: "24 hours" },
+    { value: 7 * DEV_JWT_DEFAULT_TTL_MS, label: "7 days" },
+];
+function safeLocalStorage() {
+    if (typeof window === "undefined")
+        return null;
+    try {
+        return window.localStorage;
+    }
+    catch {
+        return null;
+    }
+}
+function getRememberCheckbox() {
+    return document.getElementById("dev-jwt-remember");
+}
+function getRememberDurationSelect() {
+    return document.getElementById("dev-jwt-remember-duration");
+}
+function saveRememberedJwt(token, ttlMs) {
+    const storage = safeLocalStorage();
+    if (!storage)
+        return;
+    storage.setItem(DEV_JWT_STORAGE_KEY, token);
+    storage.setItem(DEV_JWT_EXP_KEY, (Date.now() + ttlMs).toString());
+    storage.setItem(DEV_JWT_DURATION_KEY, ttlMs.toString());
+}
+function clearRememberedJwt() {
+    const storage = safeLocalStorage();
+    if (!storage)
+        return;
+    storage.removeItem(DEV_JWT_STORAGE_KEY);
+    storage.removeItem(DEV_JWT_EXP_KEY);
+    storage.removeItem(DEV_JWT_DURATION_KEY);
+}
+function loadRememberedJwt() {
+    const storage = safeLocalStorage();
+    if (!storage)
+        return null;
+    const token = storage.getItem(DEV_JWT_STORAGE_KEY);
+    if (!token)
+        return null;
+    const expStr = storage.getItem(DEV_JWT_EXP_KEY);
+    const durationStr = storage.getItem(DEV_JWT_DURATION_KEY);
+    const expMs = Number(expStr);
+    if (!expMs || expMs < Date.now()) {
+        clearRememberedJwt();
+        return null;
+    }
+    const durationMs = Number(durationStr);
+    return {
+        token,
+        durationMs: Number.isFinite(durationMs) && durationMs > 0 ? durationMs : DEV_JWT_DEFAULT_TTL_MS,
+    };
+}
 const PROPOSAL_CONFIRM_COMMANDS = new Set(["confirm"]);
 const PROPOSAL_DENY_COMMANDS = new Set(["deny", "cancel"]);
 const flowOptions = [
@@ -155,6 +215,87 @@ function setupDevPanel() {
         ["btn-shopping", "shopping-out"],
     ];
     groups.forEach((ids) => moveGroupIntoDevPanel(ids, content, moved));
+    ensureDevPanelRememberRow();
+}
+function ensureDevPanelRememberRow() {
+    const card = document.querySelector("section.card.legacy-card");
+    if (!card)
+        return;
+    if (getRememberCheckbox())
+        return;
+    const row = document.createElement("div");
+    row.className = "dev-panel-remember-row";
+    row.style.display = "flex";
+    row.style.alignItems = "center";
+    row.style.gap = "12px";
+    row.style.marginTop = "8px";
+    const checkboxLabel = document.createElement("label");
+    checkboxLabel.className = "dev-panel-remember-label";
+    checkboxLabel.style.display = "inline-flex";
+    checkboxLabel.style.alignItems = "center";
+    checkboxLabel.style.gap = "6px";
+    const checkbox = document.createElement("input");
+    checkbox.id = "dev-jwt-remember";
+    checkbox.type = "checkbox";
+    checkboxLabel.appendChild(checkbox);
+    checkboxLabel.appendChild(document.createTextNode("Remember me"));
+    const durationLabel = document.createElement("label");
+    durationLabel.className = "dev-panel-remember-duration";
+    durationLabel.style.display = "inline-flex";
+    durationLabel.style.alignItems = "center";
+    durationLabel.style.gap = "6px";
+    durationLabel.textContent = "Duration:";
+    const durationSelect = document.createElement("select");
+    durationSelect.id = "dev-jwt-remember-duration";
+    durationSelect.className = "dev-panel-remember-select";
+    DEV_JWT_DURATION_OPTIONS.forEach((option) => {
+        const opt = document.createElement("option");
+        opt.value = option.value.toString();
+        opt.textContent = option.label;
+        durationSelect.appendChild(opt);
+    });
+    durationLabel.appendChild(durationSelect);
+    row.appendChild(checkboxLabel);
+    row.appendChild(durationLabel);
+    const authOut = card.querySelector("#auth-out");
+    if (authOut === null || authOut === void 0 ? void 0 : authOut.parentElement) {
+        authOut.parentElement.insertBefore(row, authOut);
+    }
+    else {
+        card.appendChild(row);
+    }
+}
+function applyRememberedJwtInput(jwtInput) {
+    var _a, _b;
+    ensureDevPanelRememberRow();
+    const checkbox = getRememberCheckbox();
+    const durationSelect = getRememberDurationSelect();
+    if (durationSelect && !durationSelect.value) {
+        durationSelect.value = DEV_JWT_DEFAULT_TTL_MS.toString();
+    }
+    const stored = loadRememberedJwt();
+    if (stored) {
+        if (jwtInput) {
+            jwtInput.value = stored.token;
+        }
+        state.token = stored.token;
+        if (checkbox) {
+            checkbox.checked = true;
+        }
+        if (durationSelect) {
+            const desired = stored.durationMs.toString();
+            const has = Array.from(durationSelect.options).some((opt) => opt.value === desired);
+            durationSelect.value = has ? desired : (_b = (_a = durationSelect.options[0]) === null || _a === void 0 ? void 0 : _a.value) !== null && _b !== void 0 ? _b : desired;
+        }
+    }
+    else {
+        if (checkbox) {
+            checkbox.checked = false;
+        }
+        if (durationSelect) {
+            durationSelect.value = DEV_JWT_DEFAULT_TTL_MS.toString();
+        }
+    }
 }
 function renderProposal() {
     const container = document.getElementById("chat-proposal");
@@ -1049,13 +1190,23 @@ function wire() {
     enforceViewportLock();
     const jwtInput = document.getElementById("jwt");
     (_a = document.getElementById("btn-auth")) === null || _a === void 0 ? void 0 : _a.addEventListener("click", async () => {
-        var _a, _b;
+        var _a, _b, _c;
         state.token = jwtInput.value.trim();
+        const rememberCheckbox = getRememberCheckbox();
+        const rememberSelect = getRememberDurationSelect();
+        if (state.token && (rememberCheckbox === null || rememberCheckbox === void 0 ? void 0 : rememberCheckbox.checked)) {
+            const desired = Number((_a = rememberSelect === null || rememberSelect === void 0 ? void 0 : rememberSelect.value) !== null && _a !== void 0 ? _a : DEV_JWT_DEFAULT_TTL_MS);
+            const ttl = Number.isFinite(desired) && desired > 0 ? desired : DEV_JWT_DEFAULT_TTL_MS;
+            saveRememberedJwt(state.token, ttl);
+        }
+        else {
+            clearRememberedJwt();
+        }
         clearProposal();
         const result = await doGet("/auth/me");
         setText("auth-out", result);
-        state.onboarded = !!((_a = result.json) === null || _a === void 0 ? void 0 : _a.onboarded);
-        state.inventoryOnboarded = !!((_b = result.json) === null || _b === void 0 ? void 0 : _b.inventory_onboarded);
+        state.onboarded = !!((_b = result.json) === null || _b === void 0 ? void 0 : _b.onboarded);
+        state.inventoryOnboarded = !!((_c = result.json) === null || _c === void 0 ? void 0 : _c.inventory_onboarded);
         renderOnboardMenuButtons();
         updatePrefsOverlayVisibility();
         updateInventoryOverlayVisibility();
@@ -1130,6 +1281,7 @@ function wire() {
     setupInventoryGhostOverlay();
     setupPrefsOverlay();
     setupDevPanel();
+    applyRememberedJwtInput(jwtInput);
     wireDuetComposer();
     setupHistoryDrawerUi();
     wireHistoryHotkeys();
