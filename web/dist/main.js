@@ -116,7 +116,8 @@ let onboardMenu = null;
 const OVERLAY_ROOT_ID = "duet-overlay-root";
 const OVERLAY_ROOT_Z_INDEX = 2147483640;
 const ONBOARD_MENU_EDGE_MARGIN = 8;
-const USER_BUBBLE_ELLIPSIS = "…";
+const USER_BUBBLE_SENT_TEXT = "Sent";
+const HISTORY_BADGE_DISPLAY_MAX = 99;
 const NORMAL_CHAT_FLOW_KEYS = new Set(["general", "inventory", "mealplan", "prefs"]);
 let overlayRoot = null;
 let onboardPressTimer = null;
@@ -546,9 +547,9 @@ function updateDuetBubbles() {
     const assistantFallback = "Welcome — I’m Little Chef. To start onboarding, please fill out your preferences (allergies, likes/dislikes, servings, days).";
     const userFallback = "Press and hold to start onboarding with preferences.";
     setBubbleText(assistant, (_a = lastAssistant === null || lastAssistant === void 0 ? void 0 : lastAssistant.text) !== null && _a !== void 0 ? _a : assistantFallback);
-    const showEllipsis = userBubbleEllipsisActive && isNormalChatFlow();
+    const showSentText = userBubbleEllipsisActive && isNormalChatFlow();
     const fallbackText = isNormalChatFlow() ? userFallback : (_b = lastUser === null || lastUser === void 0 ? void 0 : lastUser.text) !== null && _b !== void 0 ? _b : userFallback;
-    setBubbleText(user, showEllipsis ? USER_BUBBLE_ELLIPSIS : fallbackText);
+    setBubbleText(user, showSentText ? USER_BUBBLE_SENT_TEXT : fallbackText);
 }
 function isNormalChatFlow() {
     return NORMAL_CHAT_FLOW_KEYS.has(currentFlowKey);
@@ -749,7 +750,10 @@ function updateHistoryBadge() {
     if (!badge)
         return;
     if (historyBadgeCount > 0) {
-        badge.textContent = historyBadgeCount.toString();
+        badge.textContent =
+            historyBadgeCount > HISTORY_BADGE_DISPLAY_MAX
+                ? `${HISTORY_BADGE_DISPLAY_MAX}+`
+                : historyBadgeCount.toString();
         badge.classList.add("visible");
         badge.setAttribute("aria-hidden", "false");
     }

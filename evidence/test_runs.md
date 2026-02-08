@@ -1,3 +1,57 @@
+## Test Run 2026-02-08T18:57:15Z
+- Status: PASS
+- Start: 2026-02-08T18:57:15Z
+- End: 2026-02-08T18:57:20Z
+- Python: Z:\LittleChef\.venv\Scripts\python.exe
+- Branch: recovery/evidence-20260208
+- HEAD: 2cd256e6f671a5885e6b9a839981ef00f9a9ae76
+- compileall exit: 0
+- python -m pytest -q exit: 0
+- pytest summary: 74 passed in 3.80s
+- git status -sb:
+```
+## recovery/evidence-20260208
+ M app/services/inventory_agent.py
+ M evidence/test_runs.md
+ M evidence/test_runs_latest.md
+ M evidence/updatedifflog.md
+ M tests/test_inventory_agent.py
+```
+- git diff --stat:
+```
+ app/services/inventory_agent.py | 193 ++++++++++++++++++++++++++++++++++++++--
+ evidence/test_runs.md           |  25 ++++++
+ evidence/test_runs_latest.md    |  40 ++++-----
+ evidence/updatedifflog.md       | 171 +++++------------------------------
+ tests/test_inventory_agent.py   |  88 ++++++++++++++++++
+ 5 files changed, 337 insertions(+), 180 deletions(-)
+```
+
+## Test Run 2026-02-08T18:45:19Z
+- Status: PASS
+- Start: 2026-02-08T18:45:19Z
+- End: 2026-02-08T18:47:49Z
+- Python: Z:\LittleChef\.venv\Scripts\python.exe
+- Branch: recovery/evidence-20260208
+- HEAD: 2cd256e6f671a5885e6b9a839981ef00f9a9ae76
+- compileall exit: 0
+- python -m pytest -q exit: 0
+- pytest summary: 74 passed in 4.57s
+- git status -sb:
+```
+## recovery/evidence-20260208
+ M app/services/inventory_agent.py
+ M evidence/updatedifflog.md
+ M tests/test_inventory_agent.py
+```
+- git diff --stat:
+```
+ app/services/inventory_agent.py | 121 ++++++++++++++++++++++++++++--
+ evidence/updatedifflog.md       | 161 +++++-----------------------------------
+ tests/test_inventory_agent.py   |  88 ++++++++++++++++++++++
+ 3 files changed, 219 insertions(+), 151 deletions(-)
+```
+
 ## Test Run 2026-02-08T00:40:46Z
 - Status: PASS
 - Start: 2026-02-08T00:40:40Z
@@ -13251,3 +13305,38 @@ MM web/src/main.ts
  1 file changed, 2 insertions(+), 1 deletion(-)
 ```
 
+## Test Run 2026-02-08T19:41:40Z
+- Status: PASS
+- Start: 2026-02-08T19:41:40Z
+- End: 2026-02-08T19:42:35Z
+- Python: C:\Users\krisd\AppData\Local\Programs\Python\Python312\python.exe
+- Branch: recovery/evidence-20260208
+- HEAD: 2cd256e6f671a5885e6b9a839981ef00f9a9ae76
+- compileall exit: 0
+- python -m pytest -q exit: 0
+- npm --prefix web run build exit: 0
+- npm --prefix web run test:e2e exit: 0
+- git status -sb:
+```
+## recovery/evidence-20260208
+ M app/services/inventory_agent.py
+ M evidence/test_runs.md
+ M evidence/test_runs_latest.md
+ M evidence/updatedifflog.md
+ M tests/test_inventory_agent.py
+ M web/dist/main.js
+ M web/e2e/history-badge.spec.ts
+ M web/src/main.ts
+```
+- git diff --stat:
+```
+ app/services/inventory_agent.py | 193 ++++++++++++++++++++++++++++++++++++++--
+ evidence/test_runs.md           |  89 ++++++++++++++++++
+ evidence/test_runs_latest.md    |  44 ++++-----
+ evidence/updatedifflog.md       | 185 ++++++++------------------------------
+ tests/test_inventory_agent.py   |  88 ++++++++++++++++++
+ web/dist/main.js                |  12 ++-
+ web/e2e/history-badge.spec.ts   |   6 +-
+ web/src/main.ts                 |  12 ++-
+ 8 files changed, 441 insertions(+), 188 deletions(-)
+```
