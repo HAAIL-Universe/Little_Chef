@@ -55,6 +55,8 @@ function Append-TestRunLog(
   [int]$importExit,
   [int]$pytestExit,
   [string]$pytestSummary,
+  [int]$playwrightTestExit,
+  [string]$playwrightTestSummary,
   [string]$gitBranch,
   [string]$gitHead,
   [string]$gitStatus,
@@ -77,6 +79,8 @@ function Append-TestRunLog(
   $lines += "- import app.main exit: $importExit"
   $lines += "- pytest exit: $pytestExit"
   $lines += "- pytest summary: $pytestSummary"
+  $lines += "- playwright test:e2e exit: $playwrightTestExit"
+  $lines += "- playwright summary: $playwrightTestSummary"
   $lines += "- git status -sb:"
   $lines += '```'
   $lines += $gitStatus
@@ -106,6 +110,8 @@ function Write-TestRunLatest(
   [int]$importExit,
   [int]$pytestExit,
   [string]$pytestSummary,
+  [int]$playwrightTestExit,
+  [string]$playwrightTestSummary,
   [string]$failingTests,
   [string]$gitBranch,
   [string]$gitHead,
@@ -128,6 +134,8 @@ function Write-TestRunLatest(
   $lines += "import app.main exit: $importExit"
   $lines += "pytest exit: $pytestExit"
   $lines += "pytest summary: $pytestSummary"
+  $lines += "playwright test:e2e exit: $playwrightTestExit"
+  $lines += "playwright summary: $playwrightTestSummary"
   if ($statusText -eq "FAIL") {
     $lines += "Failing tests:"
     if ($failingTests) {
@@ -169,6 +177,10 @@ $pytestSummary = "(not run)"
 $statusText = "FAIL"
 $failingTests = ""
 $failurePayload = ""
+$playwrightInstallExit = -1
+$playwrightTestExit = -1
+$playwrightTestSummary = "(not run)"
+$playwrightLines = @()
 
 $gitBranch = "git unavailable"
 $gitHead = "git unavailable"
@@ -215,11 +227,26 @@ try {
   & npm --prefix web run build
   Info "node scripts/ui_proposal_renderer_test.mjs"
   & node "$PSScriptRoot\ui_proposal_renderer_test.mjs"
+  Info "npm --prefix web exec playwright install --with-deps"
+  & npm --prefix web exec playwright install --with-deps
+  $playwrightInstallExit = $LASTEXITCODE
+  if ($playwrightInstallExit -ne 0) { Err "playwright install failed ($playwrightInstallExit)" }
+  Info "npm --prefix web run test:e2e"
+  $playwrightLines = & npm --prefix web run test:e2e 2>&1
+  $playwrightTestExit = $LASTEXITCODE
+  if ($playwrightLines) { $playwrightLines | ForEach-Object { Write-Host $_ } }
+  $nonEmptyPlaywright = $playwrightLines | Where-Object { $_ -and $_.Trim().Length -gt 0 }
+  if ($nonEmptyPlaywright.Count -gt 0) { $playwrightTestSummary = $nonEmptyPlaywright[-1] }
+  if ($playwrightTestExit -eq 0) {
+    Info "playwright test:e2e: ok"
+  } else {
+    Err "playwright test:e2e failed ($playwrightTestExit)"
+  }
 }
 finally {
   $endUtc = (Get-Date).ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ")
   $overall = 0
-  foreach ($code in @($compileExit, $importExit, $pytestExit)) {
+  foreach ($code in @($compileExit, $importExit, $pytestExit, $playwrightTestExit)) {
     if ($code -ne 0) { $overall = 1 }
   }
   if ($overall -eq 0) { $statusText = "PASS" } else { $statusText = "FAIL" }
@@ -238,16 +265,22 @@ finally {
       $sections += @("=== pytest (exit $pytestExit) ===")
       $sections += (Tail-Lines $pytestLines 200)
     }
+    if ($playwrightTestExit -ne 0) {
+      $sections += @("=== playwright test:e2e (exit $playwrightTestExit) ===")
+      $sections += (Tail-Lines $playwrightLines 200)
+    }
     $failurePayload = ($sections -join "`n").Trim()
   }
 
   Append-TestRunLog -root $root -statusText $statusText -pythonPath $py -startUtc $startUtc -endUtc $endUtc `
     -compileExit $compileExit -importExit $importExit -pytestExit $pytestExit -pytestSummary $pytestSummary `
+    -playwrightTestExit $playwrightTestExit -playwrightTestSummary $playwrightTestSummary `
     -gitBranch $gitBranch -gitHead $gitHead -gitStatus ($gitStatus -join "`n") -gitDiffStat ($gitDiffStat -join "`n") `
     -failurePayload $failurePayload
 
   Write-TestRunLatest -root $root -statusText $statusText -pythonPath $py -startUtc $startUtc -endUtc $endUtc `
     -compileExit $compileExit -importExit $importExit -pytestExit $pytestExit -pytestSummary $pytestSummary `
+    -playwrightTestExit $playwrightTestExit -playwrightTestSummary $playwrightTestSummary `
     -failingTests $failingTests -gitBranch $gitBranch -gitHead $gitHead -gitStatus ($gitStatus -join "`n") -gitDiffStat ($gitDiffStat -join "`n") `
     -failurePayload $failurePayload
 

@@ -3,9 +3,11 @@
   "version": "0.1.0",
   "type": "module",
   "scripts": {
-    "build": "tsc -p tsconfig.json"
+    "build": "tsc -p tsconfig.json",
+    "test:e2e": "playwright test --config ./playwright.config.ts"
   },
   "devDependencies": {
+    "@playwright/test": "^1.44.0",
     "typescript": "^5.4.0"
   }
 }

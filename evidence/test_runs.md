@@ -12112,3 +12112,194 @@ git unavailable
 git unavailable
 ```
 
+## Test Run 2026-02-08T02:52:57Z
+- Status: PASS
+- Start: 2026-02-08T02:52:57Z
+- End: 2026-02-08T02:53:06Z
+- Python: Z:\LittleChef\.venv\\Scripts\\python.exe
+- Branch: main
+- HEAD: 92f2551d103c70a3ed48b9b78ebc38181519e1a8
+- compileall exit: 0
+- import app.main exit: 0
+- pytest exit: 0
+- pytest summary: 73 passed in 2.86s
+- git status -sb:
+```
+## main...origin/main
+```
+- git diff --stat:
+```
+
+```
+
+## Test Run 2026-02-08T02:58:24Z
+- Status: PASS
+- Start: 2026-02-08T02:58:24Z
+- End: 2026-02-08T02:58:56Z
+- Python: Z:\LittleChef\.venv\\Scripts\\python.exe
+- Branch: main
+- HEAD: 92f2551d103c70a3ed48b9b78ebc38181519e1a8
+- compileall exit: 0
+- import app.main exit: 0
+- pytest exit: 0
+- pytest summary: 73 passed in 3.45s
+- git status -sb:
+```
+## main...origin/main
+ M evidence/test_runs.md
+ M evidence/test_runs_latest.md
+ M scripts/run_tests.ps1
+ M web/dist/main.js
+ M web/package-lock.json
+ M web/package.json
+?? web/e2e/
+?? web/playwright.config.ts
+```
+- git diff --stat:
+```
+ evidence/test_runs.md        | 20 ++++++++++++++
+ evidence/test_runs_latest.md | 16 +++++------
+ scripts/run_tests.ps1        |  4 +++
+ web/package-lock.json        | 64 ++++++++++++++++++++++++++++++++++++++++++++
+ web/package.json             |  4 ++-
+ 5 files changed, 99 insertions(+), 9 deletions(-)
+```
+
+## Test Run 2026-02-08T03:00:06Z
+- Status: FAIL
+- Start: 2026-02-08T03:00:06Z
+- End: 2026-02-08T03:00:39Z
+- Python: Z:\LittleChef\.venv\\Scripts\\python.exe
+- Branch: main
+- HEAD: 92f2551d103c70a3ed48b9b78ebc38181519e1a8
+- compileall exit: 0
+- import app.main exit: 0
+- pytest exit: 0
+- pytest summary: 73 passed in 3.81s
+- playwright test:e2e exit: 1
+- playwright summary:     e2e\dev-panel.spec.ts:27:3 › Dev Panel remember row › renders remember-me checkbox near the JWT controls 
+- git status -sb:
+```
+## main...origin/main
+ M evidence/test_runs.md
+ M evidence/test_runs_latest.md
+ M scripts/run_tests.ps1
+ M web/dist/main.js
+ M web/package-lock.json
+ M web/package.json
+?? web/e2e/
+?? web/playwright.config.ts
+?? web/test-results/
+```
+- git diff --stat:
+```
+ evidence/test_runs.md        | 53 ++++++++++++++++++++++++++++++++++++
+ evidence/test_runs_latest.md | 29 ++++++++++++++------
+ scripts/run_tests.ps1        | 35 +++++++++++++++++++++++-
+ web/package-lock.json        | 64 ++++++++++++++++++++++++++++++++++++++++++++
+ web/package.json             |  4 ++-
+ 5 files changed, 175 insertions(+), 10 deletions(-)
+```
+- Failure payload:
+```
+=== playwright test:e2e (exit 1) ===
+
+> little-chef-web@0.1.0 test:e2e
+> playwright test --config ./playwright.config.ts
+
+
+Running 1 test using 1 worker
+
+  x  1 e2e\dev-panel.spec.ts:27:3 › Dev Panel remember row › renders remember-me checkbox near the JWT controls (17.0s)
+
+
+  1) e2e\dev-panel.spec.ts:27:3 › Dev Panel remember row › renders remember-me checkbox near the JWT controls 
+
+    Error: [2mexpect([22m[31mlocator[39m[2m).[22mtoBeVisible[2m([22m[2m)[22m failed
+
+    Locator: locator('#dev-jwt-remember')
+    Expected: visible
+    Timeout: 15000ms
+    Error: element(s) not found
+
+    Call log:
+    [2m  - Expect "toBeVisible" with timeout 15000ms[22m
+    [2m  - waiting for locator('#dev-jwt-remember')[22m
+
+
+      32 |     await devPanelItem.click();
+      33 |     const rememberCheckbox = page.locator('#dev-jwt-remember');
+    > 34 |     await expect(rememberCheckbox).toBeVisible({ timeout: 15000 });
+         |                                    ^
+      35 |     const authButton = page.locator('#btn-auth');
+      36 |     await expect(authButton).toBeVisible({ timeout: 15000 });
+      37 |     const card = authButton.locator('xpath=ancestor::section[contains(@class,"card")]');
+        at Z:\LittleChef\web\e2e\dev-panel.spec.ts:34:36
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\dev-panel-Dev-Panel-rememb-e7c66-ckbox-near-the-JWT-controls\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: browser-console (text/plain) ────────────────────────────────────────────────────
+    (no console messages)
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #3: dev-card-html (text/html) ───────────────────────────────────────────────────────
+    <section class="card legacy-card">
+          <h1>Little Chef</h1>
+          <p>Paste JWT, then try chat, prefs, mealplan, and shopping diff.</p>
+          <label>JWT <input id="jwt" type="text" placeholder="Bearer token"></label>
+          <button id="btn-auth">Auth /auth/me</button>
+          <pre id="auth-out"></pre>...
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #5: video (video/webm) ──────────────────────────────────────────────────────────────
+    test-results\dev-panel-Dev-Panel-rememb-e7c66-ckbox-near-the-JWT-controls\video.webm
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results\dev-panel-Dev-Panel-rememb-e7c66-ckbox-near-the-JWT-controls\error-context.md
+
+    attachment #7: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results\dev-panel-Dev-Panel-rememb-e7c66-ckbox-near-the-JWT-controls\trace.zip
+    Usage:
+
+        npx playwright show-trace test-results\dev-panel-Dev-Panel-rememb-e7c66-ckbox-near-the-JWT-controls\trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  1 failed
+    e2e\dev-panel.spec.ts:27:3 › Dev Panel remember row › renders remember-me checkbox near the JWT controls
+```
+
+## Test Run 2026-02-08T03:09:34Z
+- Status: PASS
+- Start: 2026-02-08T03:09:34Z
+- End: 2026-02-08T03:09:50Z
+- Python: Z:\LittleChef\.venv\\Scripts\\python.exe
+- Branch: main
+- HEAD: 92f2551d103c70a3ed48b9b78ebc38181519e1a8
+- compileall exit: 0
+- import app.main exit: 0
+- pytest exit: 0
+- pytest summary: 73 passed in 3.57s
+- playwright test:e2e exit: 0
+- playwright summary:   1 passed (3.0s)
+- git status -sb:
+```
+## main...origin/main
+M  evidence/test_runs.md
+M  evidence/test_runs_latest.md
+M  evidence/updatedifflog.md
+M  scripts/run_tests.ps1
+A  web/e2e/dev-panel.spec.ts
+M  web/package-lock.json
+M  web/package.json
+A  web/playwright.config.ts
+ M web/src/main.ts
+```
+- git diff --stat:
+```
+ web/src/main.ts | 154 ++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+ 1 file changed, 154 insertions(+)
+```
+
