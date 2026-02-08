@@ -12430,3 +12430,770 @@ MM evidence/updatedifflog.md
  5 files changed, 798 insertions(+), 673 deletions(-)
 ```
 
+## Test Run 2026-02-08T13:08:29Z
+- Status: FAIL
+- Start: 2026-02-08T13:08:29Z
+- End: 2026-02-08T13:08:46Z
+- Python: Z:\LittleChef\.venv\\Scripts\\python.exe
+- Branch: main
+- HEAD: 17d15fe7f340c11e6ea2476bb5826f50d39e7ad3
+- compileall exit: 0
+- import app.main exit: 0
+- pytest exit: 0
+- pytest summary: 73 passed in 3.54s
+- playwright test:e2e exit: 1
+- playwright summary:   1 passed (4.1s)
+- git status -sb:
+```
+## main...origin/main [ahead 5]
+ M evidence/updatedifflog.md
+ M web/src/main.ts
+?? web/e2e/onboard-longpress.spec.ts
+```
+- git diff --stat:
+```
+ evidence/updatedifflog.md | 1807 +--------------------------------------------
+ web/src/main.ts           |   72 +-
+ 2 files changed, 86 insertions(+), 1793 deletions(-)
+```
+- Failure payload:
+```
+=== playwright test:e2e (exit 1) ===
+
+> little-chef-web@0.1.0 test:e2e
+> playwright test --config ./playwright.config.ts
+
+
+Running 2 tests using 2 workers
+
+  ok 2 e2e\dev-panel.spec.ts:27:3 › Dev Panel remember row › renders remember-me checkbox near the JWT controls (1.5s)
+  x  1 e2e\onboard-longpress.spec.ts:4:3 › Onboard long-press menu › opens above the bubble and stays topmost (1.9s)
+
+
+  1) e2e\onboard-longpress.spec.ts:4:3 › Onboard long-press menu › opens above the bubble and stays topmost 
+
+    Error: [2mexpect([22m[31mreceived[39m[2m).[22mtoBeLessThanOrEqual[2m([22m[32mexpected[39m[2m)[22m
+
+    Expected: <= [32m607.8125[39m
+    Received:    [31m623.90625[39m
+
+      26 |     const menuBottom = menuRect.y + menuRect.height;
+      27 |     const menuRight = menuRect.x + menuRect.width;
+    > 28 |     expect(menuBottom).toBeLessThanOrEqual(box.y + 8);
+         |                        ^
+      29 |     expect(menuRight).toBeLessThanOrEqual(box.x + box.width + 8);
+      30 |
+      31 |     const isTopmost = await page.evaluate(() => {
+        at Z:\LittleChef\web\e2e\onboard-longpress.spec.ts:28:24
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\onboard-longpress-Onboard--821b3-he-bubble-and-stays-topmost\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: video (video/webm) ──────────────────────────────────────────────────────────────
+    test-results\onboard-longpress-Onboard--821b3-he-bubble-and-stays-topmost\video.webm
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results\onboard-longpress-Onboard--821b3-he-bubble-and-stays-topmost\error-context.md
+
+    attachment #4: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results\onboard-longpress-Onboard--821b3-he-bubble-and-stays-topmost\trace.zip
+    Usage:
+
+        npx playwright show-trace test-results\onboard-longpress-Onboard--821b3-he-bubble-and-stays-topmost\trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  1 failed
+    e2e\onboard-longpress.spec.ts:4:3 › Onboard long-press menu › opens above the bubble and stays topmost 
+  1 passed (4.1s)
+```
+
+## Test Run 2026-02-08T13:09:07Z
+- Status: FAIL
+- Start: 2026-02-08T13:09:07Z
+- End: 2026-02-08T13:09:24Z
+- Python: Z:\LittleChef\.venv\\Scripts\\python.exe
+- Branch: main
+- HEAD: 17d15fe7f340c11e6ea2476bb5826f50d39e7ad3
+- compileall exit: 0
+- import app.main exit: 0
+- pytest exit: 0
+- pytest summary: 73 passed in 2.80s
+- playwright test:e2e exit: 1
+- playwright summary:   1 passed (4.1s)
+- git status -sb:
+```
+## main...origin/main [ahead 5]
+ M evidence/test_runs.md
+ M evidence/test_runs_latest.md
+ M evidence/updatedifflog.md
+ M web/dist/main.js
+ M web/src/main.ts
+?? web/e2e/onboard-longpress.spec.ts
+?? web/test-results/
+```
+- git diff --stat:
+```
+ evidence/test_runs.md        |   79 ++
+ evidence/test_runs_latest.md |   83 +-
+ evidence/updatedifflog.md    | 1807 +-----------------------------------------
+ web/dist/main.js             |   69 +-
+ web/src/main.ts              |   72 +-
+ 5 files changed, 296 insertions(+), 1814 deletions(-)
+```
+- Failure payload:
+```
+=== playwright test:e2e (exit 1) ===
+
+> little-chef-web@0.1.0 test:e2e
+> playwright test --config ./playwright.config.ts
+
+
+Running 2 tests using 2 workers
+
+  ok 2 e2e\dev-panel.spec.ts:27:3 › Dev Panel remember row › renders remember-me checkbox near the JWT controls (1.6s)
+  x  1 e2e\onboard-longpress.spec.ts:4:3 › Onboard long-press menu › opens above the bubble and stays topmost (1.9s)
+
+
+  1) e2e\onboard-longpress.spec.ts:4:3 › Onboard long-press menu › opens above the bubble and stays topmost 
+
+    Error: [2mexpect([22m[31mreceived[39m[2m).[22mtoBeLessThanOrEqual[2m([22m[32mexpected[39m[2m)[22m
+
+    Expected: <= [32m1200[39m
+    Received:    [31m1284[39m
+
+      25 |
+      26 |     const menuRight = menuRect.x + menuRect.width;
+    > 27 |     expect(menuRight).toBeLessThanOrEqual(box.x + box.width + 8);
+         |                       ^
+      28 |     const viewport = await page.evaluate(() => ({ width: window.innerWidth, height: window.innerHeight }));
+      29 |     expect(menuRect.x + menuRect.width).toBeLessThanOrEqual(viewport.width - 8);
+      30 |     expect(menuRect.y + menuRect.height).toBeLessThanOrEqual(viewport.height - 8);
+        at Z:\LittleChef\web\e2e\onboard-longpress.spec.ts:27:23
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\onboard-longpress-Onboard--821b3-he-bubble-and-stays-topmost\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: video (video/webm) ──────────────────────────────────────────────────────────────
+    test-results\onboard-longpress-Onboard--821b3-he-bubble-and-stays-topmost\video.webm
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results\onboard-longpress-Onboard--821b3-he-bubble-and-stays-topmost\error-context.md
+
+    attachment #4: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results\onboard-longpress-Onboard--821b3-he-bubble-and-stays-topmost\trace.zip
+    Usage:
+
+        npx playwright show-trace test-results\onboard-longpress-Onboard--821b3-he-bubble-and-stays-topmost\trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  1 failed
+    e2e\onboard-longpress.spec.ts:4:3 › Onboard long-press menu › opens above the bubble and stays topmost 
+  1 passed (4.1s)
+```
+
+## Test Run 2026-02-08T13:09:35Z
+- Status: FAIL
+- Start: 2026-02-08T13:09:35Z
+- End: 2026-02-08T13:09:52Z
+- Python: Z:\LittleChef\.venv\\Scripts\\python.exe
+- Branch: main
+- HEAD: 17d15fe7f340c11e6ea2476bb5826f50d39e7ad3
+- compileall exit: 0
+- import app.main exit: 0
+- pytest exit: 0
+- pytest summary: 73 passed in 3.10s
+- playwright test:e2e exit: 1
+- playwright summary:   1 passed (4.1s)
+- git status -sb:
+```
+## main...origin/main [ahead 5]
+ M evidence/test_runs.md
+ M evidence/test_runs_latest.md
+ M evidence/updatedifflog.md
+ M web/dist/main.js
+ M web/src/main.ts
+?? web/e2e/onboard-longpress.spec.ts
+?? web/test-results/
+```
+- git diff --stat:
+```
+ evidence/test_runs.md        |  165 ++++
+ evidence/test_runs_latest.md |   88 +-
+ evidence/updatedifflog.md    | 1807 +-----------------------------------------
+ web/dist/main.js             |   69 +-
+ web/src/main.ts              |   72 +-
+ 5 files changed, 388 insertions(+), 1813 deletions(-)
+```
+- Failure payload:
+```
+=== playwright test:e2e (exit 1) ===
+
+> little-chef-web@0.1.0 test:e2e
+> playwright test --config ./playwright.config.ts
+
+
+Running 2 tests using 2 workers
+
+  ok 1 e2e\dev-panel.spec.ts:27:3 › Dev Panel remember row › renders remember-me checkbox near the JWT controls (1.3s)
+  x  2 e2e\onboard-longpress.spec.ts:4:3 › Onboard long-press menu › opens above the bubble and stays topmost (1.9s)
+
+
+  1) e2e\onboard-longpress.spec.ts:4:3 › Onboard long-press menu › opens above the bubble and stays topmost 
+
+    Error: [2mexpect([22m[31mreceived[39m[2m).[22mtoBeLessThanOrEqual[2m([22m[32mexpected[39m[2m)[22m
+
+    Expected: <= [32m1272[39m
+    Received:    [31m1284[39m
+
+      25 |
+      26 |     const viewport = await page.evaluate(() => ({ width: window.innerWidth, height: window.innerHeight }));
+    > 27 |     expect(menuRect.x + menuRect.width).toBeLessThanOrEqual(viewport.width - 8);
+         |                                         ^
+      28 |     expect(menuRect.y + menuRect.height).toBeLessThanOrEqual(viewport.height - 8);
+      29 |
+      30 |     const isTopmost = await page.evaluate(() => {
+        at Z:\LittleChef\web\e2e\onboard-longpress.spec.ts:27:41
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\onboard-longpress-Onboard--821b3-he-bubble-and-stays-topmost\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: video (video/webm) ──────────────────────────────────────────────────────────────
+    test-results\onboard-longpress-Onboard--821b3-he-bubble-and-stays-topmost\video.webm
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results\onboard-longpress-Onboard--821b3-he-bubble-and-stays-topmost\error-context.md
+
+    attachment #4: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results\onboard-longpress-Onboard--821b3-he-bubble-and-stays-topmost\trace.zip
+    Usage:
+
+        npx playwright show-trace test-results\onboard-longpress-Onboard--821b3-he-bubble-and-stays-topmost\trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  1 failed
+    e2e\onboard-longpress.spec.ts:4:3 › Onboard long-press menu › opens above the bubble and stays topmost 
+  1 passed (4.1s)
+```
+
+## Test Run 2026-02-08T13:10:05Z
+- Status: FAIL
+- Start: 2026-02-08T13:10:05Z
+- End: 2026-02-08T13:10:22Z
+- Python: Z:\LittleChef\.venv\\Scripts\\python.exe
+- Branch: main
+- HEAD: 17d15fe7f340c11e6ea2476bb5826f50d39e7ad3
+- compileall exit: 0
+- import app.main exit: 0
+- pytest exit: 0
+- pytest summary: 73 passed in 2.91s
+- playwright test:e2e exit: 1
+- playwright summary:   1 passed (4.0s)
+- git status -sb:
+```
+## main...origin/main [ahead 5]
+ M evidence/test_runs.md
+ M evidence/test_runs_latest.md
+ M evidence/updatedifflog.md
+ M web/dist/main.js
+ M web/src/main.ts
+?? web/e2e/onboard-longpress.spec.ts
+?? web/test-results/
+```
+- git diff --stat:
+```
+ evidence/test_runs.md        |  251 ++++++
+ evidence/test_runs_latest.md |   88 +-
+ evidence/updatedifflog.md    | 1807 +-----------------------------------------
+ web/dist/main.js             |   69 +-
+ web/src/main.ts              |   72 +-
+ 5 files changed, 474 insertions(+), 1813 deletions(-)
+```
+- Failure payload:
+```
+=== playwright test:e2e (exit 1) ===
+
+> little-chef-web@0.1.0 test:e2e
+> playwright test --config ./playwright.config.ts
+
+
+Running 2 tests using 2 workers
+
+  ok 1 e2e\dev-panel.spec.ts:27:3 › Dev Panel remember row › renders remember-me checkbox near the JWT controls (1.5s)
+  x  2 e2e\onboard-longpress.spec.ts:4:3 › Onboard long-press menu › opens above the bubble and stays topmost (1.9s)
+
+
+  1) e2e\onboard-longpress.spec.ts:4:3 › Onboard long-press menu › opens above the bubble and stays topmost 
+
+    Error: [2mexpect([22m[31mreceived[39m[2m).[22mtoBe[2m([22m[32mexpected[39m[2m) // Object.is equality[22m
+
+    Expected: [32mtrue[39m
+    Received: [31mfalse[39m
+
+      33 |       return topmost === menuEl;
+      34 |     });
+    > 35 |     expect(isTopmost).toBe(true);
+         |                       ^
+      36 |   });
+      37 | });
+      38 |
+        at Z:\LittleChef\web\e2e\onboard-longpress.spec.ts:35:23
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\onboard-longpress-Onboard--821b3-he-bubble-and-stays-topmost\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: video (video/webm) ──────────────────────────────────────────────────────────────
+    test-results\onboard-longpress-Onboard--821b3-he-bubble-and-stays-topmost\video.webm
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results\onboard-longpress-Onboard--821b3-he-bubble-and-stays-topmost\error-context.md
+
+    attachment #4: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results\onboard-longpress-Onboard--821b3-he-bubble-and-stays-topmost\trace.zip
+    Usage:
+
+        npx playwright show-trace test-results\onboard-longpress-Onboard--821b3-he-bubble-and-stays-topmost\trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  1 failed
+    e2e\onboard-longpress.spec.ts:4:3 › Onboard long-press menu › opens above the bubble and stays topmost 
+  1 passed (4.0s)
+```
+
+## Test Run 2026-02-08T13:11:41Z
+- Status: FAIL
+- Start: 2026-02-08T13:11:41Z
+- End: 2026-02-08T13:11:58Z
+- Python: Z:\LittleChef\.venv\\Scripts\\python.exe
+- Branch: main
+- HEAD: 17d15fe7f340c11e6ea2476bb5826f50d39e7ad3
+- compileall exit: 0
+- import app.main exit: 0
+- pytest exit: 0
+- pytest summary: 73 passed in 2.87s
+- playwright test:e2e exit: 1
+- playwright summary:   1 passed (3.9s)
+- git status -sb:
+```
+## main...origin/main [ahead 5]
+ M evidence/test_runs.md
+ M evidence/test_runs_latest.md
+ M evidence/updatedifflog.md
+ M web/dist/main.js
+ M web/src/main.ts
+?? web/e2e/onboard-longpress.spec.ts
+?? web/test-results/
+```
+- git diff --stat:
+```
+ evidence/test_runs.md        |  337 ++++++++
+ evidence/test_runs_latest.md |   88 +-
+ evidence/updatedifflog.md    | 1807 +-----------------------------------------
+ web/dist/main.js             |   69 +-
+ web/src/main.ts              |   63 +-
+ 5 files changed, 551 insertions(+), 1813 deletions(-)
+```
+- Failure payload:
+```
+=== playwright test:e2e (exit 1) ===
+
+> little-chef-web@0.1.0 test:e2e
+> playwright test --config ./playwright.config.ts
+
+
+Running 2 tests using 2 workers
+
+  ok 2 e2e\dev-panel.spec.ts:27:3 › Dev Panel remember row › renders remember-me checkbox near the JWT controls (1.3s)
+  x  1 e2e\onboard-longpress.spec.ts:4:3 › Onboard long-press menu › opens above the bubble and stays topmost (1.9s)
+
+
+  1) e2e\onboard-longpress.spec.ts:4:3 › Onboard long-press menu › opens above the bubble and stays topmost 
+
+    Error: [2mexpect([22m[31mreceived[39m[2m).[22mtoBe[2m([22m[32mexpected[39m[2m) // Object.is equality[22m
+
+    Expected: [32mtrue[39m
+    Received: [31mfalse[39m
+
+      33 |       return topmost === menuEl;
+      34 |     });
+    > 35 |     expect(isTopmost).toBe(true);
+         |                       ^
+      36 |   });
+      37 | });
+      38 |
+        at Z:\LittleChef\web\e2e\onboard-longpress.spec.ts:35:23
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\onboard-longpress-Onboard--821b3-he-bubble-and-stays-topmost\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: video (video/webm) ──────────────────────────────────────────────────────────────
+    test-results\onboard-longpress-Onboard--821b3-he-bubble-and-stays-topmost\video.webm
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results\onboard-longpress-Onboard--821b3-he-bubble-and-stays-topmost\error-context.md
+
+    attachment #4: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results\onboard-longpress-Onboard--821b3-he-bubble-and-stays-topmost\trace.zip
+    Usage:
+
+        npx playwright show-trace test-results\onboard-longpress-Onboard--821b3-he-bubble-and-stays-topmost\trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  1 failed
+    e2e\onboard-longpress.spec.ts:4:3 › Onboard long-press menu › opens above the bubble and stays topmost 
+  1 passed (3.9s)
+```
+
+## Test Run 2026-02-08T13:12:39Z
+- Status: FAIL
+- Start: 2026-02-08T13:12:39Z
+- End: 2026-02-08T13:12:56Z
+- Python: Z:\LittleChef\.venv\\Scripts\\python.exe
+- Branch: main
+- HEAD: 17d15fe7f340c11e6ea2476bb5826f50d39e7ad3
+- compileall exit: 0
+- import app.main exit: 0
+- pytest exit: 0
+- pytest summary: 73 passed in 2.95s
+- playwright test:e2e exit: 1
+- playwright summary:   1 passed (4.1s)
+- git status -sb:
+```
+## main...origin/main [ahead 5]
+ M evidence/test_runs.md
+ M evidence/test_runs_latest.md
+ M evidence/updatedifflog.md
+ M web/dist/main.js
+ M web/src/main.ts
+?? web/e2e/onboard-longpress.spec.ts
+?? web/test-results/
+```
+- git diff --stat:
+```
+ evidence/test_runs.md        |  423 ++++++++++
+ evidence/test_runs_latest.md |   88 +-
+ evidence/updatedifflog.md    | 1807 +-----------------------------------------
+ web/dist/main.js             |   61 +-
+ web/src/main.ts              |   63 +-
+ 5 files changed, 629 insertions(+), 1813 deletions(-)
+```
+- Failure payload:
+```
+=== playwright test:e2e (exit 1) ===
+
+> little-chef-web@0.1.0 test:e2e
+> playwright test --config ./playwright.config.ts
+
+
+Running 2 tests using 2 workers
+
+  ok 1 e2e\dev-panel.spec.ts:27:3 › Dev Panel remember row › renders remember-me checkbox near the JWT controls (1.5s)
+  x  2 e2e\onboard-longpress.spec.ts:4:3 › Onboard long-press menu › opens above the bubble and stays topmost (1.9s)
+
+
+  1) e2e\onboard-longpress.spec.ts:4:3 › Onboard long-press menu › opens above the bubble and stays topmost 
+
+    Error: elementFromPoint hit BUTTON# flow-menu-item
+
+      41 |     });
+      42 |     if (!topmostResult.isTopmost) {
+    > 43 |       throw new Error(
+         |             ^
+      44 |         `elementFromPoint hit ${topmostResult.tag}#${topmostResult.id} ${topmostResult.className}`
+      45 |       );
+      46 |     }
+        at Z:\LittleChef\web\e2e\onboard-longpress.spec.ts:43:13
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\onboard-longpress-Onboard--821b3-he-bubble-and-stays-topmost\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: video (video/webm) ──────────────────────────────────────────────────────────────
+    test-results\onboard-longpress-Onboard--821b3-he-bubble-and-stays-topmost\video.webm
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results\onboard-longpress-Onboard--821b3-he-bubble-and-stays-topmost\error-context.md
+
+    attachment #4: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results\onboard-longpress-Onboard--821b3-he-bubble-and-stays-topmost\trace.zip
+    Usage:
+
+        npx playwright show-trace test-results\onboard-longpress-Onboard--821b3-he-bubble-and-stays-topmost\trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  1 failed
+    e2e\onboard-longpress.spec.ts:4:3 › Onboard long-press menu › opens above the bubble and stays topmost 
+  1 passed (4.1s)
+```
+
+## Test Run 2026-02-08T13:13:13Z
+- Status: PASS
+- Start: 2026-02-08T13:13:13Z
+- End: 2026-02-08T13:13:29Z
+- Python: Z:\LittleChef\.venv\\Scripts\\python.exe
+- Branch: main
+- HEAD: 17d15fe7f340c11e6ea2476bb5826f50d39e7ad3
+- compileall exit: 0
+- import app.main exit: 0
+- pytest exit: 0
+- pytest summary: 73 passed in 2.91s
+- playwright test:e2e exit: 0
+- playwright summary:   2 passed (4.0s)
+- git status -sb:
+```
+## main...origin/main [ahead 5]
+ M evidence/test_runs.md
+ M evidence/test_runs_latest.md
+ M evidence/updatedifflog.md
+ M web/dist/main.js
+ M web/src/main.ts
+?? web/e2e/onboard-longpress.spec.ts
+?? web/test-results/
+```
+- git diff --stat:
+```
+ evidence/test_runs.md        |  506 ++++++++++++
+ evidence/test_runs_latest.md |   85 +-
+ evidence/updatedifflog.md    | 1807 +-----------------------------------------
+ web/dist/main.js             |   61 +-
+ web/src/main.ts              |   63 +-
+ 5 files changed, 709 insertions(+), 1813 deletions(-)
+```
+
+## Test Run 2026-02-08T13:24:56Z
+- Status: PASS
+- Start: 2026-02-08T13:24:56Z
+- End: 2026-02-08T13:25:12Z
+- Python: Z:\LittleChef\.venv\\Scripts\\python.exe
+- Branch: main
+- HEAD: 17d15fe7f340c11e6ea2476bb5826f50d39e7ad3
+- compileall exit: 0
+- import app.main exit: 0
+- pytest exit: 0
+- pytest summary: 73 passed in 2.81s
+- playwright test:e2e exit: 0
+- playwright summary:   2 passed (3.8s)
+- git status -sb:
+```
+## main...origin/main [ahead 5]
+ M evidence/test_runs.md
+ M evidence/test_runs_latest.md
+ M evidence/updatedifflog.md
+ M web/dist/main.js
+ M web/dist/style.css
+ M web/src/main.ts
+ M web/src/style.css
+?? web/e2e/onboard-longpress.spec.ts
+```
+- git diff --stat:
+```
+ evidence/test_runs.md        |  540 ++++
+ evidence/test_runs_latest.md |   30 +-
+ evidence/updatedifflog.md    | 5654 +++++++++++++++++++++++++++++++-----------
+ web/dist/main.js             |   61 +-
+ web/dist/style.css           |    3 +-
+ web/src/main.ts              |   63 +-
+ web/src/style.css            |    3 +-
+ 7 files changed, 4825 insertions(+), 1529 deletions(-)
+```
+
+## Test Run 2026-02-08T14:20:33Z
+- Status: PASS
+- Start: 2026-02-08T14:20:33Z
+- End: 2026-02-08T14:20:52Z
+- Python: Z:\LittleChef\.venv\\Scripts\\python.exe
+- Branch: main
+- HEAD: 17d15fe7f340c11e6ea2476bb5826f50d39e7ad3
+- compileall exit: 0
+- import app.main exit: 0
+- pytest exit: 0
+- pytest summary: 73 passed in 3.54s
+- playwright test:e2e exit: 0
+- playwright summary:   2 passed (4.1s)
+- git status -sb:
+```
+## main...origin/main [ahead 5]
+ M evidence/test_runs.md
+ M evidence/test_runs_latest.md
+ M evidence/updatedifflog.md
+ M web/dist/main.js
+ M web/dist/style.css
+A  web/e2e/onboard-longpress.spec.ts
+ M web/src/main.ts
+ M web/src/style.css
+```
+- git diff --stat:
+```
+ evidence/test_runs.md        |  577 +++
+ evidence/test_runs_latest.md |   29 +-
+ evidence/updatedifflog.md    | 8239 ++++++++++++++++++++++++++++++++++--------
+ web/dist/main.js             |   61 +-
+ web/dist/style.css           |    3 +-
+ web/src/main.ts              |   63 +-
+ web/src/style.css            |    3 +-
+ 7 files changed, 7371 insertions(+), 1604 deletions(-)
+```
+
+## Test Run 2026-02-08T14:40:23Z
+- Status: FAIL
+- Start: 2026-02-08T14:40:23Z
+- End: 2026-02-08T14:40:57Z
+- Python: Z:\LittleChef\.venv\\Scripts\\python.exe
+- Branch: recovery/evidence-20260208
+- HEAD: 17d15fe7f340c11e6ea2476bb5826f50d39e7ad3
+- compileall exit: 0
+- import app.main exit: 0
+- pytest exit: 0
+- pytest summary: 73 passed in 3.62s
+- playwright test:e2e exit: 1
+- playwright summary:   2 passed (20.0s)
+- git status -sb:
+```
+## recovery/evidence-20260208
+ M evidence/test_runs.md
+ M evidence/test_runs_latest.md
+ M evidence/updatedifflog.md
+ M web/dist/main.js
+ M web/dist/style.css
+A  web/e2e/onboard-longpress.spec.ts
+ M web/src/main.ts
+ M web/src/style.css
+?? web/e2e/history-badge.spec.ts
+?? web/test-results/
+```
+- git diff --stat:
+```
+ evidence/test_runs.md        |   614 +++
+ evidence/test_runs_latest.md |    29 +-
+ evidence/updatedifflog.md    | 10851 +++++++++++++++++++++++++++++++++++------
+ web/dist/main.js             |    61 +-
+ web/dist/style.css           |     3 +-
+ web/src/main.ts              |   136 +-
+ web/src/style.css            |    36 +-
+ 7 files changed, 10092 insertions(+), 1638 deletions(-)
+```
+- Failure payload:
+```
+=== playwright test:e2e (exit 1) ===
+
+> little-chef-web@0.1.0 test:e2e
+> playwright test --config ./playwright.config.ts
+
+
+Running 3 tests using 3 workers
+
+  ok 3 e2e\dev-panel.spec.ts:27:3 › Dev Panel remember row › renders remember-me checkbox near the JWT controls (1.8s)
+  ok 2 e2e\onboard-longpress.spec.ts:4:3 › Onboard long-press menu › opens above the bubble and stays topmost (2.2s)
+  x  1 e2e\history-badge.spec.ts:4:3 › History badge and bubble › ellipsis bubble and badge track normal chat activity (17.4s)
+
+
+  1) e2e\history-badge.spec.ts:4:3 › History badge and bubble › ellipsis bubble and badge track normal chat activity 
+
+    TimeoutError: locator.click: Timeout 15000ms exceeded.
+    Call log:
+    [2m  - waiting for locator('#duet-send')[22m
+    [2m    - locator resolved to <button id="duet-send" class="icon-btn primary" aria-label="Send message">➤</button>[22m
+    [2m  - attempting click action[22m
+    [2m    2 × waiting for element to be visible, enabled and stable[22m
+    [2m      - element is visible, enabled and stable[22m
+    [2m      - scrolling into view if needed[22m
+    [2m      - done scrolling[22m
+    [2m      - <div class="duet-stage">…</div> intercepts pointer events[22m
+    [2m    - retrying click action[22m
+    [2m    - waiting 20ms[22m
+    [2m    2 × waiting for element to be visible, enabled and stable[22m
+    [2m      - element is visible, enabled and stable[22m
+    [2m      - scrolling into view if needed[22m
+    [2m      - done scrolling[22m
+    [2m      - <div class="duet-stage">…</div> intercepts pointer events[22m
+    [2m    - retrying click action[22m
+    [2m      - waiting 100ms[22m
+    [2m    29 × waiting for element to be visible, enabled and stable[22m
+    [2m       - element is visible, enabled and stable[22m
+    [2m       - scrolling into view if needed[22m
+    [2m       - done scrolling[22m
+    [2m       - <div class="duet-stage">…</div> intercepts pointer events[22m
+    [2m     - retrying click action[22m
+    [2m       - waiting 500ms[22m
+
+
+      16 |     for (let i = 1; i <= 3; i += 1) {
+      17 |       await input.fill(`message ${i}`);
+    > 18 |       await sendBtn.click();
+         |                     ^
+      19 |       await expect(bubbleText).toHaveText("…", { timeout: 5000 });
+      20 |     }
+      21 |
+        at Z:\LittleChef\web\e2e\history-badge.spec.ts:18:21
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\history-badge-History-badg-9e435--track-normal-chat-activity\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: video (video/webm) ──────────────────────────────────────────────────────────────
+    test-results\history-badge-History-badg-9e435--track-normal-chat-activity\video.webm
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results\history-badge-History-badg-9e435--track-normal-chat-activity\error-context.md
+
+    attachment #4: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results\history-badge-History-badg-9e435--track-normal-chat-activity\trace.zip
+    Usage:
+
+        npx playwright show-trace test-results\history-badge-History-badg-9e435--track-normal-chat-activity\trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  1 failed
+    e2e\history-badge.spec.ts:4:3 › History badge and bubble › ellipsis bubble and badge track normal chat activity 
+  2 passed (20.0s)
+```
+
+## Test Run 2026-02-08T14:41:22Z
+- Status: PASS
+- Start: 2026-02-08T14:41:22Z
+- End: 2026-02-08T14:41:40Z
+- Python: Z:\LittleChef\.venv\\Scripts\\python.exe
+- Branch: recovery/evidence-20260208
+- HEAD: 17d15fe7f340c11e6ea2476bb5826f50d39e7ad3
+- compileall exit: 0
+- import app.main exit: 0
+- pytest exit: 0
+- pytest summary: 73 passed in 3.05s
+- playwright test:e2e exit: 0
+- playwright summary:   3 passed (5.0s)
+- git status -sb:
+```
+## recovery/evidence-20260208
+ M evidence/test_runs.md
+ M evidence/test_runs_latest.md
+ M evidence/updatedifflog.md
+ M web/dist/main.js
+ M web/dist/style.css
+A  web/e2e/onboard-longpress.spec.ts
+ M web/src/main.ts
+ M web/src/style.css
+?? web/e2e/history-badge.spec.ts
+```
+- git diff --stat:
+```
+ evidence/test_runs.md        |   729 +++
+ evidence/test_runs_latest.md |   115 +-
+ evidence/updatedifflog.md    | 10851 +++++++++++++++++++++++++++++++++++------
+ web/dist/main.js             |   130 +-
+ web/dist/style.css           |     3 +-
+ web/src/main.ts              |   136 +-
+ web/src/style.css            |    36 +-
+ 7 files changed, 10358 insertions(+), 1642 deletions(-)
+```
+

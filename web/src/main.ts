@@ -102,6 +102,9 @@ function currentModeLower() {
 
 let historyOverlay: HTMLDivElement | null = null;
 let historyToggle: HTMLButtonElement | null = null;
+let historyBadgeCount = 0;
+let historyBadgeEl: HTMLSpanElement | null = null;
+let userBubbleEllipsisActive = false;
 let currentFlowKey = flowOptions[0].key;
 let composerBusy = false;
 let flowMenuContainer: HTMLDivElement | null = null;
@@ -123,6 +126,11 @@ let prefsOverlayDetails: HTMLDivElement | null = null;
 let prefsOverlayLoading = false;
 let prefsOverlayHasLoaded = false;
 let onboardMenu: HTMLDivElement | null = null;
+const OVERLAY_ROOT_ID = "duet-overlay-root";
+const OVERLAY_ROOT_Z_INDEX = 2147483640;
+const ONBOARD_MENU_EDGE_MARGIN = 8;
+const USER_BUBBLE_ELLIPSIS = "…";
+let overlayRoot: HTMLDivElement | null = null;
 let onboardPressTimer: number | null = null;
 let onboardPressStart: { x: number; y: number } | null = null;
 let onboardPointerId: number | null = null;
@@ -554,7 +562,23 @@ function updateDuetBubbles() {
     "Welcome — I’m Little Chef. To start onboarding, please fill out your preferences (allergies, likes/dislikes, servings, days).";
   const userFallback = "Press and hold to start onboarding with preferences.";
   setBubbleText(assistant, lastAssistant?.text ?? assistantFallback);
-  setBubbleText(user, lastUser?.text ?? userFallback);
+  const showEllipsis = userBubbleEllipsisActive && isGeneralFlow();
+  const fallbackText = isGeneralFlow() ? userFallback : lastUser?.text ?? userFallback;
+  setBubbleText(user, showEllipsis ? USER_BUBBLE_ELLIPSIS : fallbackText);
+}
+
+function isGeneralFlow() {
+  return currentFlowKey === "general";
+}
+
+function setUserBubbleEllipsis(enabled: boolean) {
+  if (userBubbleEllipsisActive === enabled) {
+    return;
+  }
+  userBubbleEllipsisActive = enabled;
+  if (!enabled) {
+    updateDuetBubbles();
+  }
 }
 
 function applyDrawerProgress(progress: number, opts?: { dragging?: boolean; commit?: boolean }) {
@@ -575,6 +599,9 @@ function applyDrawerProgress(progress: number, opts?: { dragging?: boolean; comm
     duetState.drawerOpen = clamped > 0.35;
     history.classList.toggle("open", duetState.drawerOpen);
     syncHistoryUi();
+    if (duetState.drawerOpen) {
+      handleHistoryOpened();
+    }
   }
   userBubble.style.transform = "";
 }
@@ -619,6 +646,11 @@ function wireDuetDrag() {
   userBubble.addEventListener("pointerup", endDrag);
   userBubble.addEventListener("pointercancel", cancel);
   userBubble.addEventListener("lostpointercapture", cancel);
+}
+
+function handleHistoryOpened() {
+  resetHistoryBadge();
+  setUserBubbleEllipsis(false);
 }
 
 function setDrawerOpen(open: boolean) {
@@ -732,6 +764,44 @@ function setupHistoryDrawerUi() {
     });
     stage.appendChild(historyToggle);
   }
+  resetHistoryBadge();
+}
+
+function ensureHistoryBadgeElement() {
+  if (!historyToggle) return null;
+  if (historyBadgeEl && historyBadgeEl.isConnected) {
+    return historyBadgeEl;
+  }
+  const badge = document.createElement("span");
+  badge.className = "history-badge";
+  badge.setAttribute("aria-hidden", "true");
+  historyToggle.appendChild(badge);
+  historyBadgeEl = badge;
+  return badge;
+}
+
+function updateHistoryBadge() {
+  const badge = ensureHistoryBadgeElement();
+  if (!badge) return;
+  if (historyBadgeCount > 0) {
+    badge.textContent = historyBadgeCount.toString();
+    badge.classList.add("visible");
+    badge.setAttribute("aria-hidden", "false");
+  } else {
+    badge.textContent = "";
+    badge.classList.remove("visible");
+    badge.setAttribute("aria-hidden", "true");
+  }
+}
+
+function incrementHistoryBadge() {
+  historyBadgeCount = Math.max(0, historyBadgeCount + 1);
+  updateHistoryBadge();
+}
+
+function resetHistoryBadge() {
+  historyBadgeCount = 0;
+  updateHistoryBadge();
 }
 
 function wireHistoryHotkeys() {
@@ -1140,6 +1210,11 @@ async function sendAsk(message: string, opts?: { flowLabel?: string; updateChatP
   const normalizedMessage = message.trim();
   const flowLabel = opts?.flowLabel;
   const displayText = flowLabel ? `[${flowLabel}] ${normalizedMessage}` : normalizedMessage;
+  const isGeneralChat = isGeneralFlow();
+  if (isGeneralChat) {
+    setUserBubbleEllipsis(true);
+    incrementHistoryBadge();
+  }
   const userIndex = addHistory("user", displayText);
   const thinkingIndex = addHistory("assistant", "...");
 
@@ -1570,7 +1645,32 @@ function selectFlow(key: string) {
   }
 }
 
+function ensureOverlayRoot() {
+  if (overlayRoot && overlayRoot.isConnected) {
+    return overlayRoot;
+  }
+  const existing = document.getElementById(OVERLAY_ROOT_ID) as HTMLDivElement | null;
+  if (existing) {
+    overlayRoot = existing;
+    return overlayRoot;
+  }
+  const rootHost = document.body ?? document.documentElement;
+  if (!rootHost) {
+    throw new Error("Document root not found for overlay host");
+  }
+  const root = document.createElement("div");
+  root.id = OVERLAY_ROOT_ID;
+  root.style.position = "fixed";
+  root.style.inset = "0";
+  root.style.pointerEvents = "none";
+  root.style.zIndex = OVERLAY_ROOT_Z_INDEX.toString();
+  rootHost.appendChild(root);
+  overlayRoot = root;
+  return overlayRoot;
+}
+
 function ensureOnboardMenu() {
+  const host = ensureOverlayRoot();
   if (!onboardMenu) {
     const menu = document.createElement("div");
     menu.id = "onboard-menu";
@@ -1578,7 +1678,7 @@ function ensureOnboardMenu() {
     menu.style.position = "fixed";
     menu.style.display = "none";
     menu.style.zIndex = "999";
-    document.body.appendChild(menu);
+    host.appendChild(menu);
     onboardMenu = menu;
   }
   renderOnboardMenuButtons();
@@ -1612,8 +1712,19 @@ function renderOnboardMenuButtons() {
   }
 }
 
+function clampNumber(value: number, min: number, max: number): number {
+  if (max < min) {
+    return min;
+  }
+  return Math.min(Math.max(value, min), max);
+}
+
 function hideOnboardMenu() {
-  if (onboardMenu) onboardMenu.style.display = "none";
+  if (onboardMenu) {
+    onboardMenu.style.display = "none";
+    onboardMenu.style.visibility = "hidden";
+    onboardMenu.classList.remove("open");
+  }
   onboardMenuActive = false;
   if (onboardActiveItem) {
     onboardActiveItem.classList.remove("active");
@@ -1624,9 +1735,24 @@ function hideOnboardMenu() {
 
 function showOnboardMenu(x: number, y: number) {
   const menu = ensureOnboardMenu();
-  menu.style.left = `${x}px`;
-  menu.style.top = `${y}px`;
   menu.style.display = "grid";
+  menu.classList.add("open");
+  menu.style.visibility = "hidden";
+  menu.style.left = "0px";
+  menu.style.top = "0px";
+  const rect = menu.getBoundingClientRect();
+  const width = rect.width || menu.offsetWidth || 0;
+  const height = rect.height || menu.offsetHeight || 0;
+  const viewportWidth = window.innerWidth;
+  const viewportHeight = window.innerHeight;
+  const offset = ONBOARD_MENU_EDGE_MARGIN;
+  const maxLeft = Math.max(offset, viewportWidth - width - offset);
+  const maxTop = Math.max(offset, viewportHeight - height - offset);
+  const desiredLeft = clampNumber(x - width - offset, offset, maxLeft);
+  const desiredTop = clampNumber(y - height - offset, offset, maxTop);
+  menu.style.left = `${desiredLeft}px`;
+  menu.style.top = `${desiredTop}px`;
+  menu.style.visibility = "visible";
   onboardMenuActive = true;
   onboardIgnoreDocClickUntilMs = Date.now() + 800;
   onboardDragActive = true;
