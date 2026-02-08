@@ -104,6 +104,11 @@ let historyOverlay: HTMLDivElement | null = null;
 let historyToggle: HTMLButtonElement | null = null;
 let historyBadgeCount = 0;
 let historyBadgeEl: HTMLSpanElement | null = null;
+let proposalActionsContainer: HTMLDivElement | null = null;
+let proposalConfirmButton: HTMLButtonElement | null = null;
+let proposalEditButton: HTMLButtonElement | null = null;
+let proposalDenyButton: HTMLButtonElement | null = null;
+const proposalDismissedIds = new Set<string>();
 let userBubbleEllipsisActive = false;
 let currentFlowKey = flowOptions[0].key;
 let composerBusy = false;
@@ -338,6 +343,7 @@ function renderProposal() {
   if (!state.proposalId || !state.proposedActions.length) {
     container.classList.add("hidden");
     textEl.textContent = "";
+    updateProposalActionsVisibility();
     return;
   }
   const summaries = state.proposedActions.map((action: any) => {
@@ -352,12 +358,114 @@ function renderProposal() {
   });
   textEl.textContent = summaries.join(" | ");
   container.classList.remove("hidden");
+  updateProposalActionsVisibility();
 }
 
 function clearProposal() {
+  if (state.proposalId) {
+    proposalDismissedIds.delete(state.proposalId);
+  }
   state.proposalId = null;
   state.proposedActions = [];
   renderProposal();
+}
+
+function shouldShowProposalActions(): boolean {
+  const proposalId = state.proposalId;
+  if (!proposalId || !state.proposedActions.length) return false;
+  return !proposalDismissedIds.has(proposalId);
+}
+
+function createProposalActionButton(
+  id: string,
+  icon: string,
+  extraClass: string,
+  label: string,
+  handler: () => void
+): HTMLButtonElement {
+  const btn = document.createElement("button");
+  btn.id = id;
+  btn.type = "button";
+  btn.className = `icon-btn proposal-action-btn ${extraClass}`;
+  btn.setAttribute("aria-label", label);
+  btn.setAttribute("data-testid", id);
+  btn.textContent = icon;
+  btn.addEventListener("click", handler);
+  return btn;
+}
+
+function ensureProposalActions(): HTMLDivElement | null {
+  if (proposalActionsContainer && proposalActionsContainer.isConnected) {
+    return proposalActionsContainer;
+  }
+  const container = document.createElement("div");
+  container.id = "proposal-actions";
+  container.className = "proposal-actions";
+  container.setAttribute("aria-hidden", "true");
+
+  if (!proposalConfirmButton) {
+    proposalConfirmButton = createProposalActionButton(
+      "proposal-confirm",
+      "✔",
+      "confirm",
+      "Confirm proposal",
+      () => handleProposalConfirm()
+    );
+  }
+  if (!proposalEditButton) {
+    proposalEditButton = createProposalActionButton(
+      "proposal-edit",
+      "✏",
+      "edit",
+      "Edit proposal",
+      () => handleProposalEdit()
+    );
+  }
+  if (!proposalDenyButton) {
+    proposalDenyButton = createProposalActionButton(
+      "proposal-deny",
+      "✖",
+      "deny",
+      "Deny proposal",
+      () => handleProposalDeny()
+    );
+  }
+
+  container.append(proposalConfirmButton, proposalEditButton, proposalDenyButton);
+  document.body.appendChild(container);
+  proposalActionsContainer = container;
+  return container;
+}
+
+function updateProposalActionsVisibility() {
+  const container = ensureProposalActions();
+  if (!container) return;
+  const visible = shouldShowProposalActions();
+  container.classList.toggle("visible", visible);
+  container.setAttribute("aria-hidden", visible ? "false" : "true");
+  [proposalConfirmButton, proposalEditButton, proposalDenyButton].forEach((btn) => {
+    if (btn) {
+      btn.disabled = !visible;
+    }
+  });
+}
+
+function handleProposalConfirm() {
+  if (!state.proposalId) return;
+  void sendAsk("confirm");
+}
+
+function handleProposalEdit() {
+  setDuetStatus("Edit request registered (UI placeholder).");
+}
+
+function handleProposalDeny() {
+  const proposalId = state.proposalId;
+  if (proposalId) {
+    proposalDismissedIds.add(proposalId);
+  }
+  updateProposalActionsVisibility();
+  setDuetStatus("Proposal dismissed.");
 }
 
 function detectProposalCommand(message: string): "confirm" | "deny" | null {

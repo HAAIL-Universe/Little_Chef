@@ -1,3 +1,10 @@
+## Test Run 2026-02-08T22:42:48Z
+- Status: PASS
+- Start: 2026-02-08T22:42:48Z
+- End: 2026-02-08T22:43:20Z
+- Command: `cd web && npm run test:e2e`
+- Details: Playwright automated suite (`proposal-actions.spec.ts`, `onboard-longpress.spec.ts`, `dev-panel.spec.ts`, `history-badge.spec.ts`)
+
 ## Test Run 2026-02-08T18:57:15Z
 - Status: PASS
 - Start: 2026-02-08T18:57:15Z
