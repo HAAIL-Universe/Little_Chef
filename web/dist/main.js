@@ -116,7 +116,7 @@ let onboardMenu = null;
 const OVERLAY_ROOT_ID = "duet-overlay-root";
 const OVERLAY_ROOT_Z_INDEX = 2147483640;
 const ONBOARD_MENU_EDGE_MARGIN = 8;
-const USER_BUBBLE_SENT_TEXT = "Sent";
+const USER_BUBBLE_SENT_TEXT = "👍";
 const HISTORY_BADGE_DISPLAY_MAX = 99;
 const NORMAL_CHAT_FLOW_KEYS = new Set(["general", "inventory", "mealplan", "prefs"]);
 let overlayRoot = null;
@@ -538,6 +538,12 @@ function setBubbleText(element, text) {
         }
     });
 }
+function setUserBubbleLabel(isSystem) {
+    const label = document.querySelector("#duet-user-bubble .bubble-label");
+    if (label instanceof HTMLElement) {
+        label.textContent = isSystem ? "System" : "You";
+    }
+}
 function updateDuetBubbles() {
     var _a, _b;
     const assistant = document.getElementById("duet-assistant-text");
@@ -550,6 +556,11 @@ function updateDuetBubbles() {
     const showSentText = userBubbleEllipsisActive && isNormalChatFlow();
     const fallbackText = isNormalChatFlow() ? userFallback : (_b = lastUser === null || lastUser === void 0 ? void 0 : lastUser.text) !== null && _b !== void 0 ? _b : userFallback;
     setBubbleText(user, showSentText ? USER_BUBBLE_SENT_TEXT : fallbackText);
+    const userBubble = document.getElementById("duet-user-bubble");
+    if (userBubble) {
+        userBubble.classList.toggle("sent-mode", showSentText);
+    }
+    setUserBubbleLabel(!showSentText);
 }
 function isNormalChatFlow() {
     return NORMAL_CHAT_FLOW_KEYS.has(currentFlowKey);
@@ -1705,6 +1716,7 @@ function startOnboarding() {
         assistant.textContent = assistantText;
     if (user)
         user.textContent = userText;
+    setUserBubbleLabel(true);
 }
 function setupDock() {
     // Dock layout is temporarily disabled; keep the legacy logic here in case we re-enable it later.

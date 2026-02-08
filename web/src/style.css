@@ -553,6 +553,34 @@ pre {
   cursor: grabbing;
 }
 
+.duet-bubble.sent-mode {
+  width: 46px;
+  height: 46px;
+  padding: 0;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  box-shadow: var(--shadow);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 24px;
+  line-height: 1;
+}
+
+.duet-bubble.sent-mode .bubble-label {
+  display: none;
+}
+
+.duet-bubble.sent-mode .bubble-text {
+  font-size: 24px;
+  line-height: 1;
+  font-weight: 600;
+  color: var(--text);
+  text-align: center;
+  margin: 0;
+}
+
 .duet-history {
   --drawer-progress: 0;
   --history-closed-offset: 200%;

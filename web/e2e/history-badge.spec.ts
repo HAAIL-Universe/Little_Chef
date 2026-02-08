@@ -16,7 +16,7 @@ test.describe("History badge and bubble", () => {
     for (let i = 1; i <= 3; i += 1) {
       await input.fill(`message ${i}`);
       await sendBtn.evaluate((btn) => (btn as HTMLButtonElement).click());
-      await expect(bubbleText).toHaveText("Sent", { timeout: 5000 });
+      await expect(bubbleText).toHaveText("👍", { timeout: 5000 });
     }
 
     await expect(badge).toHaveText("3", { timeout: 5000 });
@@ -37,6 +37,6 @@ test.describe("History badge and bubble", () => {
     await sendBtn.evaluate((btn) => (btn as HTMLButtonElement).click());
     await expect(badge).toHaveText("1", { timeout: 5000 });
     await expect(badge).toHaveClass(/visible/, { timeout: 5000 });
-    await expect(bubbleText).toHaveText("Sent", { timeout: 5000 });
+    await expect(bubbleText).toHaveText("👍", { timeout: 5000 });
   });
 });
