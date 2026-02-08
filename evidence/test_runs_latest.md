@@ -1,7 +1,7 @@
 Status: PASS
-Start: 2026-02-08T22:42:48Z
-End: 2026-02-08T22:43:20Z
+Start: 2026-02-08T22:54:37Z
+End: 2026-02-08T22:54:54Z
 Command: cd web && npm run test:e2e
-Tests: Playwright e2e (proposal-actions, onboard-longpress, dev-panel, history-badge)
+Tests: Playwright e2e (proposal-actions, onboard-longpress, dev-panel, history-badge) after confirmation-trigger refresh
 Branch: main
-HEAD: d1d12fcf8032d3a3463ba52998e1f415877073a5
+HEAD: e0e109eed23a7c499a5665d52b4012ecf65abce4

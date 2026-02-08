@@ -96,6 +96,7 @@ let proposalConfirmButton = null;
 let proposalEditButton = null;
 let proposalDenyButton = null;
 const proposalDismissedIds = new Set();
+let lastResponseRequiresConfirmation = false;
 let userBubbleEllipsisActive = false;
 let currentFlowKey = flowOptions[0].key;
 let composerBusy = false;
@@ -345,6 +346,7 @@ function clearProposal() {
     if (state.proposalId) {
         proposalDismissedIds.delete(state.proposalId);
     }
+    lastResponseRequiresConfirmation = false;
     state.proposalId = null;
     state.proposedActions = [];
     renderProposal();
@@ -352,6 +354,8 @@ function clearProposal() {
 function shouldShowProposalActions() {
     const proposalId = state.proposalId;
     if (!proposalId || !state.proposedActions.length)
+        return false;
+    if (!lastResponseRequiresConfirmation)
         return false;
     return !proposalDismissedIds.has(proposalId);
 }
@@ -414,6 +418,7 @@ function handleProposalDeny() {
     if (proposalId) {
         proposalDismissedIds.add(proposalId);
     }
+    lastResponseRequiresConfirmation = false;
     updateProposalActionsVisibility();
     setDuetStatus("Proposal dismissed.");
 }
@@ -1287,6 +1292,7 @@ async function sendAsk(message, opts) {
         if (!res.ok || !json || typeof json.reply_text !== "string") {
             throw new Error((json === null || json === void 0 ? void 0 : json.message) || `ASK failed (status ${res.status})`);
         }
+        lastResponseRequiresConfirmation = !!json.confirmation_required;
         setModeFromResponse(json);
         const proposalSummary = formatProposalSummary(json);
         const replyText = json.reply_text;
