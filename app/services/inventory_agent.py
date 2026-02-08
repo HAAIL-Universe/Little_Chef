@@ -29,6 +29,7 @@ QUANTITY_PATTERN = re.compile(
 )
 FALLBACK_FILLERS = [
     "i've got",
+    "i ve got",
     "i have",
     "i got",
     "i just got",
@@ -62,6 +63,9 @@ CHATTER_LEADING_PREFIXES = (
     "just bought",
     "finished checking",
     "just checked",
+    "alright little chef",
+    "okay little chef",
+    "hey little chef",
 )
 DATE_MARKER_PHRASES = {"use by", "use-by", "best before", "bb"}
 ORDINAL_SUFFIXES = ("st", "nd", "rd", "th")
@@ -127,6 +131,11 @@ BARE_FILLER_WORDS = {
     "now",
     "fridge",
     "freezer",
+    "stuff",
+    "half",
+    "third",
+    "quarter",
+    "both",
 }
 ITEM_STOP_WORDS = (
     CONTEXT_IGNORE_WORDS
@@ -135,6 +144,7 @@ ITEM_STOP_WORDS = (
     | UNIT_KEYWORDS
     | ATTACHMENT_ONLY_WORDS
     | CHATTER_WORDS
+    | (BARE_FILLER_WORDS - {"cereal"})
 )
 PARTIAL_KEYWORDS = UNIT_KEYWORDS | CONTAINER_WORDS
 NUMBER_WORDS = {
@@ -170,8 +180,19 @@ DATE_STRIP_PATTERN = re.compile(
 FRACTION_LEFT_PATTERN = re.compile(
     r"^(?:a|about)\s+(?:half|third|quarter)\s+left$", re.IGNORECASE
 )
+SECTION_TRANSITION_PATTERN = re.compile(
+    r"\s+(?=(?:now|and)\s+(?:fridge|freezer|cupboard|pantry)\b)",
+    re.IGNORECASE,
+)
+FRACTION_STATE_PATTERN = re.compile(
+    r"\b(half|third|quarter)\s+(left|full)\b",
+    re.IGNORECASE,
+)
+FRACTION_VALUES: Dict[str, float] = {"half": 0.5, "third": 1 / 3, "quarter": 0.25}
 LEAD_PREFIXES = (
     "quick stock check",
+    "quick pantry scan",
+    "quick pantry check",
     "i've got",
     "both unopened",
     "now fridge stuff",
@@ -184,7 +205,7 @@ LEAD_PREFIXES = (
 )
 CEREAL_TOKENS = ("coco pops", "cornflakes")
 
-CONTAINER_PHRASE_SEPARATORS = [",", ";", " and ", " plus ", " also ", " then "]
+CONTAINER_PHRASE_SEPARATORS = [".", ",", ";", " and ", " plus ", " also ", " then "]
 CONTAINER_WORD_HINTS = {
     "tin",
     "tins",
@@ -507,6 +528,14 @@ class InventoryAgent:
     ) -> Tuple[List[ProposedInventoryEventAction], List[str]]:
         text = message.strip()
         text = self._replace_number_words(text)
+        text = SECTION_TRANSITION_PATTERN.sub(". ", text)
+        # Strip greeting patterns like "Alright Little Chef" from the start
+        text = re.sub(
+            r"^(?:alright|okay|hey|hi|hello)\s+little\s+chef\b[,;:\s]*",
+            "",
+            text,
+            flags=re.IGNORECASE,
+        ).strip()
         if not text:
             return [], []
         lower = text.lower()
@@ -698,6 +727,11 @@ class InventoryAgent:
                     self._add_note_value(action, f"use_by={use_by_ord}")
                 elif general_use_by:
                     self._add_note_value(action, f"use_by={general_use_by}")
+                fraction_note = self._fraction_remaining_note(
+                    text[start:end], quantity, unit
+                )
+                if fraction_note:
+                    self._add_note_value(action, fraction_note)
                 actions.append(action)
                 seen_dedup_keys.add(dedup_key)
                 dedup_action_index[dedup_key] = len(actions) - 1
@@ -728,7 +762,9 @@ class InventoryAgent:
                 key = (normalized_key, 1.0, "count")
                 if key in seen:
                     continue
-                fallback_missing_quantity = True
+                has_fraction = bool(FRACTION_STATE_PATTERN.search(segment))
+                if not has_fraction:
+                    fallback_missing_quantity = True
                 seen.add(key)
                 action = ProposedInventoryEventAction(
                     event=InventoryEventCreateRequest(
@@ -743,6 +779,10 @@ class InventoryAgent:
                 use_by_key = self._find_use_by_target(cleaned, use_by_values)
                 if use_by_key:
                     self._add_note_value(action, f"use_by={use_by_values[use_by_key]}")
+                if has_fraction:
+                    frac_note = self._fraction_remaining_note(segment, 1.0, "count")
+                    if frac_note:
+                        self._add_note_value(action, frac_note)
                 actions.append(action)
                 seen_dedup_keys.add(dedup_key)
                 dedup_action_index[dedup_key] = len(actions) - 1
@@ -770,7 +810,9 @@ class InventoryAgent:
                 key = (normalized_key, 1.0, "count")
                 if key in seen:
                     continue
-                fallback_missing_quantity = True
+                has_fraction = bool(FRACTION_STATE_PATTERN.search(segment))
+                if not has_fraction:
+                    fallback_missing_quantity = True
                 seen.add(key)
                 action = ProposedInventoryEventAction(
                     event=InventoryEventCreateRequest(
@@ -785,6 +827,10 @@ class InventoryAgent:
                 use_by_key = self._find_use_by_target(cleaned, use_by_values)
                 if use_by_key:
                     self._add_note_value(action, f"use_by={use_by_values[use_by_key]}")
+                if has_fraction:
+                    frac_note = self._fraction_remaining_note(segment, 1.0, "count")
+                    if frac_note:
+                        self._add_note_value(action, frac_note)
                 actions.append(action)
                 seen_dedup_keys.add(dedup_key)
                 action_index[normalized_key] = len(actions) - 1
@@ -917,6 +963,7 @@ class InventoryAgent:
     def _clean_segment_text(self, segment: str) -> str:
         cleaned = re.sub(r"\s+", " ", segment).strip(" ,;.")
         cleaned = DATE_STRIP_PATTERN.sub("", cleaned)
+        cleaned = FRACTION_STATE_PATTERN.sub("", cleaned)
         cleaned = re.sub(r"\s+", " ", cleaned).strip(" ,;.")
         lowered = cleaned.lower()
         for filler in FALLBACK_FILLERS:
@@ -954,14 +1001,14 @@ class InventoryAgent:
         return trimmed
 
     def _strip_leading_prefixes(self, text: str) -> str:
-        trimmed = text.strip(" ,;.")
+        trimmed = text.strip(" ,;.:")
         lower = trimmed.lower()
         changed = True
         while trimmed and changed:
             changed = False
             for prefix in sorted(LEAD_PREFIXES, key=len, reverse=True):
                 if lower.startswith(prefix):
-                    trimmed = trimmed[len(prefix) :].strip(" ,;.")
+                    trimmed = trimmed[len(prefix) :].strip(" ,;.:")
                     lower = trimmed.lower()
                     changed = True
                     break
@@ -1014,7 +1061,7 @@ class InventoryAgent:
         lower = item_name.lower().strip()
         if not lower:
             return True
-        if normalized_key == "okay little chef":
+        if "little chef" in normalized_key:
             return True
         if lower in BARE_FILLER_WORDS:
             return True
@@ -1043,6 +1090,11 @@ class InventoryAgent:
 
     def _guess_item_name(self, text: str, index: int, limit: int = 5) -> str:
         window = text[max(0, index - 40) : index]
+        for term in SENTENCE_TERMINATORS:
+            marker = term + " "
+            last = window.rfind(marker)
+            if last != -1:
+                window = window[last + len(marker) :]
         words = re.findall(r"[\w'-]+", window)
         if not words:
             return ""
@@ -1155,6 +1207,21 @@ class InventoryAgent:
             return f"volume_ml={qty}"
         return None
 
+    def _fraction_remaining_note(
+        self, segment: str, quantity: float, unit: str
+    ) -> Optional[str]:
+        match = FRACTION_STATE_PATTERN.search(segment)
+        if not match:
+            return None
+        frac_word = match.group(1).lower()
+        frac_val = FRACTION_VALUES.get(frac_word)
+        if frac_val is None:
+            return None
+        if unit in ("g", "ml") and quantity > 0:
+            derived = round(quantity * frac_val)
+            return f"remaining={derived}{unit}"
+        return f"remaining={frac_word}"
+
     def _add_note_value(
         self, action: ProposedInventoryEventAction, value: str
     ) -> None:
@@ -1190,15 +1257,21 @@ class InventoryAgent:
 
     def _looks_like_date_quantity(self, lower_text: str, match: Match[str]) -> bool:
         start, end = match.span()
-# skip ordinals directly following the digits (e.g., "10th")
+        # skip ordinals directly following the digits (e.g., "10th")
         suffix = lower_text[end:end + 2]
         if any(suffix.startswith(ord_suffix) for ord_suffix in ORDINAL_SUFFIXES):
             return True
         context_start = max(0, start - 30)
         for phrase in DATE_CONTEXT_PHRASES:
             phrase_pos = lower_text.rfind(phrase, context_start, start)
-            if phrase_pos != -1 and "," not in lower_text[phrase_pos:start]:
-                return True
+            if phrase_pos == -1:
+                continue
+            between = lower_text[phrase_pos:start]
+            # A sentence boundary between the date phrase and this number
+            # means this number belongs to a new clause, not the date.
+            if any(t in between for t in (",", ".", "!", "?")):
+                continue
+            return True
         return False
 
     def _is_filler_text(self, text: str) -> bool:

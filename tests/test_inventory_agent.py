@@ -444,3 +444,216 @@ def test_inventory_agent_thread_scope(authed_client):
     )
     assert ok.status_code == 200
     assert ok.json()["applied"] is True
+
+
+# ---------------------------------------------------------------------------
+# Fix 1: section-transition boundary prevents cross-section glue
+# ---------------------------------------------------------------------------
+def test_section_transition_splits_milk_from_cereal():
+    """Now fridge stuff must act as a hard boundary; milk must not glue to cereal."""
+    agent, _ = _make_agent()
+    actions, _ = agent._parse_inventory_actions(
+        "Coco Pops one box quarter full. Now fridge stuff milk two litres"
+    )
+    names = {a.event.item_name.lower() for a in actions}
+    # milk must be its own item
+    assert any("milk" in n for n in names), f"Expected 'milk' in {names}"
+    # no glued name containing both cereal and milk
+    assert not any(
+        "coco pops" in n and "milk" in n for n in names
+    ), f"Glued cereal+milk name found: {names}"
+    # location/transition words must not leak into item names
+    assert not any("fridge" in n for n in names), f"'fridge' leaked into names: {names}"
+    assert not any(n == "stuff" for n in names), f"'stuff' leaked as item: {names}"
+
+
+# ---------------------------------------------------------------------------
+# Fix 2: apostrophe-less STT chatter stripped from item names
+# ---------------------------------------------------------------------------
+def test_apostrophe_less_stt_filler_stripped():
+    """STT 'I ve got' (without apostrophe) must be stripped so item is 'pasta'."""
+    agent, _ = _make_agent()
+    actions, _ = agent._parse_inventory_actions(
+        "I ve got pasta two 500 gram packs"
+    )
+    assert actions, "Expected at least one action."
+    pasta = [a for a in actions if "pasta" in a.event.item_name.lower()]
+    assert pasta, f"Expected a pasta action, got {[a.event.item_name for a in actions]}"
+    assert pasta[0].event.item_name.lower().strip() == "pasta"
+
+
+# ---------------------------------------------------------------------------
+# Fix 3: bare filler words stripped as tokens within compound names
+# ---------------------------------------------------------------------------
+def test_unopened_stripped_from_item_name():
+    """'unopened' must be stripped from compound names; 'chips' not 'unopened chips'."""
+    agent, _ = _make_agent()
+    actions, _ = agent._parse_inventory_actions(
+        "Mixed veg one bag unopened. Chips one bag third left"
+    )
+    names = {a.event.item_name.lower() for a in actions}
+    assert any("chip" in n for n in names), f"Expected chips item, got {names}"
+    assert "unopened chips" not in names, f"'unopened' leaked into chips name: {names}"
+    assert any("mixed veg" in n for n in names), f"Expected mixed veg item, got {names}"
+
+
+# ---------------------------------------------------------------------------
+# Fraction / "half left" normalization tests
+# ---------------------------------------------------------------------------
+def test_fraction_compute_milk_half_left():
+    """Base amount exists (2 litres) + 'half left' → remaining=1000ml in note."""
+    agent, _ = _make_agent()
+    actions, warnings = agent._parse_inventory_actions(
+        "milk two litres half left"
+    )
+    milk = [a for a in actions if "milk" in a.event.item_name.lower()]
+    assert milk, f"Expected milk action, got {[a.event.item_name for a in actions]}"
+    milk_event = milk[0].event
+    assert milk_event.item_name.lower().strip() == "milk"
+    assert milk_event.quantity == 2000.0
+    assert milk_event.unit == "ml"
+    assert "remaining=1000ml" in (milk_event.note or ""), (
+        f"Expected remaining=1000ml in note, got: {milk_event.note}"
+    )
+    assert "FALLBACK_MISSING_QUANTITY" not in warnings
+
+
+def test_fraction_no_compute_chips_quarter_full():
+    """No base in g/ml (count only) + 'quarter full' → remaining=quarter in note."""
+    agent, _ = _make_agent()
+    actions, warnings = agent._parse_inventory_actions(
+        "Chips one bag quarter full"
+    )
+    chips = [a for a in actions if "chip" in a.event.item_name.lower()]
+    assert chips, f"Expected chips action, got {[a.event.item_name for a in actions]}"
+    chips_event = chips[0].event
+    assert "remaining=quarter" in (chips_event.note or ""), (
+        f"Expected remaining=quarter in note, got: {chips_event.note}"
+    )
+    assert "FALLBACK_MISSING_QUANTITY" not in warnings
+
+
+def test_fraction_preserves_full_fat_milk():
+    """'full fat milk' must NOT trigger fraction stripping; name stays intact."""
+    agent, _ = _make_agent()
+    actions, warnings = agent._parse_inventory_actions(
+        "full fat milk two litres"
+    )
+    milk = [a for a in actions if "milk" in a.event.item_name.lower()]
+    assert milk, f"Expected milk action, got {[a.event.item_name for a in actions]}"
+    milk_name = milk[0].event.item_name.lower()
+    assert "full" in milk_name or "fat" in milk_name, (
+        f"Expected 'full fat' preserved in name, got: {milk_name}"
+    )
+    # No spurious fraction note
+    assert "remaining=" not in (milk[0].event.note or ""), (
+        f"Unexpected remaining note on full fat milk: {milk[0].event.note}"
+    )
+
+
+def test_fraction_compute_peas_third_left():
+    """Peas 900g + 'third left' → remaining=300g."""
+    agent, _ = _make_agent()
+    actions, warnings = agent._parse_inventory_actions(
+        "peas 900 grams third left"
+    )
+    peas = [a for a in actions if "pea" in a.event.item_name.lower()]
+    assert peas, f"Expected peas action, got {[a.event.item_name for a in actions]}"
+    peas_note = peas[0].event.note or ""
+    assert "remaining=300g" in peas_note, (
+        f"Expected remaining=300g in note, got: {peas_note}"
+    )
+
+
+# ---------------------------------------------------------------------------
+# Bug-fix: _looks_like_date_quantity must respect sentence boundaries
+# ---------------------------------------------------------------------------
+STT_PANTRY_SCAN_FULL = (
+    "Alright Little Chef quick pantry scan: Pasta two 500 gram packs both unopened. "
+    "Rice one kilo bag about half left. Tinned chopped tomatoes six tins best before 10 October. "
+    "Tuna four tins best before 3 March. Baked beans five tins best before 20 January. "
+    "Chickpeas three tins best before 12 May. Peas 900 gram bag half left. "
+    "Mince beef 500 grams use by 10 February. Spinach one bag half left use by 8 February."
+)
+
+
+def test_date_qty_does_not_swallow_items_across_sentences():
+    """Items after date expressions must not be treated as date quantities."""
+    agent, _ = _make_agent()
+    actions, _ = agent._parse_inventory_actions(STT_PANTRY_SCAN_FULL)
+    names = {a.event.item_name.lower() for a in actions}
+    for expected in ("tuna", "peas", "spinach"):
+        assert any(expected in n for n in names), (
+            f"Expected '{expected}' in actions, got {names}"
+        )
+    assert len(actions) >= 9, f"Expected >=9 actions, got {len(actions)}: {names}"
+
+
+def test_date_qty_still_filters_real_date_numbers():
+    """Numbers inside date expressions (e.g. '10' in 'best before 10 October') must still be skipped."""
+    agent, _ = _make_agent()
+    actions, _ = agent._parse_inventory_actions(
+        "Tuna four tins best before 3 March."
+    )
+    names = {a.event.item_name.lower() for a in actions}
+    # Should produce one action for tuna, not one for '3'
+    assert any("tuna" in n for n in names), f"Expected tuna, got {names}"
+    assert len(actions) == 1, f"Expected exactly 1 action (tuna), got {len(actions)}: {names}"
+
+
+# ---------------------------------------------------------------------------
+# Bug-fix: "Alright Little Chef" must not leak as an item name
+# ---------------------------------------------------------------------------
+def test_alright_little_chef_not_an_item():
+    """Greeting variants must be stripped; 'little chef' never becomes an item."""
+    agent, _ = _make_agent()
+    actions, _ = agent._parse_inventory_actions(
+        "Alright Little Chef I've got pasta two packs"
+    )
+    names = {a.event.item_name.lower() for a in actions}
+    assert not any("little chef" in n for n in names), (
+        f"'little chef' leaked as item name: {names}"
+    )
+    assert any("pasta" in n for n in names), f"Expected pasta, got {names}"
+
+
+def test_okay_little_chef_not_an_item():
+    """'Okay Little Chef' greeting also must not leak."""
+    agent, _ = _make_agent()
+    actions, _ = agent._parse_inventory_actions(
+        "Okay Little Chef quick stock check: eggs six"
+    )
+    names = {a.event.item_name.lower() for a in actions}
+    assert not any("little chef" in n for n in names), (
+        f"'little chef' leaked as item name: {names}"
+    )
+    assert any("egg" in n for n in names), f"Expected eggs, got {names}"
+
+
+# ---------------------------------------------------------------------------
+# Bug-fix: "both" must not become an inventory item
+# ---------------------------------------------------------------------------
+def test_both_not_an_item():
+    """'both' from 'two 500 gram packs both unopened' must not produce an action."""
+    agent, _ = _make_agent()
+    actions, _ = agent._parse_inventory_actions(
+        "Pasta two 500 gram packs both unopened"
+    )
+    names = {a.event.item_name.lower() for a in actions}
+    assert "both" not in names, f"'both' leaked as item name: {names}"
+    assert any("pasta" in n for n in names), f"Expected pasta, got {names}"
+
+
+# ---------------------------------------------------------------------------
+# Bug-fix: "quick pantry scan" must be stripped as a lead prefix
+# ---------------------------------------------------------------------------
+def test_quick_pantry_scan_stripped():
+    """'quick pantry scan' must not appear in item names."""
+    agent, _ = _make_agent()
+    actions, _ = agent._parse_inventory_actions(
+        "quick pantry scan: Pasta two 500 gram packs"
+    )
+    names = {a.event.item_name.lower() for a in actions}
+    assert not any("scan" in n for n in names), f"'scan' leaked: {names}"
+    assert not any("pantry" in n for n in names), f"'pantry' leaked: {names}"
+    assert any("pasta" in n for n in names), f"Expected pasta, got {names}"
