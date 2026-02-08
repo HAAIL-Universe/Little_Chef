@@ -398,46 +398,53 @@ function createProposalActionButton(
 }
 
 function ensureProposalActions(): HTMLDivElement | null {
-  if (proposalActionsContainer && proposalActionsContainer.isConnected) {
-    return proposalActionsContainer;
-  }
-  const container = document.createElement("div");
-  container.id = "proposal-actions";
-  container.className = "proposal-actions";
-  container.setAttribute("aria-hidden", "true");
+  if (!proposalActionsContainer || !proposalActionsContainer.isConnected) {
+    const container = document.createElement("div");
+    container.id = "proposal-actions";
+    container.className = "proposal-actions";
+    container.setAttribute("aria-hidden", "true");
 
-  if (!proposalConfirmButton) {
-    proposalConfirmButton = createProposalActionButton(
-      "proposal-confirm",
-      "✔",
-      "confirm",
-      "Confirm proposal",
-      () => handleProposalConfirm()
-    );
-  }
-  if (!proposalEditButton) {
-    proposalEditButton = createProposalActionButton(
-      "proposal-edit",
-      "✏",
-      "edit",
-      "Edit proposal",
-      () => handleProposalEdit()
-    );
-  }
-  if (!proposalDenyButton) {
-    proposalDenyButton = createProposalActionButton(
-      "proposal-deny",
-      "✖",
-      "deny",
-      "Deny proposal",
-      () => handleProposalDeny()
-    );
+    if (!proposalConfirmButton) {
+      proposalConfirmButton = createProposalActionButton(
+        "proposal-confirm",
+        "✔",
+        "confirm",
+        "Confirm proposal",
+        () => handleProposalConfirm()
+      );
+    }
+    if (!proposalEditButton) {
+      proposalEditButton = createProposalActionButton(
+        "proposal-edit",
+        "✏",
+        "edit",
+        "Edit proposal",
+        () => handleProposalEdit()
+      );
+    }
+    if (!proposalDenyButton) {
+      proposalDenyButton = createProposalActionButton(
+        "proposal-deny",
+        "✖",
+        "deny",
+        "Deny proposal",
+        () => handleProposalDeny()
+      );
+    }
+
+    container.append(proposalConfirmButton, proposalEditButton, proposalDenyButton);
+    proposalActionsContainer = container;
   }
 
-  container.append(proposalConfirmButton, proposalEditButton, proposalDenyButton);
-  document.body.appendChild(container);
-  proposalActionsContainer = container;
-  return container;
+  if (!proposalActionsContainer) {
+    return null;
+  }
+  const stage = document.querySelector(".duet-stage") as HTMLDivElement | null;
+  const target = stage ?? document.body;
+  if (proposalActionsContainer.parentElement !== target) {
+    target.appendChild(proposalActionsContainer);
+  }
+  return proposalActionsContainer;
 }
 
 function updateProposalActionsVisibility() {

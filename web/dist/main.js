@@ -371,26 +371,32 @@ function createProposalActionButton(id, icon, extraClass, label, handler) {
     return btn;
 }
 function ensureProposalActions() {
-    if (proposalActionsContainer && proposalActionsContainer.isConnected) {
-        return proposalActionsContainer;
+    if (!proposalActionsContainer || !proposalActionsContainer.isConnected) {
+        const container = document.createElement("div");
+        container.id = "proposal-actions";
+        container.className = "proposal-actions";
+        container.setAttribute("aria-hidden", "true");
+        if (!proposalConfirmButton) {
+            proposalConfirmButton = createProposalActionButton("proposal-confirm", "✔", "confirm", "Confirm proposal", () => handleProposalConfirm());
+        }
+        if (!proposalEditButton) {
+            proposalEditButton = createProposalActionButton("proposal-edit", "✏", "edit", "Edit proposal", () => handleProposalEdit());
+        }
+        if (!proposalDenyButton) {
+            proposalDenyButton = createProposalActionButton("proposal-deny", "✖", "deny", "Deny proposal", () => handleProposalDeny());
+        }
+        container.append(proposalConfirmButton, proposalEditButton, proposalDenyButton);
+        proposalActionsContainer = container;
     }
-    const container = document.createElement("div");
-    container.id = "proposal-actions";
-    container.className = "proposal-actions";
-    container.setAttribute("aria-hidden", "true");
-    if (!proposalConfirmButton) {
-        proposalConfirmButton = createProposalActionButton("proposal-confirm", "✔", "confirm", "Confirm proposal", () => handleProposalConfirm());
+    if (!proposalActionsContainer) {
+        return null;
     }
-    if (!proposalEditButton) {
-        proposalEditButton = createProposalActionButton("proposal-edit", "✏", "edit", "Edit proposal", () => handleProposalEdit());
+    const stage = document.querySelector(".duet-stage");
+    const target = stage !== null && stage !== void 0 ? stage : document.body;
+    if (proposalActionsContainer.parentElement !== target) {
+        target.appendChild(proposalActionsContainer);
     }
-    if (!proposalDenyButton) {
-        proposalDenyButton = createProposalActionButton("proposal-deny", "✖", "deny", "Deny proposal", () => handleProposalDeny());
-    }
-    container.append(proposalConfirmButton, proposalEditButton, proposalDenyButton);
-    document.body.appendChild(container);
-    proposalActionsContainer = container;
-    return container;
+    return proposalActionsContainer;
 }
 function updateProposalActionsVisibility() {
     const container = ensureProposalActions();

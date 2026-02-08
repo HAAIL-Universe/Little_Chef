@@ -5,6 +5,13 @@
 - Command: `cd web && npm run test:e2e`
 - Details: Playwright automated suite (`proposal-actions.spec.ts`, `onboard-longpress.spec.ts`, `dev-panel.spec.ts`, `history-badge.spec.ts`) rerun after trigger fix
 
+## Test Run 2026-02-08T23:20:15Z
+- Status: PASS
+- Start: 2026-02-08T23:20:15Z
+- End: 2026-02-08T23:20:25Z
+- Command: `cd web && npm run test:e2e`
+- Details: Playwright automated suite (`proposal-actions.spec.ts`, `onboard-longpress.spec.ts`, `dev-panel.spec.ts`, `history-badge.spec.ts`) after stacking adjustments
+
 ## Test Run 2026-02-08T22:42:48Z
 - Status: PASS
 - Start: 2026-02-08T22:42:48Z

@@ -226,7 +226,7 @@ pre {
 .flow-menu {
   position: absolute;
   top: 80px;
-  right: 12px;
+  right: 16px;
   z-index: 90;
   display: flex;
   flex-direction: column;
@@ -467,7 +467,7 @@ pre {
 .history-toggle {
   position: absolute;
   top: 12px;
-  right: 12px;
+  right: 16px;
   z-index: 50;
 }
 
@@ -552,6 +552,42 @@ pre {
 
 .duet-bubble.user:active {
   cursor: grabbing;
+}
+
+#proposal-actions {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  right: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  pointer-events: none;
+  opacity: 0;
+  z-index: 60;
+  transition: opacity 160ms ease;
+}
+
+#proposal-actions.visible {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.proposal-action-btn {
+  box-shadow: var(--shadow);
+  border-radius: 12px;
+}
+
+.proposal-action-btn.confirm {
+  color: var(--accent);
+}
+
+.proposal-action-btn.edit {
+  color: #f6d26b;
+}
+
+.proposal-action-btn.deny {
+  color: #ff7a7a;
 }
 
 .duet-bubble.sent-mode {
