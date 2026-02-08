@@ -545,8 +545,9 @@ function updateDuetBubbles() {
 function applyDrawerProgress(progress, opts) {
     var _a;
     const history = document.getElementById("duet-history");
+    const stage = document.querySelector(".duet-stage");
     const userBubble = document.getElementById("duet-user-bubble");
-    if (!history || !userBubble)
+    if (!history || !stage || !userBubble)
         return;
     ensureHistoryClosedOffset(history);
     const clamped = Math.max(0, Math.min(1, progress));
@@ -556,6 +557,7 @@ function applyDrawerProgress(progress, opts) {
     history.style.display = shouldShow ? "grid" : "none";
     history.style.pointerEvents = shouldShow ? "auto" : "none";
     history.classList.toggle("dragging", !!(opts === null || opts === void 0 ? void 0 : opts.dragging));
+    stage.classList.toggle("history-open", shouldShow);
     if (opts === null || opts === void 0 ? void 0 : opts.commit) {
         duetState.drawerOpen = clamped > 0.35;
         history.classList.toggle("open", duetState.drawerOpen);
