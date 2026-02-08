@@ -94,7 +94,7 @@ UNIT_KEYWORDS = {
     "litre",
     "litres",
 }
-CONTEXT_IGNORE_WORDS = {"of", "the", "and", "also", "plus", "with"}
+CONTEXT_IGNORE_WORDS = {"a", "an", "of", "the", "and", "also", "plus", "with"}
 QUANTITY_ADVERBS = {"about", "around", "approx", "approximately"}
 FALLBACK_IGNORE_PHRASES = {"i've just been through the cupboard", "no idea how many"}
 AFTER_IGNORE_WORDS = CONTEXT_IGNORE_WORDS | QUANTITY_ADVERBS | UNIT_KEYWORDS
@@ -122,9 +122,12 @@ CONTAINER_WORDS = {
     "bulb",
     "slice",
     "slices",
+    "tub",
+    "tubs",
 }
 BARE_FILLER_WORDS = {
     "unopened",
+    "opened",
     "sliced",
     "left",
     "cereal",
@@ -136,6 +139,8 @@ BARE_FILLER_WORDS = {
     "third",
     "quarter",
     "both",
+    "first",
+    "again",
 }
 ITEM_STOP_WORDS = (
     CONTEXT_IGNORE_WORDS
@@ -177,6 +182,10 @@ DATE_STRIP_PATTERN = re.compile(
     rf"|\bbefore\b[^,;.]*\b{MONTH_NAME_PATTERN}\b[^,;.]*(?:\s*\d{{4}})?",
     re.IGNORECASE,
 )
+DATE_CAPTURE_PATTERN = re.compile(
+    rf"\b(?:use[ -]by|best before|sell by|expires on|due by)\s+(?:the\s+)?(\d{{1,2}})\s+({MONTH_NAME_PATTERN})(?:\s+(\d{{4}}))?",
+    re.IGNORECASE,
+)
 FRACTION_LEFT_PATTERN = re.compile(
     r"^(?:a|about)\s+(?:half|third|quarter)\s+left$", re.IGNORECASE
 )
@@ -193,9 +202,19 @@ LEAD_PREFIXES = (
     "quick stock check",
     "quick pantry scan",
     "quick pantry check",
+    "full scan again",
+    "full scan",
+    "scan again",
     "i've got",
+    "i ve got",
+    "ive got",
     "both unopened",
     "now fridge stuff",
+    "fridge stuff",
+    "cupboard first",
+    "fridge first",
+    "freezer first",
+    "pantry first",
     "freezer",
     "about half left",
     "half left",
@@ -229,6 +248,8 @@ CONTAINER_WORD_HINTS = {
     "loaves",
     "slice",
     "slices",
+    "tub",
+    "tubs",
 }
 @dataclass
 class InventoryPending:
@@ -527,6 +548,8 @@ class InventoryAgent:
         self, message: str
     ) -> Tuple[List[ProposedInventoryEventAction], List[str]]:
         text = message.strip()
+        # Normalise smart/curly apostrophes to straight so filler patterns match
+        text = text.replace("\u2019", "'").replace("\u2018", "'")
         text = self._replace_number_words(text)
         text = SECTION_TRANSITION_PATTERN.sub(". ", text)
         # Strip greeting patterns like "Alright Little Chef" from the start
@@ -536,6 +559,17 @@ class InventoryAgent:
             text,
             flags=re.IGNORECASE,
         ).strip()
+        # Iteratively strip lead prefixes from the start
+        # so the first item doesn't inherit "quick pantry scan: I've got ..."
+        _changed = True
+        while text and _changed:
+            _changed = False
+            _lower = text.lower()
+            for _pfx in sorted(LEAD_PREFIXES, key=len, reverse=True):
+                if _lower.startswith(_pfx):
+                    text = text[len(_pfx):].lstrip(" ,;.:")
+                    _changed = True
+                    break
         if not text:
             return [], []
         lower = text.lower()
@@ -643,6 +677,20 @@ class InventoryAgent:
                 quantity, unit = self._normalize_quantity_and_unit(
                     match.group(1), match.group(2)
                 )
+                # "N left" pattern: e.g. "eggs 6 pack 4 left" → remaining=4
+                _after_qty = lower[match.end():end].lstrip()
+                if re.match(r"left\b", _after_qty):
+                    _target = clause_action_index.get(clause_key)
+                    if _target is not None:
+                        _rv = int(quantity) if float(quantity).is_integer() else quantity
+                        self._add_note_value(actions[_target], f"remaining={_rv}")
+                        # Also capture any date trailing after "N left ..."
+                        _n_left_date = self._extract_date_from_clause(
+                            lower, match.end(), sentence_end
+                        )
+                        if _n_left_date:
+                            self._add_note_value(actions[_target], f"date={_n_left_date}")
+                    continue
                 item_name = self._clamp_multi_anchor(item_name, unit)
                 normalized_key = self._normalize_item_key(item_name)
                 if not normalized_key:
@@ -727,6 +775,19 @@ class InventoryAgent:
                     self._add_note_value(action, f"use_by={use_by_ord}")
                 elif general_use_by:
                     self._add_note_value(action, f"use_by={general_use_by}")
+                else:
+                    # Fallback: capture "use by DD Month" / "best before DD Month"
+                    # Limit to next real item's quantity so dates don't leak across items.
+                    _date_bound = sentence_end
+                    for _j in range(idx + 1, len(matches)):
+                        if not self._looks_like_date_quantity(lower, matches[_j]):
+                            _date_bound = matches[_j].start()
+                            break
+                    clause_date = self._extract_date_from_clause(
+                        lower, match.end(), _date_bound
+                    )
+                    if clause_date:
+                        self._add_note_value(action, f"date={clause_date}")
                 fraction_note = self._fraction_remaining_note(
                     text[start:end], quantity, unit
                 )
@@ -1035,6 +1096,20 @@ class InventoryAgent:
                 continue
             return match.group(1), start_idx + match.start()
         return None
+
+    def _extract_date_from_clause(
+        self, lower_text: str, start_idx: int, end_idx: int
+    ) -> Optional[str]:
+        """Capture 'use by DD Month' / 'best before DD Month' as a note string."""
+        segment = lower_text[start_idx:end_idx]
+        match = DATE_CAPTURE_PATTERN.search(segment)
+        if not match:
+            return None
+        day = match.group(1)
+        month = match.group(2).capitalize()
+        year = match.group(3)
+        date_str = f"{day} {month}" + (f" {year}" if year else "")
+        return date_str
 
     def _contains_date_marker(self, text: str) -> bool:
         lower = text.lower()

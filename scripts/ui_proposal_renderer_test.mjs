@@ -56,7 +56,7 @@ assert(
   "inventory summary should not mention preferences"
 );
 assert(
-  inventorySummary.includes("• cheddar 1"),
+  inventorySummary.includes("• Cheddar 1"),
   "inventory summary should describe the item name and quantity"
 );
 assert(
@@ -188,6 +188,65 @@ assert(
   assistantText.indexOf("Reply CONFIRM") > assistantText.indexOf("Proposed preferences"),
   "confirm instruction should appear after the proposal block"
 );
+// --- date= format tests (new-style DD Month dates from parser) ---
+const dateResponse = {
+  confirmation_required: true,
+  proposed_actions: [
+    {
+      action_type: "create_inventory_event",
+      event: {
+        event_type: "add",
+        item_name: "chopped tomatoes",
+        quantity: 8,
+        unit: "count",
+        note: "date=12 October",
+        source: "chat",
+      },
+    },
+    {
+      action_type: "create_inventory_event",
+      event: {
+        event_type: "add",
+        item_name: "milk",
+        quantity: 2000,
+        unit: "ml",
+        note: "volume_ml=2000; date=10 February; remaining=1000ml",
+        source: "chat",
+      },
+    },
+    {
+      action_type: "create_inventory_event",
+      event: {
+        event_type: "add",
+        item_name: "pasta",
+        quantity: 3,
+        unit: "count",
+        note: "weight_g=500",
+        source: "chat",
+      },
+    },
+  ],
+};
+const dateSummary = formatProposalSummary(dateResponse);
+assert(dateSummary, "date summary should exist");
+assert(
+  dateSummary.includes("Chopped Tomatoes 8 (12 October)"),
+  `chopped tomatoes should show date, got: ${dateSummary}`
+);
+assert(
+  dateSummary.includes("Milk 2 L (10 February)"),
+  `milk should show date, got: ${dateSummary}`
+);
+assert(
+  !dateSummary.includes("Pasta") || !dateSummary.match(/Pasta 3 \(/),
+  "pasta without date should not show parenthesised suffix"
+);
+assert(
+  !dateSummary.includes("weight_g=") && !dateSummary.includes("volume_ml="),
+  "backend measurement notes should not surface"
+);
+console.log("date= format tests: PASS");
+
 console.log("ui proposal renderer test: PASS");
 
 const commands = [

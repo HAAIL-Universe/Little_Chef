@@ -103,7 +103,8 @@ const formatInventoryAction = (action: ChatAction): string => {
     return `• Proposal: ${action.action_type}`;
   }
 
-  const components: string[] = [event.item_name];
+  const titleName = event.item_name.replace(/\b\w/g, (c) => c.toUpperCase());
+  const components: string[] = [titleName];
 
   // Quantity formatting (hide "count", humanize g/ml when sensible)
   if (event.quantity !== undefined && event.quantity !== null) {
@@ -136,9 +137,16 @@ const formatInventoryAction = (action: ChatAction): string => {
 
   if (event.note) {
     const noteFields = parseNoteKeyValues(event.note);
-    const useByToken = formatUseByToken(noteFields["use_by"]);
-    if (useByToken) {
-      components.push(useByToken);
+
+    // Show date from "date=DD Month" (covers use-by and best-before)
+    if (noteFields["date"]) {
+      components.push(`(${noteFields["date"]})`);
+    } else {
+      // Legacy fallback: bare use_by day number
+      const useByToken = formatUseByToken(noteFields["use_by"]);
+      if (useByToken) {
+        components.push(useByToken);
+      }
     }
   }
 

@@ -72,7 +72,8 @@ const formatInventoryAction = (action) => {
     if (!event) {
         return `• Proposal: ${action.action_type}`;
     }
-    const components = [event.item_name];
+    const titleName = event.item_name.replace(/\b\w/g, (c) => c.toUpperCase());
+    const components = [titleName];
     // Quantity formatting (hide "count", humanize g/ml when sensible)
     if (event.quantity !== undefined && event.quantity !== null) {
         const unit = (event.unit || "").trim().toLowerCase();
@@ -99,9 +100,16 @@ const formatInventoryAction = (action) => {
     }
     if (event.note) {
         const noteFields = parseNoteKeyValues(event.note);
-        const useByToken = formatUseByToken(noteFields["use_by"]);
-        if (useByToken) {
-            components.push(useByToken);
+        // Show date from "date=DD Month" (covers use-by and best-before)
+        if (noteFields["date"]) {
+            components.push(`(${noteFields["date"]})`);
+        }
+        else {
+            // Legacy fallback: bare use_by day number
+            const useByToken = formatUseByToken(noteFields["use_by"]);
+            if (useByToken) {
+                components.push(useByToken);
+            }
         }
     }
     return `• ${components.join(" ")}`;

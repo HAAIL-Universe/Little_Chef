@@ -657,3 +657,209 @@ def test_quick_pantry_scan_stripped():
     assert not any("scan" in n for n in names), f"'scan' leaked: {names}"
     assert not any("pantry" in n for n in names), f"'pantry' leaked: {names}"
     assert any("pasta" in n for n in names), f"Expected pasta, got {names}"
+
+
+# ---------------------------------------------------------------------------
+# Full pantry scan: intro stripping + date capture + N-left + all items
+# ---------------------------------------------------------------------------
+STT_FULL_PANTRY = (
+    "Alright Little Chef, quick pantry scan: I've got pasta two 500 gram packs both "
+    "unopened, and rice one kilo bag about quarter left. Chopped tomatoes six tins best "
+    "before 10 October. Tuna four tins best before 3 March. Now fridge stuff: milk two "
+    "litres half left use by 10 February, Greek yoghurt two pots use by 11 February, "
+    "cheddar cheese 400 grams about half left use by 14 February, ham one pack half left "
+    "use by 9 February, spinach one bag half left use by 8 February, eggs six pack four "
+    "left best before 12 February. And freezer: peas 900 grams third left, chicken "
+    "nuggets one bag quarter full, chips one bag quarter full, bread one loaf about half left."
+)
+
+
+def test_full_pantry_scan_all_items_found():
+    """All 14 items from a real-world STT must be parsed with zero junk."""
+    agent, _ = _make_agent()
+    actions, _ = agent._parse_inventory_actions(STT_FULL_PANTRY)
+    names = {a.event.item_name.lower() for a in actions}
+    for expected in (
+        "pasta", "rice", "chopped tomatoes", "tuna", "milk",
+        "greek yoghurt", "cheddar cheese", "ham", "spinach", "eggs",
+        "peas", "chicken nuggets", "chips", "bread",
+    ):
+        assert any(expected in n for n in names), (
+            f"Expected '{expected}' in actions, got {names}"
+        )
+    assert len(actions) == 14, f"Expected 14 actions, got {len(actions)}: {names}"
+
+
+def test_full_pantry_scan_intro_stripped():
+    """Greeting + prefix must not corrupt the first item name."""
+    agent, _ = _make_agent()
+    actions, _ = agent._parse_inventory_actions(STT_FULL_PANTRY)
+    pasta = [a for a in actions if "pasta" in a.event.item_name.lower()]
+    assert pasta, "Expected pasta action"
+    name = pasta[0].event.item_name.lower()
+    assert "scan" not in name, f"'scan' leaked into pasta name: {name}"
+    assert "got" not in name, f"'got' leaked into pasta name: {name}"
+    assert "pantry" not in name, f"'pantry' leaked into pasta name: {name}"
+
+
+def test_date_capture_use_by_dd_month():
+    """'use by 10 February' must appear in the note as date=10 February."""
+    agent, _ = _make_agent()
+    actions, _ = agent._parse_inventory_actions(
+        "milk two litres half left use by 10 February"
+    )
+    milk = [a for a in actions if "milk" in a.event.item_name.lower()]
+    assert milk, "Expected milk action"
+    note = milk[0].event.note or ""
+    assert "date=10 February" in note, f"Expected date=10 February in note, got: {note}"
+
+
+def test_date_capture_best_before_dd_month():
+    """'best before 3 March' must appear in the note as date=3 March."""
+    agent, _ = _make_agent()
+    actions, _ = agent._parse_inventory_actions(
+        "Tuna four tins best before 3 March"
+    )
+    tuna = [a for a in actions if "tuna" in a.event.item_name.lower()]
+    assert tuna, "Expected tuna action"
+    note = tuna[0].event.note or ""
+    assert "date=3 March" in note, f"Expected date=3 March in note, got: {note}"
+
+
+def test_n_left_remaining_eggs():
+    """'eggs six pack four left' must produce eggs qty=6 with remaining=4."""
+    agent, _ = _make_agent()
+    actions, _ = agent._parse_inventory_actions(
+        "eggs six pack four left best before 12 February"
+    )
+    eggs = [a for a in actions if "egg" in a.event.item_name.lower()]
+    assert eggs, "Expected eggs action"
+    egg = eggs[0].event
+    assert egg.quantity == 6.0, f"Expected qty=6, got {egg.quantity}"
+    note = egg.note or ""
+    assert "remaining=4" in note, f"Expected remaining=4 in note, got: {note}"
+
+
+def test_smart_apostrophe_normalized():
+    """Curly apostrophe \u2019 must be normalized so 'I\u2019ve got' is stripped."""
+    agent, _ = _make_agent()
+    actions, _ = agent._parse_inventory_actions(
+        "I\u2019ve got pasta two 500 gram packs"
+    )
+    assert actions, "Expected at least one action"
+    pasta = [a for a in actions if "pasta" in a.event.item_name.lower()]
+    assert pasta, f"Expected pasta, got {[a.event.item_name for a in actions]}"
+    assert pasta[0].event.item_name.lower().strip() == "pasta"
+
+
+# ---------------------------------------------------------------------------
+# Full 21-item scan: realistic STT with cupboard / fridge / freezer sections
+# ---------------------------------------------------------------------------
+STT_FULL_SCAN_21 = (
+    "Okay Little Chef, full scan again: cupboard first, pasta three packs 500 grams, "
+    "one pack opened and about half left, rice one kilo bag about a third left, lentils "
+    "500 grams about quarter left, chopped tomatoes eight tins best before 12 October, "
+    "tuna six tins best before 5 March, baked beans four tins best before 20 January, "
+    "peanut butter one jar half left best before 6 June, olive oil 500 ml bottle quarter "
+    "left. Now fridge stuff: milk two litres half left use by 10 February, cheddar cheese "
+    "400 grams about half left use by 14 February, Greek yoghurt three pots use by 11 "
+    "February, butter 250 grams half left best before 2 March, eggs ten pack six left "
+    "best before 12 February, spinach one bag half left use by 8 February, chicken "
+    "breast two pieces use by 9 February, mince beef 500 grams use by 10 February. And "
+    "freezer: peas 900 grams third left, mixed veg one bag unopened, chips one bag "
+    "quarter full, bread one loaf about half left, ice cream one tub half full."
+)
+
+_EXPECTED_21 = [
+    "pasta", "rice", "lentils", "chopped tomatoes", "tuna", "baked beans",
+    "peanut butter", "olive oil", "milk", "cheddar cheese", "greek yoghurt",
+    "butter", "eggs", "spinach", "chicken breast", "mince beef",
+    "peas", "mixed veg", "chips", "bread", "ice cream",
+]
+
+
+def test_full_scan_21_all_items_found():
+    """All 21 items from the hardest real-world STT must parse with zero junk."""
+    agent, _ = _make_agent()
+    actions, _ = agent._parse_inventory_actions(STT_FULL_SCAN_21)
+    names = {a.event.item_name.lower() for a in actions}
+    for expected in _EXPECTED_21:
+        assert any(expected in n for n in names), (
+            f"Expected '{expected}' in actions, got {sorted(names)}"
+        )
+    # No junk: action count must equal expected count
+    assert len(actions) == len(_EXPECTED_21), (
+        f"Expected {len(_EXPECTED_21)} actions, got {len(actions)}: {sorted(names)}"
+    )
+
+
+def test_full_scan_21_zero_junk():
+    """No junk items like 'opened', 'a', 'tub', 'full scan again' etc."""
+    agent, _ = _make_agent()
+    actions, _ = agent._parse_inventory_actions(STT_FULL_SCAN_21)
+    junk_words = {"opened", "a", "tub", "full scan again", "cupboard first",
+                  "first", "again", "an", "full", "cupboard"}
+    for a in actions:
+        name = a.event.item_name.lower().strip()
+        assert name not in junk_words, f"Junk item leaked: '{a.event.item_name}'"
+
+
+def test_full_scan_21_dates_assigned():
+    """Items with explicit dates must have correct date in note."""
+    agent, _ = _make_agent()
+    actions, _ = agent._parse_inventory_actions(STT_FULL_SCAN_21)
+    expected_dates = {
+        "chopped tomatoes": "12 October",
+        "tuna": "5 March",
+        "baked beans": "20 January",
+        "peanut butter": "6 June",
+        "milk": "10 February",
+        "cheddar cheese": "14 February",
+        "greek yoghurt": "11 February",
+        "butter": "2 March",
+        "eggs": "12 February",
+        "spinach": "8 February",
+        "chicken breast": "9 February",
+        "mince beef": "10 February",
+    }
+    def _find(key):
+        """Exact match first, then substring — avoids 'butter' matching 'peanut butter'."""
+        exact = [a for a in actions if a.event.item_name.lower().strip() == key]
+        if exact:
+            return exact[0]
+        partial = [a for a in actions if key in a.event.item_name.lower()]
+        return partial[0] if partial else None
+
+    for item_key, expected_date in expected_dates.items():
+        hit = _find(item_key)
+        assert hit, f"Missing action for '{item_key}'"
+        note = hit.event.note or ""
+        assert f"date={expected_date}" in note, (
+            f"'{item_key}' should have date={expected_date}, got note='{note}'"
+        )
+
+
+def test_full_scan_21_no_date_bleed():
+    """Items without dates must NOT have a date in their note."""
+    agent, _ = _make_agent()
+    actions, _ = agent._parse_inventory_actions(STT_FULL_SCAN_21)
+    no_date_items = {"pasta", "rice", "lentils", "olive oil", "peas",
+                     "mixed veg", "chips", "bread", "ice cream"}
+    for a in actions:
+        name = a.event.item_name.lower()
+        if any(nd in name for nd in no_date_items):
+            note = a.event.note or ""
+            assert "date=" not in note, (
+                f"'{name}' should NOT have a date, got note='{note}'"
+            )
+
+
+def test_full_scan_21_eggs_date_and_remaining():
+    """Eggs: 'ten pack six left best before 12 February' → remaining=6 + date=12 February."""
+    agent, _ = _make_agent()
+    actions, _ = agent._parse_inventory_actions(STT_FULL_SCAN_21)
+    eggs = [a for a in actions if "egg" in a.event.item_name.lower()]
+    assert eggs, "Expected eggs action"
+    note = eggs[0].event.note or ""
+    assert "remaining=6" in note, f"Expected remaining=6 in note, got: {note}"
+    assert "date=12 February" in note, f"Expected date=12 February in note, got: {note}"
