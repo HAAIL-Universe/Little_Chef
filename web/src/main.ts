@@ -539,6 +539,16 @@ async function submitProposalDecision(confirm: boolean, thinkingIndex?: number) 
         userSystemHint = "Long-press this chat bubble to navigate > Inventory";
         setUserBubbleEllipsis(false);
       }
+      const confirmedInventory =
+        response.json?.applied &&
+        state.proposedActions.some((action: any) => action.action_type === "create_inventory_event");
+      if (confirmedInventory) {
+        state.inventoryOnboarded = true;
+        renderOnboardMenuButtons();
+        updateInventoryOverlayVisibility();
+        userSystemHint = "Inventory updated.";
+        setUserBubbleEllipsis(false);
+      }
       clearProposal();
     }
   } catch (err) {
