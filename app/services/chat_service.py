@@ -38,7 +38,7 @@ NUMBER_WORDS: dict[str, int] = {
 }
 LIKE_CLAUSE_PATTERNS: tuple[str, ...] = (
     r"(?:i(?: really)? like|i love)\s+(.+?)(?:[.!?]|$)",
-    r"likes?:\s+(.+?)(?:[.!?]|$)",
+    r"(?<!dis)likes?:\s+(.+?)(?:[.!?]|$)",
 )
 DISLIKE_CLAUSE_PATTERNS: tuple[str, ...] = (
     rf"(?:i(?: don(?:'|’)?t|do not)\s+like|i(?: hate|detest))\s+(.+?)(?:[.!?]|$)",
@@ -63,6 +63,8 @@ ALLERGY_ITEM_PREFIXES: tuple[str, ...] = (
     "allergies",
     "allergy",
 )
+
+NONE_SENTINELS: frozenset[str] = frozenset({"none", "no", "n/a", "na", "nil", "nothing", "-"})
 
 
 logger = logging.getLogger(__name__)
@@ -353,7 +355,7 @@ class ChatService:
         items: List[str] = []
         for segment in segments:
             items.extend(self._split_clause_items(segment))
-        return self._dedupe_items(items)
+        return self._dedupe_items([item for item in items if item.lower() not in NONE_SENTINELS])
 
     def _normalize_allergy_item(self, item: str) -> str:
         normalized = self._clean_list_item(item)
@@ -370,7 +372,7 @@ class ChatService:
         for segment in segments:
             raw_items.extend(self._split_clause_items(segment))
         normalized = [self._normalize_allergy_item(item) for item in raw_items if item]
-        return self._dedupe_items([item for item in normalized if item])
+        return self._dedupe_items([item for item in normalized if item and item.lower() not in NONE_SENTINELS])
 
     def _parse_prefs_from_message(self, message: str) -> UserPrefs:
         lowered_message = message.lower()
@@ -381,6 +383,8 @@ class ChatService:
                 r"meals?\s*per\s*day[^0-9]*(\d+)",
                 r"(\d+)\s*meals?\s*per\s*day",
                 r"meals?[^0-9]*(\d+)",
+                r"(\d+)\s*days?",
+                r"days?[^0-9]*(\d+)",
             ],
         )
 

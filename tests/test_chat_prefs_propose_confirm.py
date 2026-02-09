@@ -162,3 +162,123 @@ def test_chat_prefs_confirm_failure_is_retriable(authed_client, monkeypatch):
     assert body2["reason"] is None
     assert body2["applied_event_ids"]
     assert body2["applied_event_ids"][0].startswith("prefs-")
+
+
+def test_labeled_paragraph_produces_proposal_not_followup(authed_client):
+    """Exact paragraph from live bug: system asked 'meals per day?' despite all fields supplied."""
+    get_prefs_service().repo = FakeDbPrefsRepository()
+    thread = "t-prefs-labeled-para"
+    paragraph = (
+        "Alright Little Chef. Allergies: none. "
+        "Likes: chicken, salmon, rice, pasta, eggs, yoghurt, spinach, tomatoes. "
+        "Dislikes: mushrooms, olives, tuna. "
+        "Servings: 2 people. Days: 5 days."
+    )
+    resp = authed_client.post(
+        "/chat",
+        json={"mode": "fill", "message": paragraph, "thread_id": thread},
+    )
+    assert resp.status_code == 200
+    body = resp.json()
+    # Must produce a proposal, NOT a follow-up question
+    assert body["confirmation_required"] is True, (
+        f"Expected proposal but got follow-up: {body['reply_text']}"
+    )
+    assert body["proposal_id"]
+    action = body["proposed_actions"][0]
+    prefs = action["prefs"]
+    assert prefs["servings"] == 2
+    assert prefs["meals_per_day"] == 5
+    # "Allergies: none" must yield empty list, not ["none"]
+    assert prefs["allergies"] == []
+    # Likes must not include dislike items
+    assert set(prefs["cuisine_likes"]) >= {
+        "chicken", "salmon", "rice", "pasta", "eggs", "yoghurt", "spinach", "tomatoes",
+    }
+    assert "mushrooms" not in prefs["cuisine_likes"]
+    assert "olives" not in prefs["cuisine_likes"]
+    assert "tuna" not in prefs["cuisine_likes"]
+    # Dislikes
+    assert set(prefs["dislikes"]) >= {"mushrooms", "olives", "tuna"}
+
+
+def test_labeled_paragraph_persists_after_confirm(authed_client):
+    """Full round-trip: paragraph -> proposal -> confirm -> GET /prefs returns correct data."""
+    get_prefs_service().repo = FakeDbPrefsRepository()
+    thread = "t-prefs-labeled-persist"
+    paragraph = (
+        "Allergies: none. Likes: chicken, salmon. "
+        "Dislikes: mushrooms. Servings: 4. Days: 3."
+    )
+    resp = authed_client.post(
+        "/chat",
+        json={"mode": "fill", "message": paragraph, "thread_id": thread},
+    )
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["confirmation_required"] is True
+    proposal_id = body["proposal_id"]
+
+    confirm_resp = authed_client.post(
+        "/chat/confirm",
+        json={"proposal_id": proposal_id, "confirm": True, "thread_id": thread},
+    )
+    assert confirm_resp.status_code == 200
+    assert confirm_resp.json()["applied"] is True
+
+    prefs_resp = authed_client.get("/prefs")
+    assert prefs_resp.status_code == 200
+    prefs = prefs_resp.json()
+    assert prefs["servings"] == 4
+    assert prefs["meals_per_day"] == 3
+    assert prefs["allergies"] == []
+    assert "chicken" in prefs["cuisine_likes"]
+    assert "mushrooms" in prefs["dislikes"]
+
+
+def test_meals_per_day_asked_only_when_truly_missing(authed_client):
+    """When servings supplied but days/meals not, must ask. When days supplied, must not."""
+    get_prefs_service().repo = FakeDbPrefsRepository()
+
+    # Case 1: only servings -> asks for meals per day
+    thread1 = "t-prefs-missing-mpd"
+    resp1 = authed_client.post(
+        "/chat",
+        json={"mode": "fill", "message": "Servings: 3", "thread_id": thread1},
+    )
+    assert resp1.status_code == 200
+    body1 = resp1.json()
+    assert body1["confirmation_required"] is False
+    assert "meals" in body1["reply_text"].lower() or "day" in body1["reply_text"].lower()
+
+    # Case 2: servings + days -> proposal (no follow-up)
+    thread2 = "t-prefs-has-days"
+    resp2 = authed_client.post(
+        "/chat",
+        json={"mode": "fill", "message": "Servings: 3. Days: 7.", "thread_id": thread2},
+    )
+    assert resp2.status_code == 200
+    body2 = resp2.json()
+    assert body2["confirmation_required"] is True
+    assert body2["proposed_actions"][0]["prefs"]["meals_per_day"] == 7
+
+
+def test_none_sentinel_filtered_from_all_list_fields(authed_client):
+    """'none' / 'n/a' in allergy, likes, or dislikes must produce empty lists."""
+    get_prefs_service().repo = FakeDbPrefsRepository()
+    thread = "t-prefs-none-filter"
+    resp = authed_client.post(
+        "/chat",
+        json={
+            "mode": "fill",
+            "message": "Allergies: none. Likes: n/a. Dislikes: nothing. Servings: 2. Days: 5.",
+            "thread_id": thread,
+        },
+    )
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["confirmation_required"] is True
+    prefs = body["proposed_actions"][0]["prefs"]
+    assert prefs["allergies"] == []
+    assert prefs["cuisine_likes"] == []
+    assert prefs["dislikes"] == []
