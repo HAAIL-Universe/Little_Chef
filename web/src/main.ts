@@ -534,20 +534,24 @@ async function submitProposalDecision(confirm: boolean, thinkingIndex?: number) 
         state.proposedActions.some((action: any) => action.action_type === "upsert_prefs");
       if (confirmedPrefs) {
         state.onboarded = true;
+        ensureOnboardMenu();
         renderOnboardMenuButtons();
         updatePrefsOverlayVisibility();
         userSystemHint = "Long-press this chat bubble to navigate > Inventory";
         setUserBubbleEllipsis(false);
+        setBubbleText(document.getElementById("duet-user-text"), userSystemHint);
       }
       const confirmedInventory =
         response.json?.applied &&
         state.proposedActions.some((action: any) => action.action_type === "create_inventory_event");
       if (confirmedInventory) {
         state.inventoryOnboarded = true;
+        ensureOnboardMenu();
         renderOnboardMenuButtons();
         updateInventoryOverlayVisibility();
-        userSystemHint = "Inventory updated.";
+        userSystemHint = "Long-press this chat bubble to finish onboarding > Meal Plan";
         setUserBubbleEllipsis(false);
+        setBubbleText(document.getElementById("duet-user-text"), userSystemHint);
       }
       clearProposal();
     }
@@ -1003,6 +1007,11 @@ function markInventoryOnboarded(hasData: boolean) {
   const already = !!state.inventoryOnboarded;
   state.inventoryOnboarded = !!state.inventoryOnboarded || hasData;
   if (!already && state.inventoryOnboarded) {
+    ensureOnboardMenu();
+    renderOnboardMenuButtons();
+    userSystemHint = "Long-press this chat bubble to finish onboarding > Meal Plan";
+    setUserBubbleEllipsis(false);
+    setBubbleText(document.getElementById("duet-user-text"), userSystemHint);
     updateInventoryOverlayVisibility();
   }
 }
@@ -1750,6 +1759,7 @@ function setupFlowChips() {
   dropdown.setAttribute("role", "menu");
   dropdown.style.display = "none";
   dropdown.style.position = "absolute";
+  dropdown.style.zIndex = "10";
   dropdown.style.top = "calc(100% + 6px)";
 
   flowMenuContainer.appendChild(trigger);
@@ -1924,6 +1934,18 @@ function renderOnboardMenuButtons() {
     });
     onboardMenu.appendChild(invBtn);
   }
+  if (state.inventoryOnboarded) {
+    const planBtn = document.createElement("button");
+    planBtn.type = "button";
+    planBtn.className = "flow-menu-item";
+    planBtn.textContent = "Meal Plan";
+    planBtn.dataset.onboardItem = "mealplan";
+    planBtn.addEventListener("click", () => {
+      hideOnboardMenu();
+      selectFlow("mealplan");
+    });
+    onboardMenu.appendChild(planBtn);
+  }
 }
 
 function clampNumber(value: number, min: number, max: number): number {
@@ -1949,6 +1971,9 @@ function hideOnboardMenu() {
 
 function showOnboardMenu(x: number, y: number) {
   const menu = ensureOnboardMenu();
+  // Rebuild menu contents immediately before showing to ensure button visibility
+  // reflects the latest `state.inventoryOnboarded` value (prevents race in E2E).
+  renderOnboardMenuButtons();
   menu.style.display = "grid";
   menu.classList.add("open");
   menu.style.visibility = "hidden";

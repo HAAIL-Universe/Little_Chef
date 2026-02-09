@@ -114,4 +114,28 @@ test("inventory overlay appears after confirming inventory proposal", async ({ p
   const overlay = page.locator("#inventory-ghost");
   await expect(overlay).toBeVisible({ timeout: 10000 });
   await expect(page.locator("#inventory-summary-list li").filter({ hasText: "Tomato" })).toHaveCount(1);
+
+  // The user bubble is hidden in inventory flow by design; make it visible
+  // so we can long-press it to verify the onboard menu contents.
+  const bubble = page.locator("#duet-user-bubble");
+  await page.evaluate(() => {
+    const el = document.getElementById("duet-user-bubble");
+    if (el) el.style.display = "";
+  });
+  await expect(bubble).toBeVisible({ timeout: 3000 });
+  const box = await bubble.boundingBox();
+  if (!box) throw new Error("User bubble is not visible for long press");
+  const centerX = box.x + box.width / 2;
+  const centerY = box.y + box.height / 2;
+  await page.mouse.move(centerX, centerY);
+  await page.mouse.down();
+  await page.waitForTimeout(650);
+  await page.mouse.up();
+
+  // After long-press the onboard menu should appear; check Meal Plan entry
+  const onboardMenu = page.locator("#onboard-menu");
+  await expect(onboardMenu).toBeVisible({ timeout: 3000 });
+  const mealPlanBtn = onboardMenu.locator("button[data-onboard-item=mealplan]");
+  await expect(mealPlanBtn).toHaveCount(1);
+  await expect(mealPlanBtn).not.toHaveClass(/hidden/);
 });
