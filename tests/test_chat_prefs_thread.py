@@ -43,7 +43,7 @@ def test_prefs_missing_loop_and_confirm(client, monkeypatch):
 
     thread = "11111111-1111-4111-8111-111111111111"
 
-    # missing fields -> ask question
+    # Step 1: allergies -> wizard asks dislikes next
     resp1 = client.post(
         "/chat",
         json={"mode": "fill", "message": "allergies peanuts", "include_user_library": True, "thread_id": thread},
@@ -51,24 +51,44 @@ def test_prefs_missing_loop_and_confirm(client, monkeypatch):
     assert resp1.status_code == 200
     data1 = resp1.json()
     assert data1["confirmation_required"] is False
-    assert "servings" in data1["reply_text"].lower() or "meals" in data1["reply_text"].lower()
+    assert "dislike" in data1["reply_text"].lower()
 
-    # supply required fields
+    # Step 2: dislikes none -> wizard asks likes
     resp2 = client.post(
         "/chat",
-        json={"mode": "fill", "message": "2 servings and 3 meals per day", "include_user_library": True, "thread_id": thread},
+        json={"mode": "fill", "message": "none", "include_user_library": True, "thread_id": thread},
     )
     assert resp2.status_code == 200
     data2 = resp2.json()
-    assert data2["confirmation_required"] is True
-    proposal_id = data2["proposal_id"]
+    assert data2["confirmation_required"] is False
+    assert "like" in data2["reply_text"].lower()
+
+    # Step 3: likes none -> wizard asks servings
+    resp3 = client.post(
+        "/chat",
+        json={"mode": "fill", "message": "none", "include_user_library": True, "thread_id": thread},
+    )
+    assert resp3.status_code == 200
+    data3 = resp3.json()
+    assert data3["confirmation_required"] is False
+    assert "servings" in data3["reply_text"].lower()
+
+    # Step 4: supply servings and meals per day -> proposal
+    resp4 = client.post(
+        "/chat",
+        json={"mode": "fill", "message": "2 servings and 3 meals per day", "include_user_library": True, "thread_id": thread},
+    )
+    assert resp4.status_code == 200
+    data4 = resp4.json()
+    assert data4["confirmation_required"] is True
+    proposal_id = data4["proposal_id"]
     assert proposal_id
 
     # confirm writes once
-    resp3 = client.post("/chat/confirm", json={"proposal_id": proposal_id, "confirm": True, "thread_id": thread})
-    assert resp3.status_code == 200
-    assert resp3.json()["applied"] is True
-    assert resp3.json()["reason"] is None
+    resp5 = client.post("/chat/confirm", json={"proposal_id": proposal_id, "confirm": True, "thread_id": thread})
+    assert resp5.status_code == 200
+    assert resp5.json()["applied"] is True
+    assert resp5.json()["reason"] is None
     assert len(calls) == 1
     saved = calls[0]
     assert saved.servings == 2

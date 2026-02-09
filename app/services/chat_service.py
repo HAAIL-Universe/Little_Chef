@@ -73,6 +73,24 @@ ALLERGY_ITEM_PREFIXES: tuple[str, ...] = (
 
 NONE_SENTINELS: frozenset[str] = frozenset({"none", "no", "n/a", "na", "nil", "nothing", "-"})
 
+WIZARD_FIELD_ORDER: tuple[str, ...] = (
+    "allergies", "dislikes", "likes", "servings", "plan_days", "meals_per_day",
+)
+WIZARD_QUESTIONS: dict[str, str] = {
+    "allergies": "Please tell me your allergies (or say 'none').",
+    "dislikes": "Any foods you dislike? (or say 'none')",
+    "likes": "What foods or cuisines do you like? (or say 'none')",
+    "servings": "How many servings should I plan for?",
+    "plan_days": "How many days do you want to plan for?",
+    "meals_per_day": "How many meals per day?",
+}
+
+_INVENTORY_ACTION_WORDS: frozenset[str] = frozenset({
+    "bought", "picked up", "stocked up", "threw away", "used up",
+})
+_INVENTORY_QTY_UNIT_RE = re.compile(
+    r'\d+\s*(?:g|kg|ml|l|pack|packs|bag|bags|tin|tins|can|cans|bottle|bottles|loaf|loaves)\b'
+)
 
 logger = logging.getLogger(__name__)
 PREFS_PERSIST_FAILED_REASON = "prefs_persist_failed"
@@ -99,6 +117,8 @@ class ChatService:
         self.prefs_drafts: dict[tuple[str, str], UserPrefs] = {}
         self._prefs_proposal_ids: dict[tuple[str, str], str] = {}
         self.thread_modes: dict[tuple[str, str], str] = {}
+        self._prefs_wizard_answered: dict[tuple[str, str], set[str]] = {}
+        self._prefs_wizard_current_q: dict[tuple[str, str], str | None] = {}
 
     @property
     def _system_prompt(self) -> str:
@@ -245,6 +265,8 @@ class ChatService:
             if thread_id:
                 self.prefs_drafts.pop((user.user_id, thread_id), None)
                 self._prefs_proposal_ids.pop((user.user_id, thread_id), None)
+                self._prefs_wizard_answered.pop((user.user_id, thread_id), None)
+                self._prefs_wizard_current_q.pop((user.user_id, thread_id), None)
             self.proposal_store.pop(user.user_id, proposal_id)
             return False, [], None
 
@@ -281,6 +303,8 @@ class ChatService:
                 if thread_id:
                     self.prefs_drafts.pop((user.user_id, thread_id), None)
                     self._prefs_proposal_ids.pop((user.user_id, thread_id), None)
+                    self._prefs_wizard_answered.pop((user.user_id, thread_id), None)
+                    self._prefs_wizard_current_q.pop((user.user_id, thread_id), None)
         return success, applied_event_ids, reason
 
     def _merge_with_defaults(self, user_id: str, parsed: UserPrefs) -> UserPrefs:
@@ -463,7 +487,13 @@ class ChatService:
 
     def _parse_prefs_from_message(self, message: str) -> UserPrefs:
         lowered_message = message.lower()
-        servings = self._extract_number(lowered_message, [r"(\d+)\s*servings?", r"servings?[^0-9]*(\d+)"])
+        servings = self._extract_number(lowered_message, [
+            r"(\d+)\s*servings?",
+            r"servings?[^0-9]*(\d+)",
+            r"(\d+)\s*people",
+            r"(?:for|feeds?)\s*(\d+)",
+            r"family\s+of\s*(\d+)",
+        ])
         meals_per_day = self._extract_number(
             lowered_message,
             [
@@ -612,10 +642,187 @@ class ChatService:
 
         return edited
 
+    # ------------------------------------------------------------------
+    # Wizard helpers
+    # ------------------------------------------------------------------
+
+    _ALLERGY_MENTION_RE = re.compile(
+        r"\b(?:allerg(?:y|ies|ic)|can(?:'|\u2019)?t\s+have|cannot\s+have)\b", re.IGNORECASE,
+    )
+    _DISLIKE_MENTION_RE = re.compile(
+        r"\b(?:dislikes?|don(?:'|\u2019)?t\s+like|do\s+not\s+like|hate|detest)\b", re.IGNORECASE,
+    )
+    _LIKE_MENTION_RE = re.compile(
+        r"\b(?:(?<!dis)likes?|love|enjoy|prefer)\b", re.IGNORECASE,
+    )
+
+    def _detect_mentioned_fields(self, message: str, parsed: UserPrefs) -> set[str]:
+        """Detect which prefs fields were explicitly mentioned in the message."""
+        mentioned: set[str] = set()
+        lowered = message.lower()
+
+        # Allergy signals
+        if self._ALLERGY_MENTION_RE.search(message) or parsed.allergies:
+            mentioned.add("allergies")
+        # Check for explicit "no allergies" sentinel
+        if re.search(r"\bno\s+allerg", lowered) or re.search(r"\ballerg\w*\s*[:=-]\s*(?:none|no|n/?a|nil|nothing|-)", lowered):
+            mentioned.add("allergies")
+
+        # Dislike signals
+        if self._DISLIKE_MENTION_RE.search(message) or parsed.dislikes:
+            mentioned.add("dislikes")
+        if re.search(r"\bdislike\w*\s*[:=-]\s*(?:none|no|n/?a|nil|nothing|-)", lowered):
+            mentioned.add("dislikes")
+
+        # Like signals (careful: "dislike" contains "like")
+        if self._LIKE_MENTION_RE.search(message) and not self._DISLIKE_MENTION_RE.search(message):
+            mentioned.add("likes")
+        if parsed.cuisine_likes:
+            mentioned.add("likes")
+        if re.search(r"\b(?:cuisine\s+)?likes?\s*[:=-]\s*(?:none|no|n/?a|nil|nothing|-)", lowered):
+            mentioned.add("likes")
+
+        # Numeric fields
+        if parsed.servings > 0:
+            mentioned.add("servings")
+        if parsed.plan_days > 0:
+            mentioned.add("plan_days")
+        if parsed.meals_per_day > 0:
+            mentioned.add("meals_per_day")
+
+        return mentioned
+
+    def _is_inventory_misroute(self, message: str) -> bool:
+        """Conservative check: does this message look like inventory input?"""
+        lowered = message.lower()
+        has_action = any(word in lowered for word in _INVENTORY_ACTION_WORDS)
+        has_qty_unit = bool(_INVENTORY_QTY_UNIT_RE.search(lowered))
+        # Require BOTH signals to avoid false positives
+        return has_action and has_qty_unit
+
+    def _is_prefs_misroute(self, message: str) -> bool:
+        """Check if a message sent to inventory looks like prefs input."""
+        lowered = message.lower()
+        prefs_signals = 0
+        if self._ALLERGY_MENTION_RE.search(message):
+            prefs_signals += 1
+        if re.search(r"\b(?:servings?|meals?\s*per\s*day|plan\s*days?)\b", lowered):
+            prefs_signals += 1
+        if self._DISLIKE_MENTION_RE.search(message):
+            prefs_signals += 1
+        if self._LIKE_MENTION_RE.search(message) and not self._DISLIKE_MENTION_RE.search(message):
+            prefs_signals += 1
+        return prefs_signals >= 2
+
+    def _next_wizard_question(self, answered: set[str], draft: UserPrefs) -> str | None:
+        """Return the next unanswered wizard field, enforcing allergy hard stop."""
+        # Allergy hard stop: MUST be answered first, regardless of order
+        if "allergies" not in answered:
+            return "allergies"
+        for field in WIZARD_FIELD_ORDER:
+            if field == "allergies":
+                continue  # Already checked above
+            if field in answered:
+                continue
+            # plan_days and meals_per_day are alternatives — if one is answered, skip the other
+            if field == "meals_per_day" and "plan_days" in answered and draft.plan_days > 0:
+                continue
+            if field == "plan_days" and "meals_per_day" in answered and draft.meals_per_day > 0:
+                continue
+            return field
+        return None  # All fields answered
+
+    def _build_rolling_summary(self, draft: UserPrefs, answered: set[str]) -> str:
+        """Build a bullet-point summary of collected and missing fields."""
+        list_lines: list[str] = []
+        num_lines: list[str] = []
+        if "allergies" in answered:
+            val = ", ".join(draft.allergies) if draft.allergies else "none"
+            list_lines.append(f"- Allergies: {val}")
+        if "dislikes" in answered:
+            val = ", ".join(draft.dislikes) if draft.dislikes else "none"
+            list_lines.append(f"- Dislikes: {val}")
+        if "likes" in answered:
+            val = ", ".join(draft.cuisine_likes) if draft.cuisine_likes else "none"
+            list_lines.append(f"- Likes: {val}")
+        if "servings" in answered and draft.servings > 0:
+            num_lines.append(f"- Servings: {draft.servings}")
+        if "plan_days" in answered and draft.plan_days > 0:
+            num_lines.append(f"- Plan days: {draft.plan_days}")
+        if "meals_per_day" in answered and draft.meals_per_day > 0:
+            num_lines.append(f"- Meals/day: {draft.meals_per_day}")
+        sections = [s for s in ["\n".join(list_lines), "\n".join(num_lines)] if s]
+        return "\n\n".join(sections) if sections else ""
+
+    def _attribute_bare_answer(self, message: str, current_q: str | None, draft: UserPrefs, answered: set[str]) -> set[str]:
+        """If the message is a bare answer (none sentinel or bare number), attribute it to current_q."""
+        if not current_q:
+            return set()
+        stripped = message.strip().lower()
+        newly_answered: set[str] = set()
+
+        # None sentinel for list fields
+        if stripped in NONE_SENTINELS and current_q in ("allergies", "dislikes", "likes"):
+            newly_answered.add(current_q)
+            return newly_answered
+
+        # Bare number for numeric fields
+        bare_num = re.fullmatch(r"\s*(\d+)\s*", message.strip())
+        if bare_num and current_q in ("servings", "plan_days", "meals_per_day"):
+            val = int(bare_num.group(1))
+            if val > 0:
+                if current_q == "servings":
+                    draft.servings = val
+                elif current_q == "plan_days":
+                    draft.plan_days = val
+                elif current_q == "meals_per_day":
+                    draft.meals_per_day = val
+                newly_answered.add(current_q)
+            return newly_answered
+
+        # Bare word list for list fields (e.g. "peanuts, shellfish" as answer to allergies)
+        if current_q == "allergies" and not re.search(r"\b(?:servings?|meals?|days?)\b", stripped):
+            items = self._extract_allergy_items(stripped)
+            if not items:
+                # Try splitting as comma-separated items
+                items = [i.strip() for i in re.split(r"\s*[,]\s*|\s+and\s+", stripped) if i.strip() and i.strip().lower() not in NONE_SENTINELS]
+            if items:
+                draft.allergies = self._dedupe_items(draft.allergies + items)
+                newly_answered.add("allergies")
+        elif current_q == "dislikes" and not re.search(r"\b(?:servings?|meals?|days?|allerg)\b", stripped):
+            items = self._extract_clause_items(stripped, DISLIKE_CLAUSE_PATTERNS)
+            if not items:
+                items = [i.strip() for i in re.split(r"\s*[,]\s*|\s+and\s+", stripped) if i.strip() and i.strip().lower() not in NONE_SENTINELS]
+            if items:
+                draft.dislikes = self._dedupe_items(draft.dislikes + items)
+                newly_answered.add("dislikes")
+        elif current_q == "likes" and not re.search(r"\b(?:servings?|meals?|days?|allerg)\b", stripped):
+            items = self._extract_clause_items(stripped, LIKE_CLAUSE_PATTERNS)
+            if not items:
+                items = self._extract_clause_items(stripped, CUISINE_CLAUSE_PATTERNS)
+            if not items:
+                items = [i.strip() for i in re.split(r"\s*[,]\s*|\s+and\s+", stripped) if i.strip() and i.strip().lower() not in NONE_SENTINELS]
+            if items:
+                draft.cuisine_likes = self._dedupe_items(draft.cuisine_likes + items)
+                newly_answered.add("likes")
+
+        return newly_answered
+
     def _handle_prefs_flow_threaded(self, user: UserMe, request: ChatRequest, effective_mode: str) -> ChatResponse:
         user_id = user.user_id
         thread_id = request.thread_id
         key = (user_id, thread_id)
+
+        # --- Misroute detection: inventory text in prefs flow ---
+        if self._is_inventory_misroute(request.message):
+            return ChatResponse(
+                reply_text="That looks like inventory input. Try sending it to the inventory flow instead.",
+                confirmation_required=False,
+                proposal_id=None,
+                proposed_actions=[],
+                suggested_next_questions=[],
+                mode=effective_mode,
+            )
 
         # --- Pending prefs proposal: treat non-confirm input as edit ---
         existing_pid = self._prefs_proposal_ids.get(key)
@@ -625,12 +832,14 @@ class ChatService:
                 updated_prefs = self._apply_prefs_edit_text(existing_action.prefs, request.message)
                 action = ProposedUpsertPrefsAction(prefs=updated_prefs)
                 self.proposal_store.save(user_id, existing_pid, action)
-                # Also update draft so future edits stack
                 self.prefs_drafts[key] = updated_prefs
 
-                summary = f"Proposed preferences: {updated_prefs.plan_days} days, {updated_prefs.servings} servings, {updated_prefs.meals_per_day} meals/day."
+                summary = self._build_rolling_summary(
+                    updated_prefs,
+                    self._prefs_wizard_answered.get(key, set(WIZARD_FIELD_ORDER)),
+                )
                 return ChatResponse(
-                    reply_text=f"{summary} Reply 'confirm' to save, or send changes to edit.",
+                    reply_text=f"Proposed preferences:\n\n{summary}\n\nReply 'confirm' to save, or send changes to edit.",
                     confirmation_required=True,
                     proposal_id=existing_pid,
                     proposed_actions=[action],
@@ -638,19 +847,43 @@ class ChatService:
                     mode=effective_mode,
                 )
 
+        # --- Wizard: collect fields one at a time ---
         draft = self.prefs_drafts.get(
             key, UserPrefs(allergies=[], dislikes=[], cuisine_likes=[], servings=0, meals_per_day=0, plan_days=0, notes="")
         )
+        answered = self._prefs_wizard_answered.get(key, set())
+        current_q = self._prefs_wizard_current_q.get(key)
 
+        # Parse structured fields from the message
         parsed = self._parse_prefs_from_message(request.message.lower())
-        draft = self._merge_prefs_draft(draft, parsed)
-        self.prefs_drafts[key] = draft
 
-        missing = self._collect_missing_questions(draft)
-        if missing:
-            prompt = missing[0]
+        # Detect explicitly mentioned fields
+        mentioned = self._detect_mentioned_fields(request.message, parsed)
+
+        # Attribute bare answers to the current wizard question
+        bare_attributed = self._attribute_bare_answer(request.message, current_q, draft, answered)
+
+        # Merge parsed fields into the draft
+        draft = self._merge_prefs_draft(draft, parsed)
+
+        # Update answered set
+        answered = answered | mentioned | bare_attributed
+
+        # Store updated state
+        self.prefs_drafts[key] = draft
+        self._prefs_wizard_answered[key] = answered
+
+        # Determine next question
+        next_field = self._next_wizard_question(answered, draft)
+
+        if next_field is not None:
+            # Still have questions to ask
+            self._prefs_wizard_current_q[key] = next_field
+            question = WIZARD_QUESTIONS[next_field]
+            summary = self._build_rolling_summary(draft, answered)
+            reply = f"{summary}\n{question}" if summary else question
             return ChatResponse(
-                reply_text=prompt,
+                reply_text=reply,
                 confirmation_required=False,
                 proposal_id=None,
                 proposed_actions=[],
@@ -658,7 +891,10 @@ class ChatService:
                 mode=effective_mode,
             )
 
+        # All fields collected — produce proposal
+        self._prefs_wizard_current_q[key] = None
         prefs = self._merge_with_defaults(user_id, draft)
+
         # Clean up stale prefs proposal for this thread before creating a new one
         old_pid = self._prefs_proposal_ids.get(key)
         if old_pid:
@@ -668,9 +904,9 @@ class ChatService:
         self.proposal_store.save(user_id, proposal_id, action)
         self._prefs_proposal_ids[key] = proposal_id
 
-        summary = f"Proposed preferences: {prefs.plan_days} days, {prefs.servings} servings, {prefs.meals_per_day} meals/day."
+        summary = self._build_rolling_summary(prefs, answered)
         return ChatResponse(
-            reply_text=f"{summary} Reply 'confirm' to save, or send changes to edit.",
+            reply_text=f"Proposed preferences:\n\n{summary}\n\nReply 'confirm' to save, or send changes to edit.",
             confirmation_required=True,
             proposal_id=proposal_id,
             proposed_actions=[action],

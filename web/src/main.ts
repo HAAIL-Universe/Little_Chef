@@ -136,6 +136,8 @@ const OVERLAY_ROOT_ID = "duet-overlay-root";
 const OVERLAY_ROOT_Z_INDEX = 2147483640;
 const ONBOARD_MENU_EDGE_MARGIN = 8;
 const USER_BUBBLE_SENT_TEXT = "👍";
+const USER_BUBBLE_DEFAULT_HINT = "Long-press this chat bubble to navigate > Preferences";
+let userSystemHint = USER_BUBBLE_DEFAULT_HINT;
 const HISTORY_BADGE_DISPLAY_MAX = 99;
 const NORMAL_CHAT_FLOW_KEYS = new Set(["general", "inventory", "mealplan", "prefs"]);
 let overlayRoot: HTMLDivElement | null = null;
@@ -508,14 +510,15 @@ async function submitProposalDecision(confirm: boolean, thinkingIndex?: number) 
     };
     const response = await doPost("/chat/confirm", payload);
     const success = response.status >= 200 && response.status < 300;
+    const flowLabel = currentFlowKey === "inventory" ? "Inventory" : "Preferences";
     const assistantText = confirm
       ? success
         ? response.json?.applied
-          ? "Preferences confirmed."
-          : "No pending preferences added."
+          ? `${flowLabel} confirmed.`
+          : `No pending ${flowLabel.toLowerCase()} added.`
         : "Confirmation failed."
       : success
-      ? "Preferences update cancelled."
+      ? `${flowLabel} update cancelled.`
       : "Cancellation failed.";
     if (typeof thinkingIndex === "number") {
       updateHistory(thinkingIndex, assistantText);
@@ -533,6 +536,8 @@ async function submitProposalDecision(confirm: boolean, thinkingIndex?: number) 
         state.onboarded = true;
         renderOnboardMenuButtons();
         updatePrefsOverlayVisibility();
+        userSystemHint = "Long-press this chat bubble to navigate > Inventory";
+        setUserBubbleEllipsis(false);
       }
       clearProposal();
     }
@@ -704,16 +709,22 @@ function updateDuetBubbles() {
   const lastUser = [...duetState.history].reverse().find((h) => h.role === "user");
   const assistantFallback =
     "Welcome — I’m Little Chef.\n\nTo start onboarding, follow the instructions below.";
-  const userFallback = "Long-press this chat bubble to navigate > Preferences";
   setBubbleText(assistant, lastAssistant?.text ?? assistantFallback);
   const showSentText = userBubbleEllipsisActive && isNormalChatFlow();
-  const fallbackText = isNormalChatFlow() ? userFallback : lastUser?.text ?? userFallback;
+  const fallbackText = isNormalChatFlow() ? userSystemHint : lastUser?.text ?? userSystemHint;
   setBubbleText(user, showSentText ? USER_BUBBLE_SENT_TEXT : fallbackText);
   const userBubble = document.getElementById("duet-user-bubble");
   if (userBubble) {
     userBubble.classList.toggle("sent-mode", showSentText);
   }
   setUserBubbleLabel(!showSentText);
+}
+
+function updateUserBubbleVisibility() {
+  const userBubble = document.getElementById("duet-user-bubble");
+  if (!userBubble) return;
+  const hide = currentFlowKey === "inventory";
+  userBubble.style.display = hide ? "none" : "";
 }
 
 function isNormalChatFlow() {
@@ -1818,8 +1829,17 @@ function selectFlow(key: string) {
   setComposerPlaceholder();
   updateInventoryOverlayVisibility();
   updatePrefsOverlayVisibility();
+  updateUserBubbleVisibility();
   if (currentFlowKey === "inventory") {
     refreshInventoryOverlay(true);
+    if (!state.inventoryOnboarded) {
+      addHistory(
+        "assistant",
+        "Welcome to the inventory. This is where your cupboard, fridge, and freezer food will be displayed.\n\nFirst, you need to input the current stock you have."
+      );
+      userSystemHint = "Triple-tap to start chat and input inventory";
+      setUserBubbleEllipsis(false);
+    }
   }
   if (currentFlowKey === "prefs") {
     lastServerMode = "FILL";

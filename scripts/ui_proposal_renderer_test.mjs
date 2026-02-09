@@ -19,17 +19,13 @@ const sampleResponse = {
   ],
 };
 
+// Prefs proposals should return null — the canonical summary is now in reply_text (wizard rolling summary).
 const summary = formatProposalSummary(sampleResponse);
-assert(summary, "proposal summary should be generated");
-assert(summary.includes("Proposed preferences"), "summary heading missing");
-assert(summary.includes("Servings: 2"), "servings value missing");
-assert(summary.includes("Allergies: peanuts, shellfish"), "allergy list missing");
-assert(summary.includes("Dislikes: mushrooms, olives"), "dislikes missing");
-assert(summary.includes("Cuisine likes: chicken, salmon"), "cuisine likes missing");
 assert(
-  summary.indexOf("Proposed preferences") === summary.lastIndexOf("Proposed preferences"),
-  "heading should appear only once"
+  summary === null,
+  "formatProposalSummary should return null for prefs-only proposals (wizard reply_text is canonical)"
 );
+console.log("prefs proposal returns null: PASS");
 
 const inventoryResponse = {
   confirmation_required: true,
@@ -168,27 +164,19 @@ assert(
 );
 
 const rawReply =
-  "Proposed preferences: servings 2, meals/day 2. Reply 'confirm' to save, or send changes to edit.";
-const cleaned = stripProposalPrefix(rawReply);
-assert(cleaned, "reply text should remain after stripping prefix");
-assert(!cleaned.startsWith("Proposed preferences"), "prefix should be removed");
-assert(cleaned.includes("Reply"), "confirmation instruction preserved");
-const assistantText = `${summary}\n\n${cleaned}`;
-const confirmCount = (assistantText.match(/Reply/g) ?? []).length;
-const headingCount = (assistantText.match(/Proposed preferences/g) ?? []).length;
-assert(confirmCount >= 1, "confirmation instruction should appear at least once");
-assert(headingCount === 1, "heading should appear once");
-assert(assistantText.startsWith("Proposed preferences"), "heading should appear first");
-assert(assistantText.includes("\n• Servings: 2"), "servings line present");
-assert(assistantText.includes("\n• Meals/day: 2"), "meals/day line present");
-assert(
-  assistantText.includes("\n• Allergies:"),
-  "allergies bullet on its own line"
-);
-assert(
-  assistantText.indexOf("Reply") > assistantText.indexOf("Proposed preferences"),
-  "confirm instruction should appear after the proposal block"
-);
+  "- Allergies: peanuts, shellfish\n- Dislikes: mushrooms, olives\n- Likes: chicken, salmon\n- Servings: 2\n- Plan days: 5\nReply 'confirm' to save, or send changes to edit.";
+// Since formatProposalSummary returns null for prefs proposals,
+// the UI will use reply_text directly as the sole summary display.
+const prefsProposalSummary = formatProposalSummary(sampleResponse);
+assert(prefsProposalSummary === null, "prefs summary is null — reply_text is canonical");
+// Simulate UI logic: assistantText = proposalSummary ? ... : replyBase
+const assistantText = prefsProposalSummary ? `${prefsProposalSummary}\n\n${rawReply}` : rawReply;
+assert(assistantText === rawReply, "display should be exactly the reply_text (no legacy prepend)");
+assert(!assistantText.includes("Cuisine likes"), "legacy 'Cuisine likes' label must not appear");
+assert(!assistantText.includes("•"), "legacy bullet format must not appear");
+assert(assistantText.includes("- Allergies:"), "wizard summary uses hyphen format");
+assert(assistantText.includes("Reply 'confirm'"), "confirm instruction present");
+console.log("no-duplicate prefs display: PASS");
 // --- date= format tests (new-style DD Month dates from parser) ---
 const dateResponse = {
   confirmation_required: true,

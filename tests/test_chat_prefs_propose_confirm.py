@@ -17,10 +17,10 @@ class FakeDbPrefsRepository(DbPrefsRepository):
 def test_chat_prefs_propose_confirm_flow(authed_client):
     get_prefs_service().repo = FakeDbPrefsRepository()
     thread = "t-prefs-confirm"
-    # propose
+    # propose (include all wizard fields for immediate proposal)
     resp = authed_client.post(
         "/chat",
-        json={"mode": "fill", "message": "set servings 4 meals per day 2", "thread_id": thread},
+        json={"mode": "fill", "message": "Allergies: none. Dislikes: none. Likes: none. servings 4 meals per day 2", "thread_id": thread},
     )
     assert resp.status_code == 200
     body = resp.json()
@@ -101,7 +101,7 @@ def test_chat_prefs_confirm_failure_is_retriable(authed_client, monkeypatch):
     thread = "t-prefs-confirm-fail"
     resp = authed_client.post(
         "/chat",
-        json={"mode": "fill", "message": "set servings 3 meals per day 2", "thread_id": thread},
+        json={"mode": "fill", "message": "Allergies: none. Dislikes: none. Likes: none. servings 3 meals per day 2", "thread_id": thread},
     )
     assert resp.status_code == 200
     proposal_id = resp.json()["proposal_id"]
@@ -211,10 +211,11 @@ def test_labeled_paragraph_persists_after_confirm(authed_client):
 
 
 def test_plan_days_asked_only_when_truly_missing(authed_client):
-    """When servings supplied but days not, must ask. When days supplied, must not."""
+    """When servings supplied but days not, wizard still has missing fields.
+    When all fields supplied, must produce proposal."""
     get_prefs_service().repo = FakeDbPrefsRepository()
 
-    # Case 1: only servings -> asks for plan days
+    # Case 1: only servings -> wizard asks for allergies first (wizard flow)
     thread1 = "t-prefs-missing-mpd"
     resp1 = authed_client.post(
         "/chat",
@@ -223,13 +224,14 @@ def test_plan_days_asked_only_when_truly_missing(authed_client):
     assert resp1.status_code == 200
     body1 = resp1.json()
     assert body1["confirmation_required"] is False
-    assert "day" in body1["reply_text"].lower()
+    # Wizard asks allergies first (hard stop)
+    assert "allerg" in body1["reply_text"].lower()
 
-    # Case 2: servings + days -> proposal (no follow-up)
+    # Case 2: all fields -> proposal (no follow-up)
     thread2 = "t-prefs-has-days"
     resp2 = authed_client.post(
         "/chat",
-        json={"mode": "fill", "message": "Servings: 3. Days: 7.", "thread_id": thread2},
+        json={"mode": "fill", "message": "Allergies: none. Dislikes: none. Likes: none. Servings: 3. Days: 7.", "thread_id": thread2},
     )
     assert resp2.status_code == 200
     body2 = resp2.json()

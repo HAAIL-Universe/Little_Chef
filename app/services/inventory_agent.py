@@ -21,6 +21,27 @@ from app.services.llm_client import LlmClient
 from app.services.proposal_store import ProposalStore
 
 
+_PREFS_MISROUTE_RE = re.compile(
+    r"\b(?:allerg(?:y|ies|ic)|can't\s+have|cannot\s+have)\b", re.IGNORECASE,
+)
+_PREFS_FIELD_RE = re.compile(
+    r"\b(?:servings?|meals?\s*per\s*day|plan\s*days?)\b", re.IGNORECASE,
+)
+_PREFS_DISLIKE_RE = re.compile(
+    r"\b(?:dislike|don't\s+like|do\s+not\s+like|hate|detest)\b", re.IGNORECASE,
+)
+
+def _looks_like_prefs(message: str) -> bool:
+    """Conservative check: does this message look like prefs input sent to inventory?"""
+    signals = 0
+    if _PREFS_MISROUTE_RE.search(message):
+        signals += 1
+    if _PREFS_FIELD_RE.search(message):
+        signals += 1
+    if _PREFS_DISLIKE_RE.search(message):
+        signals += 1
+    return signals >= 2
+
 SEPARATORS = [",", ";", " and ", " plus ", " also ", " then "]
 SPLIT_PATTERN = re.compile(r",|;|\band\b|\bplus\b|\balso\b|\bthen\b", re.IGNORECASE)
 QUANTITY_PATTERN = re.compile(
@@ -94,7 +115,7 @@ UNIT_KEYWORDS = {
     "litre",
     "litres",
 }
-CONTEXT_IGNORE_WORDS = {"a", "an", "of", "the", "and", "also", "plus", "with"}
+CONTEXT_IGNORE_WORDS = {"a", "an", "of", "the", "and", "also", "plus", "with", "in", "is", "there", "its", "theres"}
 QUANTITY_ADVERBS = {"about", "around", "approx", "approximately"}
 FALLBACK_IGNORE_PHRASES = {"i've just been through the cupboard", "no idea how many"}
 AFTER_IGNORE_WORDS = CONTEXT_IGNORE_WORDS | QUANTITY_ADVERBS | UNIT_KEYWORDS
@@ -103,6 +124,10 @@ INTRO_LOCATION_WORDS = {"cupboard", "fridge", "pantry"}
 CONTAINER_WORDS = {
     "bag",
     "bags",
+    "box",
+    "boxes",
+    "carton",
+    "cartons",
     "pack",
     "packs",
     "bottle",
@@ -190,7 +215,7 @@ FRACTION_LEFT_PATTERN = re.compile(
     r"^(?:a|about)\s+(?:half|third|quarter)\s+left$", re.IGNORECASE
 )
 SECTION_TRANSITION_PATTERN = re.compile(
-    r"\s+(?=(?:now|and)\s+(?:fridge|freezer|cupboard|pantry)\b)",
+    r"\s+(?=(?:now|and)\s+(?:in\s+(?:the\s+)?)?(?:fridge|freezer|cupboard|pantry)\b)",
     re.IGNORECASE,
 )
 FRACTION_STATE_PATTERN = re.compile(
@@ -223,6 +248,16 @@ LEAD_PREFIXES = (
     "a quarter left",
 )
 CEREAL_TOKENS = ("coco pops", "cornflakes")
+
+# Items where a container-only quantity ("1 carton of eggs") is ambiguous.
+# Maps normalised item name → set of container words that trigger a follow-up
+# and a template for the question.  Extend this dict to cover future items.
+AMBIGUOUS_CONTAINER_ITEMS: Dict[str, Dict[str, object]] = {
+    "eggs": {
+        "containers": {"carton", "cartons", "box", "boxes", "pack", "packs", "tray", "trays"},
+        "template": "You mentioned {qty} {container} of {item} \u2014 do you know how many {item} that is?",
+    },
+}
 
 CONTAINER_PHRASE_SEPARATORS = [".", ",", ";", " and ", " plus ", " also ", " then "]
 CONTAINER_WORD_HINTS = {
@@ -283,11 +318,57 @@ class InventoryAgent:
                 mode=request.mode or "fill",
             )
 
+        # Misroute detection: prefs-like text in inventory flow
+        if _looks_like_prefs(request.message):
+            return ChatResponse(
+                reply_text="That looks like preferences input. Try sending it to the preferences flow instead.",
+                confirmation_required=False,
+                proposal_id=None,
+                proposed_actions=[],
+                suggested_next_questions=[],
+                mode=request.mode or "fill",
+            )
+
         key = (user.user_id, thread_id)
         location = request.location or "pantry"
         pending = self._pending.get(key)
 
         if pending:
+            # Parser-path proposals have empty raw_items — use re-parse + merge
+            if not pending.raw_items:
+                edit_actions, edit_warnings, edit_follow_ups = self._parse_inventory_actions(
+                    request.message
+                )
+                existing = self.proposal_store.peek(user.user_id, pending.proposal_id) or []
+                merged = self._merge_edit_actions(existing, edit_actions)
+                merged, allowlist_warnings = self._filter_inventory_actions(
+                    merged, extra_warnings=edit_warnings
+                )
+                if not merged:
+                    return ChatResponse(
+                        reply_text="I couldn't parse any changes from that. Try something like 'four eggs' or 'remove tuna'.",
+                        confirmation_required=True,
+                        proposal_id=pending.proposal_id,
+                        proposed_actions=existing,
+                        suggested_next_questions=[],
+                        mode=request.mode or "fill",
+                    )
+                self.proposal_store.save(user.user_id, pending.proposal_id, merged)
+                reply = "I prepared an inventory update. Please confirm to apply."
+                if edit_follow_ups:
+                    reply = f"{reply}\n\n" + "\n".join(edit_follow_ups)
+                if allowlist_warnings:
+                    reply = f"{reply}\nWarnings: {' '.join(allowlist_warnings)}"
+                return ChatResponse(
+                    reply_text=reply,
+                    confirmation_required=True,
+                    proposal_id=pending.proposal_id,
+                    proposed_actions=merged,
+                    suggested_next_questions=[],
+                    mode=request.mode or "fill",
+                )
+
+            # LLM-path proposals have populated raw_items — use edit ops
             ops = extract_edit_ops(request.message, self.llm_client)
             raw_items = pending.raw_items
             unmatched = self._apply_ops(raw_items, ops.get("ops", []))
@@ -321,7 +402,7 @@ class InventoryAgent:
 
         raw_items = extract_new_draft(request.message, self.llm_client)
         if not raw_items:
-            inv_actions, parse_warnings = self._parse_inventory_actions(request.message)
+            inv_actions, parse_warnings, follow_ups = self._parse_inventory_actions(request.message)
             if inv_actions:
                 proposal_id = str(uuid.uuid4())
                 actions, allowlist_warnings = self._filter_inventory_actions(
@@ -340,6 +421,8 @@ class InventoryAgent:
                 self._pending[key] = InventoryPending([], location, proposal_id)
                 self.proposal_store.save(user.user_id, proposal_id, actions)
                 reply = "I prepared an inventory update. Please confirm to apply."
+                if follow_ups:
+                    reply = f"{reply}\n\n" + "\n".join(follow_ups)
                 if allowlist_warnings:
                     reply = f"{reply}\nWarnings: {' '.join(allowlist_warnings)}"
                 return ChatResponse(
@@ -496,6 +579,36 @@ class InventoryAgent:
         lines.append("Confirm / Deny / Edit")
         return "\n".join(lines)
 
+    def _merge_edit_actions(
+        self,
+        existing: List[ProposedInventoryEventAction],
+        edits: List[ProposedInventoryEventAction],
+    ) -> List[ProposedInventoryEventAction]:
+        """Merge edit-parsed actions into an existing proposal.
+
+        For each edit action, if an existing action with the same normalised
+        item name is found the existing action's quantity, unit, and note are
+        updated.  Otherwise the edit action is appended as a new item.
+        """
+        index: Dict[str, int] = {}
+        for i, act in enumerate(existing):
+            key = self._normalize_item_key(act.event.item_name)
+            index.setdefault(key, i)
+
+        merged = list(existing)
+        for edit_act in edits:
+            key = self._normalize_item_key(edit_act.event.item_name)
+            if key in index:
+                target = merged[index[key]]
+                target.event.quantity = edit_act.event.quantity
+                target.event.unit = edit_act.event.unit
+                if edit_act.event.note:
+                    self._add_note_value(target, edit_act.event.note)
+            else:
+                index[key] = len(merged)
+                merged.append(edit_act)
+        return merged
+
     def _to_actions(self, normalized: List[dict]) -> List[ProposedInventoryEventAction]:
         actions: List[ProposedInventoryEventAction] = []
         for n in normalized:
@@ -546,7 +659,7 @@ class InventoryAgent:
 
     def _parse_inventory_actions(
         self, message: str
-    ) -> Tuple[List[ProposedInventoryEventAction], List[str]]:
+    ) -> Tuple[List[ProposedInventoryEventAction], List[str], List[str]]:
         text = message.strip()
         # Normalise smart/curly apostrophes to straight so filler patterns match
         text = text.replace("\u2019", "'").replace("\u2018", "'")
@@ -571,10 +684,11 @@ class InventoryAgent:
                     _changed = True
                     break
         if not text:
-            return [], []
+            return [], [], []
         lower = text.lower()
         actions: List[ProposedInventoryEventAction] = []
         warnings: List[str] = []
+        follow_ups: List[str] = []
         seen_dedup_keys: Set[str] = set()
         event_type = self._infer_event_type(lower)
         if event_type and event_type != "add":
@@ -656,12 +770,16 @@ class InventoryAgent:
                 ):
                     primary_name = fallback_override
                 if not primary_name:
-                    primary_name = self._guess_item_name(text, match.start())
+                    primary_name = self._clean_segment_text(
+                        self._guess_item_name(text, match.start())
+                    )
                 item_name = primary_name
                 if not item_name:
                     item_name = "item"
                 if self._is_filler_text(item_name):
-                    guess = self._guess_item_name(text, match.start())
+                    guess = self._clean_segment_text(
+                        self._guess_item_name(text, match.start())
+                    )
                     if guess:
                         item_name = guess
                     else:
@@ -669,7 +787,9 @@ class InventoryAgent:
                 if item_name.lower() in ATTACHMENT_ONLY_WORDS or self._contains_date_marker(
                     item_name
                 ):
-                    guess = self._guess_item_name(text, match.start())
+                    guess = self._clean_segment_text(
+                        self._guess_item_name(text, match.start())
+                    )
                     if guess:
                         item_name = guess
                     else:
@@ -793,6 +913,20 @@ class InventoryAgent:
                 )
                 if fraction_note:
                     self._add_note_value(action, fraction_note)
+                # --- Ambiguity follow-up detection ---
+                item_lower = item_name.lower()
+                ambig = AMBIGUOUS_CONTAINER_ITEMS.get(item_lower)
+                if ambig and unit == "count":
+                    clause_words = set(re.findall(r"[\w'-]+", clause_text))
+                    hit_containers = clause_words & ambig["containers"]
+                    if hit_containers:
+                        container_word = sorted(hit_containers)[0]
+                        qty_int = int(quantity) if float(quantity).is_integer() else quantity
+                        follow_ups.append(
+                            ambig["template"].format(
+                                qty=qty_int, container=container_word, item=item_lower
+                            )
+                        )
                 actions.append(action)
                 seen_dedup_keys.add(dedup_key)
                 dedup_action_index[dedup_key] = len(actions) - 1
@@ -800,7 +934,7 @@ class InventoryAgent:
                 dedup_action_index[dedup_key] = len(actions) - 1
                 clause_action_index[clause_key] = len(actions) - 1
             for segment in segments:
-                if self._is_chatter_clause(segment):
+                if self._is_chatter_clause(segment, skip_uncertainty=True):
                     continue
                 cleaned = self._clean_segment_text(segment)
                 if not cleaned or self._is_filler_text(cleaned):
@@ -850,7 +984,7 @@ class InventoryAgent:
                 action_index[normalized_key] = len(actions) - 1
         else:
             for segment in segments:
-                if self._is_chatter_clause(segment):
+                if self._is_chatter_clause(segment, skip_uncertainty=True):
                     continue
                 cleaned = self._clean_segment_text(segment)
                 if not cleaned or self._is_filler_text(cleaned):
@@ -902,12 +1036,12 @@ class InventoryAgent:
         if len(segments) > 1 and len(actions) == 1:
             self._append_warning(warnings, "FALLBACK_MAY_HAVE_COLLAPSED_LIST")
 
-        return actions, warnings
+        return actions, warnings, follow_ups
 
     def _parse_inventory_action(
         self, message: str
     ) -> Tuple[Optional[ProposedInventoryEventAction], List[str]]:
-        actions, warnings = self._parse_inventory_actions(message)
+        actions, warnings, _follow_ups = self._parse_inventory_actions(message)
         if not actions:
             return None, warnings
         return actions[0], warnings
@@ -1049,7 +1183,7 @@ class InventoryAgent:
     def _strip_item_stop_words(self, text: str) -> str:
         words = re.findall(r"[\w'-]+", text)
         filtered = [word for word in words if word.lower() not in ITEM_STOP_WORDS]
-        return " ".join(filtered) if filtered else text
+        return " ".join(filtered) if filtered else ""
 
     def _strip_leading_chatter_tokens(self, text: str) -> str:
         trimmed = text.strip()
@@ -1115,11 +1249,11 @@ class InventoryAgent:
         lower = text.lower()
         return any(phrase in lower for phrase in DATE_MARKER_PHRASES)
 
-    def _is_chatter_clause(self, clause: str) -> bool:
+    def _is_chatter_clause(self, clause: str, *, skip_uncertainty: bool = False) -> bool:
         lower = clause.lower()
         if any(phrase in lower for phrase in CHATTER_DROP_PHRASES):
             return True
-        if any(marker in lower for marker in UNCERTAINTY_MARKERS):
+        if not skip_uncertainty and any(marker in lower for marker in UNCERTAINTY_MARKERS):
             return True
         return False
 
@@ -1138,7 +1272,7 @@ class InventoryAgent:
             return True
         if "little chef" in normalized_key:
             return True
-        if lower in BARE_FILLER_WORDS:
+        if lower in BARE_FILLER_WORDS and lower != "cereal":
             return True
         if FRACTION_LEFT_PATTERN.match(lower):
             return True
@@ -1233,14 +1367,27 @@ class InventoryAgent:
     def _split_segment_on_uncertainty(self, segment: str) -> List[str]:
         lower = segment.lower()
         earliest: Optional[int] = None
+        matched_marker: Optional[str] = None
         for marker in UNCERTAINTY_MARKERS:
             idx = lower.find(marker)
             if idx != -1 and (earliest is None or idx < earliest):
                 earliest = idx
+                matched_marker = marker
         if earliest is None:
             return [segment.strip()]
         before = segment[:earliest].strip(" ,;.")
         after = segment[earliest:].strip(" ,;. ")
+        # Strip the matched marker (and trailing filler like 'how much/many')
+        # from the 'after' portion so the item name survives.
+        if after and matched_marker:
+            after_lower = after.lower()
+            if after_lower.startswith(matched_marker):
+                after = after[len(matched_marker):].strip(" ,;.")
+                after_lower = after.lower()
+                for filler in ("how much", "how many"):
+                    if after_lower.startswith(filler):
+                        after = after[len(filler):].strip(" ,;.")
+                        break
         results: List[str] = []
         if before:
             results.append(before)

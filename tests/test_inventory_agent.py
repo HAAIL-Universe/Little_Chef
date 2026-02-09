@@ -1,5 +1,6 @@
 import re
 
+from app.schemas import ChatRequest, UserMe
 from app.services.inventory_agent import InventoryAgent
 from app.services.proposal_store import ProposalStore
 
@@ -116,7 +117,7 @@ def test_inventory_agent_parse_coerces_event_type():
 
 def test_inventory_agent_parses_stt_inventory_message():
     agent, _ = _make_agent()
-    actions, _ = agent._parse_inventory_actions(STT_INVENTORY_MESSAGE)
+    actions, _, _ = agent._parse_inventory_actions(STT_INVENTORY_MESSAGE)
     assert actions, "Expected actions from the STT inventory message."
 
     rice_actions = [
@@ -181,7 +182,7 @@ def test_inventory_agent_parses_stt_inventory_message():
 
 def test_inventory_agent_prefers_food_names_over_containers():
     agent, _ = _make_agent()
-    actions, _ = agent._parse_inventory_actions(STT_CONTAINER_SCAN)
+    actions, _, _ = agent._parse_inventory_actions(STT_CONTAINER_SCAN)
     assert actions, "Expected actions from the container scan."
 
     container_words = {
@@ -262,7 +263,7 @@ def test_inventory_agent_prefers_food_names_over_containers():
 
 def test_inventory_agent_handles_chicken_use_by_stt():
     agent, _ = _make_agent()
-    actions, _ = agent._parse_inventory_actions(STT_CHICKEN_USE_BY)
+    actions, _, _ = agent._parse_inventory_actions(STT_CHICKEN_USE_BY)
     assert actions
 
     chicken = [
@@ -284,7 +285,7 @@ def test_inventory_agent_handles_chicken_use_by_stt():
 
 def test_inventory_agent_handles_milk_bread_stt():
     agent, _ = _make_agent()
-    actions, _ = agent._parse_inventory_actions(STT_MILK_BREAD)
+    actions, _, _ = agent._parse_inventory_actions(STT_MILK_BREAD)
     assert actions
 
     bread = [action for action in actions if "bread" in action.event.item_name.lower()]
@@ -301,7 +302,7 @@ def test_inventory_agent_handles_milk_bread_stt():
 def test_inventory_agent_dedupes_salmon_and_soy():
     agent, _ = _make_agent()
     stt = "Two salmon fillets, 360g total. One bottle of soy sauce, 150ml. Done."
-    actions, _ = agent._parse_inventory_actions(stt)
+    actions, _, _ = agent._parse_inventory_actions(stt)
 
     salmon_weight = [
         action
@@ -327,7 +328,7 @@ def test_inventory_agent_dedupes_salmon_and_soy():
 
 def test_inventory_agent_handles_long_cupboard_fridge_message():
     agent, _ = _make_agent()
-    actions, warnings = agent._parse_inventory_actions(STT_CUPBOARD_FRIDGE_LONG)
+    actions, warnings, _ = agent._parse_inventory_actions(STT_CUPBOARD_FRIDGE_LONG)
     assert actions, "Expected actions from the long cupboard/fridge STT message."
 
     chicken = [
@@ -366,6 +367,10 @@ def test_inventory_agent_handles_long_cupboard_fridge_message():
 
     cereal_note = cereal[0].event.note or ""
     assert "use_by" not in cereal_note
+    # A1: "box" must not leak into the item name
+    assert "box" not in cereal[0].event.item_name.lower(), (
+        f"Container word 'box' leaked into cereal name: {cereal[0].event.item_name}"
+    )
 
     eggs_note = egg_event.note or ""
     assert "use_by=11th" not in eggs_note
@@ -373,9 +378,19 @@ def test_inventory_agent_handles_long_cupboard_fridge_message():
     bread_note = bread[0].event.note or ""
     assert "use_by=11th" not in bread_note
 
-    banned = {"not sure", "maybe", "cheers", "ignore", "total", "use by"}
+    # A5+A6: flour should survive uncertainty splitting
+    flour = [a for a in actions if "flour" in a.event.item_name.lower()]
+    assert flour, "Flour should be parsed despite 'Not sure how much' phrasing."
+
+    # Frozen peas should appear exactly once
+    peas = [a for a in actions if "peas" in a.event.item_name.lower()]
+    assert len(peas) == 1, f"Expected 1 frozen peas action, got {len(peas)}: {[a.event.item_name for a in peas]}"
+
+    banned = {"not sure", "maybe", "cheers", "ignore", "total", "use by", "i've got"}
     for action in actions:
-        assert not any(phrase in action.event.item_name.lower() for phrase in banned)
+        assert not any(phrase in action.event.item_name.lower() for phrase in banned), (
+            f"Banned phrase leaked into item name: {action.event.item_name}"
+        )
 
 
 
@@ -452,7 +467,7 @@ def test_inventory_agent_thread_scope(authed_client):
 def test_section_transition_splits_milk_from_cereal():
     """Now fridge stuff must act as a hard boundary; milk must not glue to cereal."""
     agent, _ = _make_agent()
-    actions, _ = agent._parse_inventory_actions(
+    actions, _, _ = agent._parse_inventory_actions(
         "Coco Pops one box quarter full. Now fridge stuff milk two litres"
     )
     names = {a.event.item_name.lower() for a in actions}
@@ -473,7 +488,7 @@ def test_section_transition_splits_milk_from_cereal():
 def test_apostrophe_less_stt_filler_stripped():
     """STT 'I ve got' (without apostrophe) must be stripped so item is 'pasta'."""
     agent, _ = _make_agent()
-    actions, _ = agent._parse_inventory_actions(
+    actions, _, _ = agent._parse_inventory_actions(
         "I ve got pasta two 500 gram packs"
     )
     assert actions, "Expected at least one action."
@@ -488,7 +503,7 @@ def test_apostrophe_less_stt_filler_stripped():
 def test_unopened_stripped_from_item_name():
     """'unopened' must be stripped from compound names; 'chips' not 'unopened chips'."""
     agent, _ = _make_agent()
-    actions, _ = agent._parse_inventory_actions(
+    actions, _, _ = agent._parse_inventory_actions(
         "Mixed veg one bag unopened. Chips one bag third left"
     )
     names = {a.event.item_name.lower() for a in actions}
@@ -503,7 +518,7 @@ def test_unopened_stripped_from_item_name():
 def test_fraction_compute_milk_half_left():
     """Base amount exists (2 litres) + 'half left' → remaining=1000ml in note."""
     agent, _ = _make_agent()
-    actions, warnings = agent._parse_inventory_actions(
+    actions, warnings, _ = agent._parse_inventory_actions(
         "milk two litres half left"
     )
     milk = [a for a in actions if "milk" in a.event.item_name.lower()]
@@ -521,7 +536,7 @@ def test_fraction_compute_milk_half_left():
 def test_fraction_no_compute_chips_quarter_full():
     """No base in g/ml (count only) + 'quarter full' → remaining=quarter in note."""
     agent, _ = _make_agent()
-    actions, warnings = agent._parse_inventory_actions(
+    actions, warnings, _ = agent._parse_inventory_actions(
         "Chips one bag quarter full"
     )
     chips = [a for a in actions if "chip" in a.event.item_name.lower()]
@@ -536,7 +551,7 @@ def test_fraction_no_compute_chips_quarter_full():
 def test_fraction_preserves_full_fat_milk():
     """'full fat milk' must NOT trigger fraction stripping; name stays intact."""
     agent, _ = _make_agent()
-    actions, warnings = agent._parse_inventory_actions(
+    actions, warnings, _ = agent._parse_inventory_actions(
         "full fat milk two litres"
     )
     milk = [a for a in actions if "milk" in a.event.item_name.lower()]
@@ -554,7 +569,7 @@ def test_fraction_preserves_full_fat_milk():
 def test_fraction_compute_peas_third_left():
     """Peas 900g + 'third left' → remaining=300g."""
     agent, _ = _make_agent()
-    actions, warnings = agent._parse_inventory_actions(
+    actions, warnings, _ = agent._parse_inventory_actions(
         "peas 900 grams third left"
     )
     peas = [a for a in actions if "pea" in a.event.item_name.lower()]
@@ -580,7 +595,7 @@ STT_PANTRY_SCAN_FULL = (
 def test_date_qty_does_not_swallow_items_across_sentences():
     """Items after date expressions must not be treated as date quantities."""
     agent, _ = _make_agent()
-    actions, _ = agent._parse_inventory_actions(STT_PANTRY_SCAN_FULL)
+    actions, _, _ = agent._parse_inventory_actions(STT_PANTRY_SCAN_FULL)
     names = {a.event.item_name.lower() for a in actions}
     for expected in ("tuna", "peas", "spinach"):
         assert any(expected in n for n in names), (
@@ -592,7 +607,7 @@ def test_date_qty_does_not_swallow_items_across_sentences():
 def test_date_qty_still_filters_real_date_numbers():
     """Numbers inside date expressions (e.g. '10' in 'best before 10 October') must still be skipped."""
     agent, _ = _make_agent()
-    actions, _ = agent._parse_inventory_actions(
+    actions, _, _ = agent._parse_inventory_actions(
         "Tuna four tins best before 3 March."
     )
     names = {a.event.item_name.lower() for a in actions}
@@ -607,7 +622,7 @@ def test_date_qty_still_filters_real_date_numbers():
 def test_alright_little_chef_not_an_item():
     """Greeting variants must be stripped; 'little chef' never becomes an item."""
     agent, _ = _make_agent()
-    actions, _ = agent._parse_inventory_actions(
+    actions, _, _ = agent._parse_inventory_actions(
         "Alright Little Chef I've got pasta two packs"
     )
     names = {a.event.item_name.lower() for a in actions}
@@ -620,7 +635,7 @@ def test_alright_little_chef_not_an_item():
 def test_okay_little_chef_not_an_item():
     """'Okay Little Chef' greeting also must not leak."""
     agent, _ = _make_agent()
-    actions, _ = agent._parse_inventory_actions(
+    actions, _, _ = agent._parse_inventory_actions(
         "Okay Little Chef quick stock check: eggs six"
     )
     names = {a.event.item_name.lower() for a in actions}
@@ -636,7 +651,7 @@ def test_okay_little_chef_not_an_item():
 def test_both_not_an_item():
     """'both' from 'two 500 gram packs both unopened' must not produce an action."""
     agent, _ = _make_agent()
-    actions, _ = agent._parse_inventory_actions(
+    actions, _, _ = agent._parse_inventory_actions(
         "Pasta two 500 gram packs both unopened"
     )
     names = {a.event.item_name.lower() for a in actions}
@@ -650,7 +665,7 @@ def test_both_not_an_item():
 def test_quick_pantry_scan_stripped():
     """'quick pantry scan' must not appear in item names."""
     agent, _ = _make_agent()
-    actions, _ = agent._parse_inventory_actions(
+    actions, _, _ = agent._parse_inventory_actions(
         "quick pantry scan: Pasta two 500 gram packs"
     )
     names = {a.event.item_name.lower() for a in actions}
@@ -677,7 +692,7 @@ STT_FULL_PANTRY = (
 def test_full_pantry_scan_all_items_found():
     """All 14 items from a real-world STT must be parsed with zero junk."""
     agent, _ = _make_agent()
-    actions, _ = agent._parse_inventory_actions(STT_FULL_PANTRY)
+    actions, _, _ = agent._parse_inventory_actions(STT_FULL_PANTRY)
     names = {a.event.item_name.lower() for a in actions}
     for expected in (
         "pasta", "rice", "chopped tomatoes", "tuna", "milk",
@@ -693,7 +708,7 @@ def test_full_pantry_scan_all_items_found():
 def test_full_pantry_scan_intro_stripped():
     """Greeting + prefix must not corrupt the first item name."""
     agent, _ = _make_agent()
-    actions, _ = agent._parse_inventory_actions(STT_FULL_PANTRY)
+    actions, _, _ = agent._parse_inventory_actions(STT_FULL_PANTRY)
     pasta = [a for a in actions if "pasta" in a.event.item_name.lower()]
     assert pasta, "Expected pasta action"
     name = pasta[0].event.item_name.lower()
@@ -705,7 +720,7 @@ def test_full_pantry_scan_intro_stripped():
 def test_date_capture_use_by_dd_month():
     """'use by 10 February' must appear in the note as date=10 February."""
     agent, _ = _make_agent()
-    actions, _ = agent._parse_inventory_actions(
+    actions, _, _ = agent._parse_inventory_actions(
         "milk two litres half left use by 10 February"
     )
     milk = [a for a in actions if "milk" in a.event.item_name.lower()]
@@ -717,7 +732,7 @@ def test_date_capture_use_by_dd_month():
 def test_date_capture_best_before_dd_month():
     """'best before 3 March' must appear in the note as date=3 March."""
     agent, _ = _make_agent()
-    actions, _ = agent._parse_inventory_actions(
+    actions, _, _ = agent._parse_inventory_actions(
         "Tuna four tins best before 3 March"
     )
     tuna = [a for a in actions if "tuna" in a.event.item_name.lower()]
@@ -729,7 +744,7 @@ def test_date_capture_best_before_dd_month():
 def test_n_left_remaining_eggs():
     """'eggs six pack four left' must produce eggs qty=6 with remaining=4."""
     agent, _ = _make_agent()
-    actions, _ = agent._parse_inventory_actions(
+    actions, _, _ = agent._parse_inventory_actions(
         "eggs six pack four left best before 12 February"
     )
     eggs = [a for a in actions if "egg" in a.event.item_name.lower()]
@@ -743,7 +758,7 @@ def test_n_left_remaining_eggs():
 def test_smart_apostrophe_normalized():
     """Curly apostrophe \u2019 must be normalized so 'I\u2019ve got' is stripped."""
     agent, _ = _make_agent()
-    actions, _ = agent._parse_inventory_actions(
+    actions, _, _ = agent._parse_inventory_actions(
         "I\u2019ve got pasta two 500 gram packs"
     )
     assert actions, "Expected at least one action"
@@ -781,7 +796,7 @@ _EXPECTED_21 = [
 def test_full_scan_21_all_items_found():
     """All 21 items from the hardest real-world STT must parse with zero junk."""
     agent, _ = _make_agent()
-    actions, _ = agent._parse_inventory_actions(STT_FULL_SCAN_21)
+    actions, _, _ = agent._parse_inventory_actions(STT_FULL_SCAN_21)
     names = {a.event.item_name.lower() for a in actions}
     for expected in _EXPECTED_21:
         assert any(expected in n for n in names), (
@@ -796,7 +811,7 @@ def test_full_scan_21_all_items_found():
 def test_full_scan_21_dates_assigned():
     """Items with explicit dates must have correct date in note."""
     agent, _ = _make_agent()
-    actions, _ = agent._parse_inventory_actions(STT_FULL_SCAN_21)
+    actions, _, _ = agent._parse_inventory_actions(STT_FULL_SCAN_21)
     expected_dates = {
         "chopped tomatoes": "12 October",
         "tuna": "5 March",
@@ -831,7 +846,7 @@ def test_full_scan_21_dates_assigned():
 def test_full_scan_21_no_date_bleed():
     """Items without dates must NOT have a date in their note."""
     agent, _ = _make_agent()
-    actions, _ = agent._parse_inventory_actions(STT_FULL_SCAN_21)
+    actions, _, _ = agent._parse_inventory_actions(STT_FULL_SCAN_21)
     no_date_items = {"pasta", "rice", "lentils", "olive oil", "peas",
                      "mixed veg", "chips", "bread", "ice cream"}
     for a in actions:
@@ -846,9 +861,105 @@ def test_full_scan_21_no_date_bleed():
 def test_full_scan_21_eggs_date_and_remaining():
     """Eggs: 'ten pack six left best before 12 February' → remaining=6 + date=12 February."""
     agent, _ = _make_agent()
-    actions, _ = agent._parse_inventory_actions(STT_FULL_SCAN_21)
+    actions, _, _ = agent._parse_inventory_actions(STT_FULL_SCAN_21)
     eggs = [a for a in actions if "egg" in a.event.item_name.lower()]
     assert eggs, "Expected eggs action"
     note = eggs[0].event.note or ""
     assert "remaining=6" in note, f"Expected remaining=6 in note, got: {note}"
     assert "date=12 February" in note, f"Expected date=12 February in note, got: {note}"
+
+
+STT_CUPBOARD_PARAGRAPH = (
+    "I'm at the cupboard now. I've got two loaves of bread, one carton of eggs, "
+    "a two litre bottle of milk, and about 500 grams of pasta. There's one kilo of "
+    "basmati rice, three tins of chopped tomatoes, two tins of tuna, one jar of peanut "
+    "butter, and a bottle of olive oil about 500 ml. I've also got a box of cereal. "
+    "Not sure how much flour is left, maybe half a bag, and in the freezer I've got "
+    "frozen peas, roughly 900 grams."
+)
+
+
+def test_stt_cupboard_paragraph_no_garbage():
+    """Regression: the STT paragraph should not produce garbage names or miss flour."""
+    agent, _ = _make_agent()
+    actions, warnings, follow_ups = agent._parse_inventory_actions(STT_CUPBOARD_PARAGRAPH)
+    names = [a.event.item_name.lower() for a in actions]
+
+    # Flour must appear
+    assert any("flour" in n for n in names), f"Flour missing from parsed items: {names}"
+
+    # Cereal must not be prefixed with 'box'
+    cereal = [n for n in names if "cereal" in n]
+    assert cereal, f"Cereal missing: {names}"
+    assert all("box" not in n for n in cereal), f"Container word 'box' leaked: {cereal}"
+
+    # No garbage item names containing chatter
+    garbage = {"i've", "i ve", "got", "roughly", "in i"}
+    for n in names:
+        assert not any(g in n for g in garbage), f"Garbage leaked into item name: {n}"
+
+    # Frozen peas should appear exactly once
+    peas = [n for n in names if "peas" in n]
+    assert len(peas) == 1, f"Expected 1 peas entry, got {len(peas)}: {peas}"
+
+    # FALLBACK_MISSING_QUANTITY should not fire for clean parses
+    assert "FALLBACK_MISSING_QUANTITY" not in warnings or any(
+        a.event.unit == "count" and a.event.quantity == 1.0
+        and not any(kw in a.event.item_name.lower() for kw in garbage)
+        for a in actions
+    )
+
+
+def test_ambiguity_follow_up_eggs_carton():
+    """When eggs are given as a container qty, a follow-up question should be generated."""
+    agent, _ = _make_agent()
+    _actions, _warnings, follow_ups = agent._parse_inventory_actions(
+        "one carton of eggs"
+    )
+    assert follow_ups, "Expected an ambiguity follow-up for 'one carton of eggs'"
+    assert any("eggs" in q and "carton" in q for q in follow_ups), (
+        f"Follow-up should mention eggs and carton: {follow_ups}"
+    )
+
+
+def test_ambiguity_follow_up_not_triggered_for_plain_eggs():
+    """Direct egg count (e.g. '6 eggs') should NOT trigger ambiguity follow-up."""
+    agent, _ = _make_agent()
+    _actions, _warnings, follow_ups = agent._parse_inventory_actions("6 eggs")
+    assert not follow_ups, f"No follow-up expected for plain eggs: {follow_ups}"
+
+
+def test_parser_path_edit_merges_into_existing_proposal():
+    """When initial proposal came from the parser path (empty raw_items),
+    typing an edit like 'I have four eggs' should merge rather than fail."""
+    agent, _ = _make_agent()
+    user = UserMe(
+        user_id="u1", email="t@t.com", onboarded=True, provider_subject="s1"
+    )
+    # Step 1: initial inventory input
+    req1 = ChatRequest(
+        message="one carton of eggs, two loaves of bread",
+        mode="fill",
+        thread_id="th-edit-test",
+    )
+    resp1 = agent.handle_fill(user, req1)
+    assert resp1.confirmation_required
+    assert resp1.proposal_id
+    initial_actions = {a.event.item_name.lower(): a.event.quantity for a in resp1.proposed_actions}
+    assert initial_actions.get("eggs") == 1.0
+    assert initial_actions.get("bread") == 2.0
+
+    # Step 2: edit to clarify eggs
+    req2 = ChatRequest(
+        message="I have four eggs",
+        mode="fill",
+        thread_id="th-edit-test",
+    )
+    resp2 = agent.handle_fill(user, req2)
+    assert resp2.confirmation_required
+    assert resp2.proposal_id == resp1.proposal_id, "Should reuse same proposal"
+    edited_actions = {a.event.item_name.lower(): a.event.quantity for a in resp2.proposed_actions}
+    assert edited_actions.get("eggs") == 4.0, (
+        f"Expected eggs updated to 4, got {edited_actions.get('eggs')}"
+    )
+    assert edited_actions.get("bread") == 2.0, "Bread should be preserved"

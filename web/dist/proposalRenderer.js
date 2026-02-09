@@ -122,12 +122,12 @@ export function formatProposalSummary(response) {
     const actions = (_a = response.proposed_actions) !== null && _a !== void 0 ? _a : [];
     const details = [];
     actions.forEach((action) => {
-        if (action.action_type === "upsert_prefs" && action.prefs) {
-            details.push(...describePrefs(action.prefs));
+        if (action.action_type === "upsert_prefs") {
+            // Prefs summary is canonical in reply_text (wizard rolling summary);
+            // skip legacy describePrefs to avoid duplicate display.
+            return;
         }
-        else {
-            details.push(formatInventoryAction(action));
-        }
+        details.push(formatInventoryAction(action));
     });
     if (!details.length) {
         return null;

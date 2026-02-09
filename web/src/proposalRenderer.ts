@@ -160,11 +160,12 @@ export function formatProposalSummary(response: ChatResponse | null): string | n
   const actions = response.proposed_actions ?? [];
   const details: string[] = [];
   actions.forEach((action) => {
-    if (action.action_type === "upsert_prefs" && action.prefs) {
-      details.push(...describePrefs(action.prefs));
-    } else {
-      details.push(formatInventoryAction(action));
+    if (action.action_type === "upsert_prefs") {
+      // Prefs summary is canonical in reply_text (wizard rolling summary);
+      // skip legacy describePrefs to avoid duplicate display.
+      return;
     }
+    details.push(formatInventoryAction(action));
   });
   if (!details.length) {
     return null;

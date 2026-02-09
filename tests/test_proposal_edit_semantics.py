@@ -28,10 +28,10 @@ def test_prefs_deny_clears_proposal(authed_client):
     get_prefs_service().repo = FakeDbPrefsRepository()
     thread = "t-edit-deny"
 
-    # Create proposal
+    # Create proposal (include all wizard fields for immediate proposal)
     resp1 = authed_client.post(
         "/chat",
-        json={"mode": "fill", "message": "servings 2 meals per day 3", "thread_id": thread},
+        json={"mode": "fill", "message": "Allergies: none. Dislikes: none. Likes: none. servings 2 meals per day 3", "thread_id": thread},
     )
     body1 = resp1.json()
     pid = body1["proposal_id"]
@@ -59,7 +59,7 @@ def test_reply_copy_updated(authed_client):
     thread = "t-edit-copy"
     resp = authed_client.post(
         "/chat",
-        json={"mode": "fill", "message": "servings 2 meals per day 3", "thread_id": thread},
+        json={"mode": "fill", "message": "Allergies: none. Dislikes: none. Likes: none. servings 2 meals per day 3", "thread_id": thread},
     )
     body = resp.json()
     assert "continue editing" not in body["reply_text"]
