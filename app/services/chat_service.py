@@ -45,23 +45,30 @@ DISLIKE_CLAUSE_PATTERNS: tuple[str, ...] = (
     r"dislikes?:\s+(.+?)(?:[.!?]|$)",
 )
 ALLERGY_CLAUSE_PATTERNS: tuple[str, ...] = (
-    r"allerg(?:y|ic|ies)[^\S\r\n]*[:\-]?[^\S\r\n]*(.+?)(?:[.!?]|$)",
+    r"(?:got|have)\s+(?:a\s+)?(.+?)\s+allerg(?:y|ies)",
     r"allergic to[^\S\r\n]*(.+?)(?:[.!?]|$)",
-    rf"can(?:'|’)?t have[^\S\r\n]*(.+?)(?:[.!?]|$)",
+    rf"can(?:'|\u2019)?t have[^\S\r\n]*(.+?)(?:[.!?]|$)",
     r"cannot have[^\S\r\n]*(.+?)(?:[.!?]|$)",
+    r"allerg(?:y|ies)[^\S\r\n]*[:\-][^\S\r\n]*(.+?)(?:[.!?]|$)",
 )
 CUISINE_CLAUSE_PATTERNS: tuple[str, ...] = (
     r"cuisine likes?:\s+(.+?)(?:[.!?]|$)",
     r"cuisines?:\s+(.+?)(?:[.!?]|$)",
 )
 ALLERGY_ITEM_PREFIXES: tuple[str, ...] = (
+    "and i'm also allergic to",
+    "i'm also allergic to",
+    "also allergic to",
     "i'm allergic to",
+    "i\u2019m allergic to",
     "i am allergic to",
     "i can't have",
+    "i can\u2019t have",
     "i cannot have",
     "i cant have",
     "allergies",
     "allergy",
+    "and ",
 )
 
 NONE_SENTINELS: frozenset[str] = frozenset({"none", "no", "n/a", "na", "nil", "nothing", "-"})
@@ -90,6 +97,7 @@ class ChatService:
             inventory_service, proposal_store, llm_client
         )
         self.prefs_drafts: dict[tuple[str, str], UserPrefs] = {}
+        self._prefs_proposal_ids: dict[tuple[str, str], str] = {}
         self.thread_modes: dict[tuple[str, str], str] = {}
 
     @property
@@ -236,6 +244,7 @@ class ChatService:
         if not confirm:
             if thread_id:
                 self.prefs_drafts.pop((user.user_id, thread_id), None)
+                self._prefs_proposal_ids.pop((user.user_id, thread_id), None)
             self.proposal_store.pop(user.user_id, proposal_id)
             return False, [], None
 
@@ -271,6 +280,7 @@ class ChatService:
                 self.proposal_store.pop(user.user_id, proposal_id)
                 if thread_id:
                     self.prefs_drafts.pop((user.user_id, thread_id), None)
+                    self._prefs_proposal_ids.pop((user.user_id, thread_id), None)
         return success, applied_event_ids, reason
 
     def _merge_with_defaults(self, user_id: str, parsed: UserPrefs) -> UserPrefs:
@@ -312,9 +322,19 @@ class ChatService:
             match = re.search(pat, text_lower)
             if match:
                 return int(match.group(1))
-        for word, value in NUMBER_WORDS.items():
-            if re.search(rf"\b{word}\b", text_lower):
-                return value
+        # Context-aware NUMBER_WORDS: expand each pattern to accept word numbers
+        # in place of \d+, so "five days" matches the days pattern instead of
+        # "two" from an unrelated "two servings" phrase.
+        word_alt = "|".join(NUMBER_WORDS.keys())
+        for pat in patterns:
+            # Replace the first (\d+) capture group with a word-number alternative
+            word_pat = re.sub(r"\(\\d\+\)", rf"({word_alt})", pat, count=1)
+            if word_pat != pat:
+                match = re.search(word_pat, text_lower)
+                if match:
+                    matched_word = match.group(1).strip()
+                    if matched_word in NUMBER_WORDS:
+                        return NUMBER_WORDS[matched_word]
         return None
 
     def _clean_list_item(self, value: str) -> str:
@@ -322,10 +342,24 @@ class ChatService:
         cleaned = cleaned.strip(".,;:-\"'“”‘’")
         return cleaned
 
+    # Trailing filler phrases that leak into clause captures
+    _TRAILING_FILLER = re.compile(
+        r"\s*,?\s*\b(?:so\s+please\s+avoid\s+(?:those|these|them)|please\s+avoid|if\s+possible|when\s+possible|for\s+me)\b.*$",
+        re.IGNORECASE,
+    )
+    # Clause-boundary: comma/semicolon before pronoun "I" signals a new clause
+    _INITIAL_CLAUSE_BOUNDARY = re.compile(r"[,;]\s*(?=(?:and\s+)?[Ii](?:[\s'\u2019]))")
+
     def _split_clause_items(self, segment: str) -> List[str]:
         if not segment:
             return []
-        parts = re.split(r"\s*(?:,|\band\b|\bor\b)\s*", segment)
+        # Strip trailing filler ("so please avoid those")
+        segment = self._TRAILING_FILLER.sub("", segment)
+        # Split at clause boundaries before "I" so sub-clauses don't leak
+        sub_segments = self._INITIAL_CLAUSE_BOUNDARY.split(segment)
+        parts: list[str] = []
+        for sub in sub_segments:
+            parts.extend(re.split(r"\s*(?:,|\band\b|\bor\b)\s*", sub))
         return [item for item in (self._clean_list_item(part) for part in parts) if item]
 
     def _match_clause_segments(self, text: str, patterns: tuple[str, ...]) -> List[str]:
@@ -350,12 +384,30 @@ class ChatService:
             result.append(item)
         return result
 
+    # Filler prefixes that get captured inside clause items after splitting.
+    # Ordered longest-first so "i'm happy with most" is stripped before "most".
+    _ITEM_FILLER_PREFIXES = re.compile(
+        r"^(?:"
+        r"i'm happy with most|i'm happy with|i am happy with most|i am happy with|"
+        r"i\u2019m happy with most|i\u2019m happy with|"
+        r"i enjoy most|i enjoy|most|"
+        r"happy with most|happy with"
+        r")\s+",
+        re.IGNORECASE,
+    )
+
     def _extract_clause_items(self, text: str, patterns: tuple[str, ...]) -> List[str]:
         segments = self._match_clause_segments(text, patterns)
         items: List[str] = []
         for segment in segments:
             items.extend(self._split_clause_items(segment))
-        return self._dedupe_items([item for item in items if item.lower() not in NONE_SENTINELS])
+        cleaned: List[str] = []
+        for item in items:
+            # Strip filler prefixes ("i'm happy with most chicken meals" -> "chicken meals")
+            item = self._ITEM_FILLER_PREFIXES.sub("", item).strip()
+            if item and item.lower() not in NONE_SENTINELS:
+                cleaned.append(item)
+        return self._dedupe_items(cleaned)
 
     def _normalize_allergy_item(self, item: str) -> str:
         normalized = self._clean_list_item(item)
@@ -374,6 +426,32 @@ class ChatService:
         normalized = [self._normalize_allergy_item(item) for item in raw_items if item]
         return self._dedupe_items([item for item in normalized if item and item.lower() not in NONE_SENTINELS])
 
+    # Day-of-week map for "Monday to Friday"-style span detection
+    _DOW_MAP: dict[str, int] = {
+        "monday": 0, "tuesday": 1, "wednesday": 2, "thursday": 3,
+        "friday": 4, "saturday": 5, "sunday": 6,
+        "mon": 0, "tue": 1, "tues": 1, "wed": 2, "thu": 3, "thurs": 3,
+        "fri": 4, "sat": 5, "sun": 6,
+    }
+    _DOW_SPAN_RE = re.compile(
+        r"\b(" + "|".join(sorted(_DOW_MAP.keys(), key=len, reverse=True)) + r")\b"
+        r"\s*(?:to|through|thru|-|–)\s*"
+        r"\b(" + "|".join(sorted(_DOW_MAP.keys(), key=len, reverse=True)) + r")\b",
+        re.IGNORECASE,
+    )
+
+    def _extract_day_span(self, text: str) -> int | None:
+        """Detect 'Monday to Friday' style spans and return the day count."""
+        m = self._DOW_SPAN_RE.search(text)
+        if not m:
+            return None
+        start = self._DOW_MAP.get(m.group(1).lower())
+        end = self._DOW_MAP.get(m.group(2).lower())
+        if start is None or end is None:
+            return None
+        span = (end - start) % 7 + 1
+        return span if span >= 1 else None
+
     def _parse_prefs_from_message(self, message: str) -> UserPrefs:
         lowered_message = message.lower()
         servings = self._extract_number(lowered_message, [r"(\d+)\s*servings?", r"servings?[^0-9]*(\d+)"])
@@ -387,6 +465,9 @@ class ChatService:
                 r"days?[^0-9]*(\d+)",
             ],
         )
+        # Fallback: "Monday to Friday" style span
+        if not meals_per_day:
+            meals_per_day = self._extract_day_span(lowered_message)
 
         allergies = self._extract_allergy_items(lowered_message)
         dislikes = self._extract_clause_items(lowered_message, DISLIKE_CLAUSE_PATTERNS)
@@ -411,10 +492,137 @@ class ChatService:
             questions.append("How many meals per day do you want?")
         return questions
 
+    # ------------------------------------------------------------------
+    # Prefs edit-apply: mutate a pending prefs draft from free-text edits
+    # ------------------------------------------------------------------
+    # Apostrophe character class covering straight (') and smart (\u2019) quotes
+    _APO = r"['\u2019]"
+
+    _REMOVE_ALLERGY_PATTERNS: tuple[re.Pattern[str], ...] = (
+        re.compile(rf"(?:i{_APO}?m\s+)?not\s+allergic\s+to\s+(.+?)(?:[.!?]|$)", re.IGNORECASE),
+        re.compile(r"remove\s+allerg(?:y|ies)\s+(?:to\s+|for\s+)?(.+?)(?:[.!?]|$)", re.IGNORECASE),
+        re.compile(r"no\s+allergy\s+to\s+(.+?)(?:[.!?]|$)", re.IGNORECASE),
+    )
+    _ADD_ALLERGY_PATTERNS: tuple[re.Pattern[str], ...] = (
+        re.compile(rf"(?:i{_APO}?m\s+|i\s+am\s+)?allergic\s+to\s+(.+?)(?:[.!?]|$)", re.IGNORECASE),
+        re.compile(rf"(?:i\s+)?can{_APO}?t\s+have\s+(.+?)(?:[.!?]|$)", re.IGNORECASE),
+    )
+    _ADD_LIKE_PATTERNS: tuple[re.Pattern[str], ...] = (
+        re.compile(r"i\s+(?:actually\s+)?(?:really\s+)?like\s+(.+?)(?:[.!?]|$)", re.IGNORECASE),
+        re.compile(r"i\s+love\s+(.+?)(?:[.!?]|$)", re.IGNORECASE),
+    )
+    _ADD_DISLIKE_PATTERNS: tuple[re.Pattern[str], ...] = (
+        re.compile(rf"i\s+(?:don{_APO}?t|do\s+not)\s+like\s+(.+?)(?:[.!?]|$)", re.IGNORECASE),
+        re.compile(r"i\s+(?:hate|detest|dislike)\s+(.+?)(?:[.!?]|$)", re.IGNORECASE),
+    )
+    # Clause-boundary normalizer: comma/semicolon before "I" (+ space or
+    # apostrophe) is replaced with ". " so pattern terminators work correctly.
+    # Avoids "I don't like eggs, I'm not allergic to X" capturing across clauses.
+    _CLAUSE_BOUNDARY = re.compile(r"[,;]\s*(?=[Ii](?:\s|['\u2019]))")
+
+    _GENERIC_REMOVE_PATTERNS: tuple[re.Pattern[str], ...] = (
+        re.compile(r"remove\s+(.+?)(?:\s+from\s+(?:the\s+)?(?:list|proposal|allergies|likes|dislikes))?(?:[.!?]|$)", re.IGNORECASE),
+        re.compile(r"(?:take\s+off|delete|drop)\s+(.+?)(?:\s+from\s+(?:the\s+)?(?:list|proposal|allergies|likes|dislikes))?(?:[.!?]|$)", re.IGNORECASE),
+    )
+
+    def _split_edit_items(self, segment: str) -> List[str]:
+        """Split a matched segment like 'milk and peanuts' into individual items."""
+        parts = re.split(r"\s*(?:,|\band\b|\bor\b)\s*", segment)
+        return [p.strip().lower() for p in parts if p.strip() and p.strip().lower() not in NONE_SENTINELS]
+
+    def _apply_prefs_edit_text(self, prefs: UserPrefs, text: str) -> UserPrefs:
+        """Apply free-text edit instructions to a prefs object. Returns a mutated copy."""
+        # Normalise clause boundaries so patterns don't capture across clauses.
+        # "I don't like eggs, I'm not allergic to milk" → "… eggs. I'm not …"
+        text = self._CLAUSE_BOUNDARY.sub(". ", text)
+
+        edited = prefs.model_copy(deep=True)
+
+        def _lower_set(items: List[str]) -> set[str]:
+            return {i.lower() for i in items}
+
+        def _remove_items(lst: List[str], to_remove: set[str]) -> List[str]:
+            return [i for i in lst if i.lower() not in to_remove]
+
+        def _add_items(lst: List[str], to_add: List[str]) -> List[str]:
+            existing = _lower_set(lst)
+            result = list(lst)
+            for item in to_add:
+                if item.lower() not in existing:
+                    result.append(item)
+                    existing.add(item.lower())
+            return result
+
+        # Generic "remove X" — strip item from ALL lists first, then
+        # consume matched segments so later patterns don't re-add them.
+        remaining_after_generic = text
+        for pat in self._GENERIC_REMOVE_PATTERNS:
+            for m in pat.finditer(text):
+                items = self._split_edit_items(m.group(1))
+                item_set = set(items)
+                edited.allergies = _remove_items(edited.allergies, item_set)
+                edited.cuisine_likes = _remove_items(edited.cuisine_likes, item_set)
+                edited.dislikes = _remove_items(edited.dislikes, item_set)
+            remaining_after_generic = pat.sub("", remaining_after_generic)
+
+        # Remove allergies (must be checked BEFORE add-allergy to avoid
+        # "not allergic to X" also matching "allergic to X")
+        for pat in self._REMOVE_ALLERGY_PATTERNS:
+            for m in pat.finditer(remaining_after_generic):
+                items = self._split_edit_items(m.group(1))
+                edited.allergies = _remove_items(edited.allergies, set(items))
+
+        # Add allergies — only from segments NOT already consumed by remove patterns
+        remaining = remaining_after_generic
+        for pat in self._REMOVE_ALLERGY_PATTERNS:
+            remaining = pat.sub("", remaining)
+        for pat in self._ADD_ALLERGY_PATTERNS:
+            for m in pat.finditer(remaining):
+                items = self._split_edit_items(m.group(1))
+                edited.allergies = _add_items(edited.allergies, items)
+
+        # Add likes (also remove from dislikes)
+        for pat in self._ADD_LIKE_PATTERNS:
+            for m in pat.finditer(remaining_after_generic):
+                items = self._split_edit_items(m.group(1))
+                edited.cuisine_likes = _add_items(edited.cuisine_likes, items)
+                edited.dislikes = _remove_items(edited.dislikes, set(items))
+
+        # Add dislikes (also remove from likes)
+        for pat in self._ADD_DISLIKE_PATTERNS:
+            for m in pat.finditer(remaining_after_generic):
+                items = self._split_edit_items(m.group(1))
+                edited.dislikes = _add_items(edited.dislikes, items)
+                edited.cuisine_likes = _remove_items(edited.cuisine_likes, set(items))
+
+        return edited
+
     def _handle_prefs_flow_threaded(self, user: UserMe, request: ChatRequest, effective_mode: str) -> ChatResponse:
         user_id = user.user_id
         thread_id = request.thread_id
         key = (user_id, thread_id)
+
+        # --- Pending prefs proposal: treat non-confirm input as edit ---
+        existing_pid = self._prefs_proposal_ids.get(key)
+        if existing_pid:
+            existing_action = self.proposal_store.peek(user_id, existing_pid)
+            if existing_action and isinstance(existing_action, ProposedUpsertPrefsAction):
+                updated_prefs = self._apply_prefs_edit_text(existing_action.prefs, request.message)
+                action = ProposedUpsertPrefsAction(prefs=updated_prefs)
+                self.proposal_store.save(user_id, existing_pid, action)
+                # Also update draft so future edits stack
+                self.prefs_drafts[key] = updated_prefs
+
+                summary = f"Proposed preferences: servings {updated_prefs.servings}, meals/day {updated_prefs.meals_per_day}."
+                return ChatResponse(
+                    reply_text=f"{summary} Reply 'confirm' to save, or send changes to edit.",
+                    confirmation_required=True,
+                    proposal_id=existing_pid,
+                    proposed_actions=[action],
+                    suggested_next_questions=[],
+                    mode=effective_mode,
+                )
+
         draft = self.prefs_drafts.get(
             key, UserPrefs(allergies=[], dislikes=[], cuisine_likes=[], servings=0, meals_per_day=0, notes="")
         )
@@ -436,13 +644,18 @@ class ChatService:
             )
 
         prefs = self._merge_with_defaults(user_id, draft)
+        # Clean up stale prefs proposal for this thread before creating a new one
+        old_pid = self._prefs_proposal_ids.get(key)
+        if old_pid:
+            self.proposal_store.pop(user_id, old_pid)
         proposal_id = str(uuid.uuid4())
         action = ProposedUpsertPrefsAction(prefs=prefs)
         self.proposal_store.save(user_id, proposal_id, action)
+        self._prefs_proposal_ids[key] = proposal_id
 
         summary = f"Proposed preferences: servings {prefs.servings}, meals/day {prefs.meals_per_day}."
         return ChatResponse(
-            reply_text=f"{summary} Reply CONFIRM to save or continue editing.",
+            reply_text=f"{summary} Reply 'confirm' to save, or send changes to edit.",
             confirmation_required=True,
             proposal_id=proposal_id,
             proposed_actions=[action],

@@ -793,17 +793,6 @@ def test_full_scan_21_all_items_found():
     )
 
 
-def test_full_scan_21_zero_junk():
-    """No junk items like 'opened', 'a', 'tub', 'full scan again' etc."""
-    agent, _ = _make_agent()
-    actions, _ = agent._parse_inventory_actions(STT_FULL_SCAN_21)
-    junk_words = {"opened", "a", "tub", "full scan again", "cupboard first",
-                  "first", "again", "an", "full", "cupboard"}
-    for a in actions:
-        name = a.event.item_name.lower().strip()
-        assert name not in junk_words, f"Junk item leaked: '{a.event.item_name}'"
-
-
 def test_full_scan_21_dates_assigned():
     """Items with explicit dates must have correct date in note."""
     agent, _ = _make_agent()

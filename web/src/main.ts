@@ -466,13 +466,21 @@ function handleProposalConfirm() {
 }
 
 function handleProposalEdit() {
-  setDuetStatus("Edit request registered (UI placeholder).");
+  showFloatingComposer();
+  const input = document.getElementById("duet-input") as HTMLInputElement | null;
+  if (input) {
+    input.placeholder = "Type your changes (e.g. 'add milk allergy')…";
+    input.addEventListener("blur", () => { input.placeholder = ""; }, { once: true });
+  }
+  setDuetStatus("Send your changes to update the proposal.");
 }
 
 function handleProposalDeny() {
   const proposalId = state.proposalId;
   if (proposalId) {
     proposalDismissedIds.add(proposalId);
+    // Clear server-side pending proposal
+    void submitProposalDecision(false);
   }
   lastResponseRequiresConfirmation = false;
   updateProposalActionsVisibility();
