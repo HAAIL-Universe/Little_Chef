@@ -774,7 +774,7 @@ pre {
   text-overflow: ellipsis;
 }
 
-.duet-flow-status {
+.duet-flow-chip {
   min-height: 18px;
   font-size: 13px;
   color: #c3d5ff;

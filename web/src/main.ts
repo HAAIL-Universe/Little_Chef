@@ -551,7 +551,7 @@ function setDuetStatus(msg: string, isError = false) {
 }
 
 function updateFlowStatusText() {
-  const el = document.getElementById("duet-flow-status");
+  const el = document.getElementById("duet-flow-chip");
   if (!el) return;
   const flow = flowOptions.find((f) => f.key === currentFlowKey) ?? flowOptions[0];
   const label = flow.key === "general" ? "General" : flow.label;

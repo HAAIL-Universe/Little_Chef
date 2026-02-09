@@ -15,6 +15,7 @@ def test_root_served_or_not_ready():
         assert "duet-assistant-bubble" in html
         assert "duet-user-bubble" in html
         assert "duet-composer" in html
+        assert "duet-flow-chip" in html
     else:
         body = resp.json()
         assert body["error"] == "ui_not_built"

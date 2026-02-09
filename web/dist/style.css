@@ -762,15 +762,31 @@ pre {
   font-weight: 700;
 }
 
+.duet-status-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+}
+
 .duet-status {
   min-height: 18px;
   font-size: 13px;
   color: #c3d5ff;
   opacity: 0.85;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 8px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.duet-flow-chip {
+  min-height: 18px;
+  font-size: 13px;
+  color: #c3d5ff;
+  opacity: 0.85;
+  white-space: nowrap;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
 }
 
 .duet-status .status-text {

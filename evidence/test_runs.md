@@ -1,3 +1,17 @@
+## Test Run 2026-02-09T10:00:00Z
+- Status: PASS (96 passed, 2 pre-existing failures)
+- Start: 2026-02-09T10:00:00Z
+- End: 2026-02-09T10:00:05Z
+- Command: `python -m pytest --tb=short && node scripts/ui_proposal_renderer_test.mjs`
+- Details: Full Python suite (96 pass, 2 pre-existing encoding failures unrelated to change) + UI renderer tests pass. Flow-chip naming reconciled to `id="duet-flow-chip"` across HTML/TS/CSS/dist. Playwright e2e spec `flow-chip.spec.ts` added.
+
+## Test Run 2026-02-09T00:30:00Z
+- Status: PASS
+- Start: 2026-02-09T00:30:00Z
+- End: 2026-02-09T00:30:04Z
+- Command: `cd web && npm run build`
+- Details: TypeScript compiler (tsc -p tsconfig.json) after adding the flow tag chip in the duet footer
+
 ## Test Run 2026-02-08T22:54:37Z
 - Status: PASS
 - Start: 2026-02-08T22:54:37Z
