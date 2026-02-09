@@ -1575,7 +1575,28 @@ function wireFloatingComposerTrigger(stage) {
 function syncFlowMenuVisibility() {
     if (!flowMenuContainer)
         return;
-    flowMenuContainer.classList.toggle("hidden", composerVisible);
+    const trigger = document.getElementById("flow-menu-trigger");
+    if (composerVisible) {
+        // Show trigger as a red ✕ close button instead of hiding it
+        flowMenuContainer.classList.remove("hidden");
+        if (trigger) {
+            trigger.classList.add("close-mode");
+            trigger.textContent = "✕";
+            trigger.setAttribute("aria-label", "Close composer");
+        }
+        // Hide the dropdown while in close mode
+        if (flowMenuDropdown) {
+            flowMenuDropdown.style.display = "none";
+            flowMenuDropdown.classList.remove("open");
+        }
+    }
+    else {
+        if (trigger) {
+            trigger.classList.remove("close-mode");
+            trigger.textContent = "⚙";
+            trigger.setAttribute("aria-label", `Options (current: ${flowDisplayLabel(currentFlowKey)})`);
+        }
+    }
 }
 function setupFlowChips() {
     const shell = document.getElementById("duet-shell");
@@ -1598,7 +1619,13 @@ function setupFlowChips() {
     trigger.className = "flow-menu-toggle";
     trigger.setAttribute("aria-haspopup", "true");
     trigger.setAttribute("aria-expanded", "false");
-    trigger.addEventListener("click", () => setFlowMenuOpen(!flowMenuOpen));
+    trigger.addEventListener("click", () => {
+        if (composerVisible) {
+            hideFloatingComposer();
+            return;
+        }
+        setFlowMenuOpen(!flowMenuOpen);
+    });
     const dropdown = document.createElement("div");
     dropdown.className = "flow-menu-dropdown";
     dropdown.setAttribute("role", "menu");
