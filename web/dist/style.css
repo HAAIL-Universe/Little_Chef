@@ -445,6 +445,7 @@ pre {
   margin: 0;
   font-weight: 700;
   min-width: 0;
+  box-shadow: var(--shadow);
 }
 
 .history-overlay {
@@ -469,6 +470,11 @@ pre {
   top: 12px;
   right: 16px;
   z-index: 50;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  overflow: visible;
+  box-shadow: var(--shadow);
 }
 
 .duet-stage.history-open .duet-bubble {
@@ -527,6 +533,8 @@ pre {
   text-transform: uppercase;
   letter-spacing: 0.06em;
   opacity: 0.8;
+  text-align: center;
+  margin-bottom: 4px;
 }
 
 .duet-bubble .bubble-text {
@@ -745,6 +753,7 @@ pre {
   background: rgba(255, 255, 255, 0.08);
   color: var(--text);
   border: 1px solid rgba(255, 255, 255, 0.16);
+  box-shadow: var(--shadow);
 }
 
 .icon-btn.primary {
@@ -758,6 +767,29 @@ pre {
   font-size: 13px;
   color: #c3d5ff;
   opacity: 0.85;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+}
+
+.duet-status .status-text {
+  flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.duet-status .status-tag {
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding: 2px 6px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  background: rgba(0, 0, 0, 0.25);
+  color: var(--text);
+  white-space: nowrap;
 }
 
 .duet-status.error {

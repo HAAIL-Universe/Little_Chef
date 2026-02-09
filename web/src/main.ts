@@ -550,6 +550,14 @@ function setDuetStatus(msg: string, isError = false) {
   el.classList.toggle("error", isError);
 }
 
+function updateFlowStatusText() {
+  const el = document.getElementById("duet-flow-status");
+  if (!el) return;
+  const flow = flowOptions.find((f) => f.key === currentFlowKey) ?? flowOptions[0];
+  const label = flow.key === "general" ? "General" : flow.label;
+  el.textContent = `[${label}]`;
+}
+
 function setComposerPlaceholder() {
   const input = document.getElementById("duet-input") as HTMLInputElement | null;
   if (!input) return;
@@ -687,8 +695,8 @@ function updateDuetBubbles() {
   const lastAssistant = [...duetState.history].reverse().find((h) => h.role === "assistant");
   const lastUser = [...duetState.history].reverse().find((h) => h.role === "user");
   const assistantFallback =
-    "Welcome — I’m Little Chef. To start onboarding, please fill out your preferences (allergies, likes/dislikes, servings, days).";
-  const userFallback = "Press and hold to start onboarding with preferences.";
+    "Welcome — I’m Little Chef.\n\nTo start onboarding, follow the instructions below.";
+  const userFallback = "Long-press this chat bubble to navigate > Preferences";
   setBubbleText(assistant, lastAssistant?.text ?? assistantFallback);
   const showSentText = userBubbleEllipsisActive && isNormalChatFlow();
   const fallbackText = isNormalChatFlow() ? userFallback : lastUser?.text ?? userFallback;
@@ -1555,6 +1563,7 @@ function wire() {
   updateThreadLabel();
   applyDrawerProgress(0, { commit: true });
   elevateDuetBubbles();
+  updateFlowStatusText();
 }
 
 document.addEventListener("DOMContentLoaded", wire);
@@ -1780,6 +1789,7 @@ function selectFlow(key: string) {
   if (currentFlowKey === "prefs") {
     refreshPrefsOverlay(true);
   }
+  updateFlowStatusText();
 }
 
 function ensureOverlayRoot() {

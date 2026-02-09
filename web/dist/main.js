@@ -504,6 +504,15 @@ function setDuetStatus(msg, isError = false) {
     el.textContent = msg;
     el.classList.toggle("error", isError);
 }
+function updateFlowStatusText() {
+    var _a;
+    const el = document.getElementById("duet-flow-status");
+    if (!el)
+        return;
+    const flow = (_a = flowOptions.find((f) => f.key === currentFlowKey)) !== null && _a !== void 0 ? _a : flowOptions[0];
+    const label = flow.key === "general" ? "General" : flow.label;
+    el.textContent = `[${label}]`;
+}
 function setComposerPlaceholder() {
     var _a;
     const input = document.getElementById("duet-input");
@@ -639,8 +648,8 @@ function updateDuetBubbles() {
     const user = document.getElementById("duet-user-text");
     const lastAssistant = [...duetState.history].reverse().find((h) => h.role === "assistant");
     const lastUser = [...duetState.history].reverse().find((h) => h.role === "user");
-    const assistantFallback = "Welcome — I’m Little Chef. To start onboarding, please fill out your preferences (allergies, likes/dislikes, servings, days).";
-    const userFallback = "Press and hold to start onboarding with preferences.";
+    const assistantFallback = "Welcome — I’m Little Chef.\n\nTo start onboarding, follow the instructions below.";
+    const userFallback = "Long-press this chat bubble to navigate > Preferences";
     setBubbleText(assistant, (_a = lastAssistant === null || lastAssistant === void 0 ? void 0 : lastAssistant.text) !== null && _a !== void 0 ? _a : assistantFallback);
     const showSentText = userBubbleEllipsisActive && isNormalChatFlow();
     const fallbackText = isNormalChatFlow() ? userFallback : (_b = lastUser === null || lastUser === void 0 ? void 0 : lastUser.text) !== null && _b !== void 0 ? _b : userFallback;
@@ -1471,6 +1480,7 @@ function wire() {
     updateThreadLabel();
     applyDrawerProgress(0, { commit: true });
     elevateDuetBubbles();
+    updateFlowStatusText();
 }
 document.addEventListener("DOMContentLoaded", wire);
 function wireDuetComposer() {
@@ -1686,6 +1696,7 @@ function selectFlow(key) {
     if (currentFlowKey === "prefs") {
         refreshPrefsOverlay(true);
     }
+    updateFlowStatusText();
 }
 function ensureOverlayRoot() {
     var _a;
