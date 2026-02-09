@@ -509,16 +509,16 @@ def test_initial_parse_stt_paragraph():
 
     # Numbers
     assert result.servings == 2
-    assert result.meals_per_day == 5
+    assert result.plan_days == 5
 
 
 def test_initial_parse_monday_to_friday_days():
-    """'Monday to Friday' should produce meals_per_day=5."""
+    """'Monday to Friday' should produce plan_days=5."""
     svc, _ = _make_svc_and_prefs()
     text = "it's for two servings, and i want meals for monday to friday this week."
     result = svc._parse_prefs_from_message(text)
     assert result.servings == 2
-    assert result.meals_per_day == 5
+    assert result.plan_days == 5
 
 
 def test_initial_parse_allergy_before_keyword():

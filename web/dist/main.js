@@ -330,7 +330,7 @@ function renderProposal() {
     }
     const summaries = state.proposedActions.map((action) => {
         if (action.action_type === "upsert_prefs" && action.prefs) {
-            return `Update prefs: servings ${action.prefs.servings}, meals/day ${action.prefs.meals_per_day}`;
+            return `Update prefs: servings ${action.prefs.servings}, ${action.prefs.plan_days} days, meals/day ${action.prefs.meals_per_day}`;
         }
         if (action.action_type === "create_inventory_event" && action.event) {
             const e = action.event;
@@ -1095,7 +1095,8 @@ function renderPrefsOverlay(prefs) {
     }
     const servings = Number.isFinite(prefs.servings) ? prefs.servings : "—";
     const meals = Number.isFinite(prefs.meals_per_day) ? prefs.meals_per_day : "—";
-    summaryEl.textContent = `${servings} servings · ${meals} meals/day`;
+    const days = Number.isFinite(prefs.plan_days) ? prefs.plan_days : "—";
+    summaryEl.textContent = `${servings} servings · ${days} days · ${meals} meals/day`;
     const sections = [
         { title: "Allergies", items: Array.isArray(prefs.allergies) ? prefs.allergies : [] },
         { title: "Dislikes", items: Array.isArray(prefs.dislikes) ? prefs.dislikes : [] },

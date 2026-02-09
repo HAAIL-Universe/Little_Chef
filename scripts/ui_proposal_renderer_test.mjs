@@ -12,6 +12,7 @@ const sampleResponse = {
         cuisine_likes: ["chicken", "salmon"],
         servings: 2,
         meals_per_day: 2,
+        plan_days: 5,
         notes: "No blue cheese",
       },
     },

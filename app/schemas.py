@@ -27,6 +27,7 @@ class UserPrefs(BaseModel):
     cuisine_likes: List[str] = Field(default_factory=list)
     servings: int
     meals_per_day: int
+    plan_days: int = 0
     notes: str = ""
 
 

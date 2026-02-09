@@ -4,8 +4,8 @@ type Prefs = {
   cuisine_likes?: string[];
   servings?: number;
   meals_per_day?: number;
+  plan_days?: number;
   notes?: string;
-  days?: number;
 };
 
 type InventoryEvent = {
@@ -42,8 +42,8 @@ const describePrefs = (prefs: Prefs): string[] => {
   if (prefs.meals_per_day) {
     lines.push(`• Meals/day: ${prefs.meals_per_day}`);
   }
-  if (prefs.days) {
-    lines.push(`• Days: ${prefs.days}`);
+  if (prefs.plan_days) {
+    lines.push(`• Plan days: ${prefs.plan_days}`);
   }
   const allergyLine = formatList("Allergies", prefs.allergies);
   if (allergyLine) lines.push(`• ${allergyLine}`);

@@ -284,12 +284,19 @@ class ChatService:
         return success, applied_event_ids, reason
 
     def _merge_with_defaults(self, user_id: str, parsed: UserPrefs) -> UserPrefs:
+        # Only merge from stored prefs if the user has explicitly saved prefs
+        # before.  Otherwise DEFAULT_PREFS numeric values (e.g. meals_per_day=3)
+        # leak into the proposal for fields the user never mentioned.
+        if not self.prefs_service.has_prefs(user_id):
+            return parsed.model_copy()
         existing = self.prefs_service.get_prefs(user_id)
         merged = existing.model_copy()
         if parsed.servings and parsed.servings > 0:
             merged.servings = parsed.servings
         if parsed.meals_per_day and parsed.meals_per_day > 0:
             merged.meals_per_day = parsed.meals_per_day
+        if parsed.plan_days and parsed.plan_days > 0:
+            merged.plan_days = parsed.plan_days
         if parsed.allergies:
             merged.allergies = parsed.allergies
         if parsed.dislikes:
@@ -306,6 +313,8 @@ class ChatService:
             merged.servings = patch.servings
         if patch.meals_per_day and patch.meals_per_day > 0:
             merged.meals_per_day = patch.meals_per_day
+        if patch.plan_days and patch.plan_days > 0:
+            merged.plan_days = patch.plan_days
         if patch.allergies:
             merged.allergies = patch.allergies
         if patch.dislikes:
@@ -460,14 +469,19 @@ class ChatService:
             [
                 r"meals?\s*per\s*day[^0-9]*(\d+)",
                 r"(\d+)\s*meals?\s*per\s*day",
-                r"meals?[^0-9]*(\d+)",
+                r"(\d+)\s*meals?\s*(?:a|each)\s*day",
+            ],
+        )
+        plan_days = self._extract_number(
+            lowered_message,
+            [
                 r"(\d+)\s*days?",
-                r"days?[^0-9]*(\d+)",
+                r"(?<!per\s)days?[^0-9]*(\d+)",
             ],
         )
         # Fallback: "Monday to Friday" style span
-        if not meals_per_day:
-            meals_per_day = self._extract_day_span(lowered_message)
+        if not plan_days:
+            plan_days = self._extract_day_span(lowered_message)
 
         allergies = self._extract_allergy_items(lowered_message)
         dislikes = self._extract_clause_items(lowered_message, DISLIKE_CLAUSE_PATTERNS)
@@ -481,6 +495,7 @@ class ChatService:
             cuisine_likes=cuisine_likes,
             servings=servings or 0,
             meals_per_day=meals_per_day or 0,
+            plan_days=plan_days or 0,
             notes="",
         )
 
@@ -488,8 +503,8 @@ class ChatService:
         questions: List[str] = []
         if prefs.servings < 1:
             questions.append("How many servings should I plan for?")
-        if prefs.meals_per_day < 1:
-            questions.append("How many meals per day do you want?")
+        if prefs.plan_days < 1 and prefs.meals_per_day < 1:
+            questions.append("How many days do you want to plan for?")
         return questions
 
     # ------------------------------------------------------------------
@@ -613,7 +628,7 @@ class ChatService:
                 # Also update draft so future edits stack
                 self.prefs_drafts[key] = updated_prefs
 
-                summary = f"Proposed preferences: servings {updated_prefs.servings}, meals/day {updated_prefs.meals_per_day}."
+                summary = f"Proposed preferences: {updated_prefs.plan_days} days, {updated_prefs.servings} servings, {updated_prefs.meals_per_day} meals/day."
                 return ChatResponse(
                     reply_text=f"{summary} Reply 'confirm' to save, or send changes to edit.",
                     confirmation_required=True,
@@ -624,7 +639,7 @@ class ChatService:
                 )
 
         draft = self.prefs_drafts.get(
-            key, UserPrefs(allergies=[], dislikes=[], cuisine_likes=[], servings=0, meals_per_day=0, notes="")
+            key, UserPrefs(allergies=[], dislikes=[], cuisine_likes=[], servings=0, meals_per_day=0, plan_days=0, notes="")
         )
 
         parsed = self._parse_prefs_from_message(request.message.lower())
@@ -653,7 +668,7 @@ class ChatService:
         self.proposal_store.save(user_id, proposal_id, action)
         self._prefs_proposal_ids[key] = proposal_id
 
-        summary = f"Proposed preferences: servings {prefs.servings}, meals/day {prefs.meals_per_day}."
+        summary = f"Proposed preferences: {prefs.plan_days} days, {prefs.servings} servings, {prefs.meals_per_day} meals/day."
         return ChatResponse(
             reply_text=f"{summary} Reply 'confirm' to save, or send changes to edit.",
             confirmation_required=True,
@@ -665,7 +680,7 @@ class ChatService:
 
     def _format_prefs(self, prefs: UserPrefs) -> str:
         return (
-            f"Servings: {prefs.servings}, meals/day: {prefs.meals_per_day}. "
+            f"Plan days: {prefs.plan_days}, servings: {prefs.servings}, meals/day: {prefs.meals_per_day}. "
             f"Allergies: {', '.join(prefs.allergies) or 'none'}. "
             f"Dislikes: {', '.join(prefs.dislikes) or 'none'}. "
             f"Cuisine likes: {', '.join(prefs.cuisine_likes) or 'none'}."

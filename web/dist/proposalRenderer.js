@@ -12,8 +12,8 @@ const describePrefs = (prefs) => {
     if (prefs.meals_per_day) {
         lines.push(`• Meals/day: ${prefs.meals_per_day}`);
     }
-    if (prefs.days) {
-        lines.push(`• Days: ${prefs.days}`);
+    if (prefs.plan_days) {
+        lines.push(`• Plan days: ${prefs.plan_days}`);
     }
     const allergyLine = formatList("Allergies", prefs.allergies);
     if (allergyLine)

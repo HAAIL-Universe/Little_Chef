@@ -12,6 +12,7 @@ DEFAULT_PREFS = UserPrefs(
     cuisine_likes=[],
     servings=2,
     meals_per_day=3,
+    plan_days=7,
     notes="",
 )
 

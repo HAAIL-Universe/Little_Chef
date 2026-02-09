@@ -139,7 +139,7 @@ def test_chat_prefs_confirm_failure_is_retriable(authed_client, monkeypatch):
 
 
 def test_labeled_paragraph_produces_proposal_not_followup(authed_client):
-    """Exact paragraph from live bug: system asked 'meals per day?' despite all fields supplied."""
+    """Exact paragraph from live bug: system asked follow-up despite all fields supplied."""
     get_prefs_service().repo = FakeDbPrefsRepository()
     thread = "t-prefs-labeled-para"
     paragraph = (
@@ -162,7 +162,7 @@ def test_labeled_paragraph_produces_proposal_not_followup(authed_client):
     action = body["proposed_actions"][0]
     prefs = action["prefs"]
     assert prefs["servings"] == 2
-    assert prefs["meals_per_day"] == 5
+    assert prefs["plan_days"] == 5
     # "Allergies: none" must yield empty list, not ["none"]
     assert prefs["allergies"] == []
     # Likes must not include dislike items
@@ -204,17 +204,17 @@ def test_labeled_paragraph_persists_after_confirm(authed_client):
     assert prefs_resp.status_code == 200
     prefs = prefs_resp.json()
     assert prefs["servings"] == 4
-    assert prefs["meals_per_day"] == 3
+    assert prefs["plan_days"] == 3
     assert prefs["allergies"] == []
     assert "chicken" in prefs["cuisine_likes"]
     assert "mushrooms" in prefs["dislikes"]
 
 
-def test_meals_per_day_asked_only_when_truly_missing(authed_client):
-    """When servings supplied but days/meals not, must ask. When days supplied, must not."""
+def test_plan_days_asked_only_when_truly_missing(authed_client):
+    """When servings supplied but days not, must ask. When days supplied, must not."""
     get_prefs_service().repo = FakeDbPrefsRepository()
 
-    # Case 1: only servings -> asks for meals per day
+    # Case 1: only servings -> asks for plan days
     thread1 = "t-prefs-missing-mpd"
     resp1 = authed_client.post(
         "/chat",
@@ -223,7 +223,7 @@ def test_meals_per_day_asked_only_when_truly_missing(authed_client):
     assert resp1.status_code == 200
     body1 = resp1.json()
     assert body1["confirmation_required"] is False
-    assert "meals" in body1["reply_text"].lower() or "day" in body1["reply_text"].lower()
+    assert "day" in body1["reply_text"].lower()
 
     # Case 2: servings + days -> proposal (no follow-up)
     thread2 = "t-prefs-has-days"
@@ -234,7 +234,7 @@ def test_meals_per_day_asked_only_when_truly_missing(authed_client):
     assert resp2.status_code == 200
     body2 = resp2.json()
     assert body2["confirmation_required"] is True
-    assert body2["proposed_actions"][0]["prefs"]["meals_per_day"] == 7
+    assert body2["proposed_actions"][0]["prefs"]["plan_days"] == 7
 
 
 def test_none_sentinel_filtered_from_all_list_fields(authed_client):
