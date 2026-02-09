@@ -1379,7 +1379,7 @@ async function sendAsk(message: string, opts?: { flowLabel?: string; updateChatP
   try {
     const threadId = ensureThread();
     const endpoint = currentFlowKey === "inventory" ? "/chat/inventory" : "/chat";
-    const mode = currentFlowKey === "inventory" ? "fill" : currentModeLower();
+    const mode = currentFlowKey === "inventory" || currentFlowKey === "prefs" ? "fill" : currentModeLower();
     const res = await fetch(endpoint, {
       method: "POST",
       headers: headers(),
@@ -1813,6 +1813,8 @@ function selectFlow(key: string) {
     refreshInventoryOverlay(true);
   }
   if (currentFlowKey === "prefs") {
+    lastServerMode = "FILL";
+    updateThreadLabel();
     refreshPrefsOverlay(true);
   }
   updateFlowStatusText();
