@@ -113,6 +113,21 @@ components:
           type: integer
           minimum: 1
           maximum: 6
+        cook_time_weekday_mins:
+          type: integer
+          nullable: true
+          default: null
+          description: Preferred max cook time on weekdays (minutes)
+        cook_time_weekend_mins:
+          type: integer
+          nullable: true
+          default: null
+          description: Preferred max cook time on weekends (minutes)
+        diet_goals:
+          type: array
+          items: { type: string }
+          default: []
+          description: Dietary goals e.g. high protein, low sugar
         notes:
           type: string
           default: ""
@@ -125,7 +140,26 @@ components:
 
     Unit:
       type: string
-      enum: [g, ml, count]
+      enum:
+        - g
+        - ml
+        - count
+        - tin
+        - bag
+        - box
+        - jar
+        - bottle
+        - pack
+        - loaf
+        - slice
+        - piece
+        - can
+        - carton
+        - tub
+        - pot
+        - bunch
+        - bulb
+        - head
 
     InventoryEventType:
       type: string

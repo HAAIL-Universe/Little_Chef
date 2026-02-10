@@ -7,16 +7,19 @@ DraftItemRaw = Dict[str, Optional[str]]
 EditOps = Dict[str, Any]
 
 
-def extract_new_draft(text: str, llm: Optional[LlmClient]) -> List[DraftItemRaw]:
+def extract_new_draft(text: str, llm: Optional[LlmClient]) -> Optional[List[DraftItemRaw]]:
     """
-    Placeholder LLM-backed extractor for NEW drafts.
-    - Obeys llm gating (enabled + valid model) via llm_client.
-    - Returns deterministic empty list when disabled/invalid to allow server to reply safely.
+    LLM-backed extractor for NEW drafts.
+    Returns None when LLM is unavailable (disabled / no client),
+    returns [] when LLM was called but produced no items.
     """
     if llm is None:
-        return []
+        return None
     reply = llm.generate_structured_reply(text, kind="draft")
-    if not reply or "items" not in reply:
+    if reply is None:
+        # LLM is disabled or model invalid — signal unavailable
+        return None
+    if "items" not in reply:
         return []
     items = reply.get("items") or []
     out: List[DraftItemRaw] = []

@@ -1,4 +1,4 @@
-// web/src/proposalRenderer.ts
+// src/proposalRenderer.ts
 var parseNoteKeyValues = (note) => {
   const fields = {};
   note.split(";").forEach((piece) => {
@@ -121,7 +121,7 @@ function stripProposalPrefix(text) {
   return rest.trimStart();
 }
 
-// web/src/main.ts
+// src/main.ts
 var state = {
   token: "",
   lastPlan: null,
@@ -224,6 +224,7 @@ var flowMenuOpen = false;
 var flowMenuListenersBound = false;
 var recipePacksButton = null;
 var packsModalOverlay = null;
+var mealplanReached = false;
 var devPanelVisible = false;
 var inventoryOverlay = null;
 var inventoryStatusEl = null;
@@ -246,6 +247,29 @@ var USER_BUBBLE_DEFAULT_HINT = "Long-press this chat bubble to navigate > Prefer
 var userSystemHint = USER_BUBBLE_DEFAULT_HINT;
 var HISTORY_BADGE_DISPLAY_MAX = 99;
 var NORMAL_CHAT_FLOW_KEYS = /* @__PURE__ */ new Set(["general", "inventory", "mealplan", "prefs"]);
+var CHEF_BUSY_PHRASES = [
+  "Prepping ingredients",
+  "Heating the pan",
+  "Chopping veg",
+  "Tasting the broth",
+  "Reducing the sauce",
+  "Simmering away",
+  "Seasoning to taste",
+  "Whisking it together",
+  "Checking the pantry",
+  "Plating up",
+  "Folding in flavours",
+  "Stirring the pot",
+  "Deglazing the pan",
+  "Rolling out the dough",
+  "Letting it rest"
+];
+var CHEF_BUSY_INTERVAL_MS = 2800;
+var chefBusyTimer = null;
+var chefBusyIndex = -1;
+var chefBusyThinkingIndex = -1;
+var chefBusyDotCount = 0;
+var chefBusyDotTimer = null;
 var overlayRoot = null;
 var onboardPressTimer = null;
 var onboardPressStart = null;
@@ -599,6 +623,8 @@ async function submitProposalDecision(confirm, thinkingIndex) {
         updateInventoryOverlayVisibility();
         userSystemHint = "Long-press this chat bubble to finish onboarding > Meal Plan";
         setUserBubbleEllipsis(false);
+        const userBubble = document.getElementById("duet-user-bubble");
+        if (userBubble) userBubble.style.display = "";
         setBubbleText(document.getElementById("duet-user-text"), userSystemHint);
       }
       clearProposal();
@@ -915,9 +941,11 @@ function setupHistoryDrawerUi() {
     recipePacksButton.className = "icon-btn recipe-packs-btn";
     recipePacksButton.setAttribute("aria-label", "Recipe packs");
     recipePacksButton.textContent = "\u{1F4D6}";
+    recipePacksButton.style.display = "none";
     recipePacksButton.addEventListener("click", () => openPacksModal());
     stage.appendChild(recipePacksButton);
   }
+  updateRecipePacksButtonVisibility();
   resetHistoryBadge();
 }
 function ensureHistoryBadgeElement() {
@@ -1320,8 +1348,10 @@ async function sendAsk(message, opts) {
   }
   const userIndex = addHistory("user", displayText);
   const thinkingIndex = addHistory("assistant", "...");
+  startChefBusyCycle(thinkingIndex);
   const command = state.proposalId ? detectProposalCommand(normalizedMessage) : null;
   if (command) {
+    stopChefBusyCycle();
     setDuetStatus(command === "confirm" ? "Applying proposal confirmation..." : "Cancelling proposal...");
     setComposerBusy(true);
     try {
@@ -1374,6 +1404,7 @@ ${replyBase}` : replyBase;
     }
     console.error(err);
   } finally {
+    stopChefBusyCycle();
     setComposerBusy(false);
   }
   return { userIndex, thinkingIndex };
@@ -1384,6 +1415,44 @@ function setComposerBusy(busy) {
   const sendBtn = document.getElementById("duet-send");
   if (sendBtn) sendBtn.disabled = busy || !!(input && input.value.trim().length === 0);
   if (input) input.readOnly = busy;
+}
+function renderChefBusyPhrase() {
+  const phrase = CHEF_BUSY_PHRASES[chefBusyIndex % CHEF_BUSY_PHRASES.length];
+  const dots = ".".repeat(chefBusyDotCount + 1);
+  const text = `${phrase}${dots}`;
+  duetState.history[chefBusyThinkingIndex] = {
+    ...duetState.history[chefBusyThinkingIndex],
+    text
+  };
+  const assistant = document.getElementById("duet-assistant-text");
+  if (assistant) assistant.textContent = text;
+}
+function startChefBusyCycle(thinkingIndex) {
+  stopChefBusyCycle();
+  chefBusyThinkingIndex = thinkingIndex;
+  chefBusyIndex = Math.floor(Math.random() * CHEF_BUSY_PHRASES.length);
+  chefBusyDotCount = 0;
+  renderChefBusyPhrase();
+  chefBusyDotTimer = setInterval(() => {
+    chefBusyDotCount = (chefBusyDotCount + 1) % 3;
+    renderChefBusyPhrase();
+  }, 500);
+  chefBusyTimer = setInterval(() => {
+    chefBusyIndex++;
+    chefBusyDotCount = 0;
+    renderChefBusyPhrase();
+  }, CHEF_BUSY_INTERVAL_MS);
+}
+function stopChefBusyCycle() {
+  if (chefBusyTimer !== null) {
+    clearInterval(chefBusyTimer);
+    chefBusyTimer = null;
+  }
+  if (chefBusyDotTimer !== null) {
+    clearInterval(chefBusyDotTimer);
+    chefBusyDotTimer = null;
+  }
+  chefBusyThinkingIndex = -1;
 }
 async function silentGreetOnce() {
   if (!state.token?.trim()) return;
@@ -1426,9 +1495,11 @@ function wire() {
     setText("auth-out", result);
     state.onboarded = !!result.json?.onboarded;
     state.inventoryOnboarded = !!result.json?.inventory_onboarded;
+    if (state.inventoryOnboarded) mealplanReached = true;
     renderOnboardMenuButtons();
     updatePrefsOverlayVisibility();
     updateInventoryOverlayVisibility();
+    updateRecipePacksButtonVisibility();
     await silentGreetOnce();
     inventoryHasLoaded = false;
     if (currentFlowKey === "inventory") {
@@ -1750,6 +1821,10 @@ function selectFlow(key) {
     refreshPrefsOverlay(true);
   }
   if (currentFlowKey === "mealplan") {
+    if (state.inventoryOnboarded && !mealplanReached) {
+      mealplanReached = true;
+      updateRecipePacksButtonVisibility();
+    }
     checkMealplanFirstVisit();
   }
   updateFlowStatusText();
@@ -1835,6 +1910,10 @@ function clampNumber(value, min, max) {
     return min;
   }
   return Math.min(Math.max(value, min), max);
+}
+function updateRecipePacksButtonVisibility() {
+  if (!recipePacksButton) return;
+  recipePacksButton.style.display = mealplanReached ? "" : "none";
 }
 var mealplanNudged = false;
 async function checkMealplanFirstVisit() {

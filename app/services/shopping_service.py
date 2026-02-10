@@ -30,8 +30,8 @@ class ShoppingService:
         summary = self.inventory_service.summary(user_id)
         available: Dict[Tuple[str, str], float] = {}
         for item in summary.items:
-            key = (self._normalize(item.item_name), item.unit)
-            available[key] = available.get(key, 0.0) + item.quantity
+            key = (self._normalize(item.item_name), item.unit or "count")
+            available[key] = available.get(key, 0.0) + (item.quantity or 0)
 
         missing_items: list[ShoppingListItem] = []
         for (name, unit), needed in required.items():

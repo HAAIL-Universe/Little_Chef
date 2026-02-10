@@ -46,11 +46,13 @@ class InventoryService:
         aggregates: Dict[tuple[str, str], float] = {}
         events = self.repo.all_events(user_id)
         for ev in events:
-            key = (self._normalize(ev.item_name), ev.unit)
+            unit = ev.unit or "count"
+            qty = ev.quantity if ev.quantity is not None else 0
+            key = (self._normalize(ev.item_name), unit)
             if ev.event_type == "adjust":
-                aggregates[key] = ev.quantity
+                aggregates[key] = qty
             else:
-                delta = ev.quantity if ev.event_type == "add" else -ev.quantity
+                delta = qty if ev.event_type == "add" else -qty
                 aggregates[key] = aggregates.get(key, 0) + delta
 
         items: List[InventorySummaryItem] = []

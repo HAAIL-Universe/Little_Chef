@@ -401,7 +401,8 @@ class InventoryAgent:
             )
 
         raw_items = extract_new_draft(request.message, self.llm_client)
-        if not raw_items:
+        if raw_items is None:
+            # LLM unavailable — fall back to regex parser
             inv_actions, parse_warnings, follow_ups = self._parse_inventory_actions(request.message)
             if inv_actions:
                 proposal_id = str(uuid.uuid4())
@@ -435,6 +436,17 @@ class InventoryAgent:
                 )
             return ChatResponse(
                 reply_text="I could not parse an inventory update. Mention what you added or used (e.g., 'bought 2 eggs').",
+                confirmation_required=False,
+                proposal_id=None,
+                proposed_actions=[],
+                suggested_next_questions=[],
+                mode=request.mode or "fill",
+            )
+
+        if not raw_items:
+            # LLM was available but returned no items — ask user to retry
+            return ChatResponse(
+                reply_text="Sorry, I had trouble processing that inventory scan. Could you please try again? If the problem persists, try sending it in smaller batches.",
                 confirmation_required=False,
                 proposal_id=None,
                 proposed_actions=[],
@@ -569,9 +581,19 @@ class InventoryAgent:
             it = item["item"]
             warnings = item.get("warnings", [])
             warn_txt = " ".join(f"[{w}]" for w in warnings) if warnings else ""
-            qty = f"{it.get('quantity') or ''}{it.get('unit') or ''}".strip()
+            q = it.get('quantity')
+            u = it.get('unit') or ''
+            if q is not None:
+                # Format: "500g" or "6 tin" or "2 count"
+                q_str = f"{q:g}" if q == int(q) else f"{q}"
+                qty = f"{q_str}{u}" if u in ('g', 'ml') else f"{q_str} {u}".strip()
+            else:
+                qty = ""
             expiry = it.get("expires_on") or ""
-            lines.append(f"{idx}. {it.get('base_name')} {qty} {expiry} {warn_txt}".strip())
+            name = it.get('display_name') or it.get('base_name') or it.get('name_raw', '')
+            notes = it.get('notes') or ''
+            notes_txt = f"({notes})" if notes else ""
+            lines.append(f"{idx}. {name} {qty} {expiry} {notes_txt} {warn_txt}".strip())
         if unmatched:
             lines.append(f"Unmatched edits: {', '.join(unmatched)}")
         if allowlist_warnings:
@@ -613,12 +635,14 @@ class InventoryAgent:
         actions: List[ProposedInventoryEventAction] = []
         for n in normalized:
             it = n["item"]
+            raw_qty = it.get("quantity")
+            raw_unit = it.get("unit")
             action = ProposedInventoryEventAction(
                 event=InventoryEventCreateRequest(
                     event_type="add",
-                    item_name=it.get("item_key"),
-                    quantity=it.get("quantity") or 0,
-                    unit=it.get("unit") or "g",
+                    item_name=it.get("display_name") or it.get("item_key") or "",
+                    quantity=raw_qty if raw_qty is not None else None,
+                    unit=raw_unit if raw_unit else None,
                     note=it.get("notes") or "",
                     source="chat",
                 )

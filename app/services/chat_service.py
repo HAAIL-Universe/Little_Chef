@@ -20,6 +20,7 @@ from app.services.llm_client import (
     set_runtime_model,
 )
 from app.services.inventory_agent import InventoryAgent
+from app.services.prefs_parse_service import extract_prefs_llm
 
 NUMBER_WORDS: dict[str, int] = {
     "zero": 0,
@@ -36,24 +37,45 @@ NUMBER_WORDS: dict[str, int] = {
     "eleven": 11,
     "twelve": 12,
 }
+
+# Shared terminator for clause-capture regexes.  Stops at punctuation,
+# or the start of a new preference-category keyword (so one category's
+# capture doesn't bleed into the next in unpunctuated STT text).
+_CLAUSE_TERM = (
+    r"(?="
+    r"[.!?;]"  # punctuation
+    r"|\bi(?:\s|m\b|ve\b|d\b|'|')"  # new "I ..." clause (including STT "im", "ive", "id")
+    r"|\ballerg"  # allergy keyword
+    r"|\bdislike"  # dislike keyword
+    r"|\bserving"  # servings
+    r"|\bmeals?\s*per"  # meals per day
+    r"|\b\d+\s*(?:servings?|meals?|days?|people|minutes?|mins?)"  # numeric field
+    r"|\bplan\s*days?"  # plan days
+    r"|\bnotes?\b"  # notes keyword
+    r"|$"  # end of string
+    r")"
+)
 LIKE_CLAUSE_PATTERNS: tuple[str, ...] = (
-    r"(?:i(?: really)? like|i love)\s+(.+?)(?:[.!?]|$)",
-    r"(?<!dis)likes?:\s+(.+?)(?:[.!?]|$)",
+    rf"(?:i(?: really)? like|i love)\s+(.+?){_CLAUSE_TERM}",
+    rf"(?:i(?:'|\u2019)?m\s+happy\s+with(?:\s+most)?|im\s+happy\s+with(?:\s+most)?)\s+(.+?){_CLAUSE_TERM}",
+    rf"(?:i(?:'|\u2019)?m\s+good\s+with|im\s+good\s+with)\s+(.+?){_CLAUSE_TERM}",
+    rf"(?:i(?:'|\u2019)?m\s+fine\s+with|im\s+fine\s+with)\s+(.+?){_CLAUSE_TERM}",
+    rf"(?<!dis)likes?:\s+(.+?){_CLAUSE_TERM}",
 )
 DISLIKE_CLAUSE_PATTERNS: tuple[str, ...] = (
-    rf"(?:i(?: don(?:'|’)?t|do not)\s+like|i(?: hate|detest))\s+(.+?)(?:[.!?]|$)",
-    r"dislikes?:\s+(.+?)(?:[.!?]|$)",
+    rf"(?:i(?: don(?:'|')?t|do not)\s+like|i(?: hate|detest))\s+(.+?){_CLAUSE_TERM}",
+    rf"dislikes?:\s+(.+?){_CLAUSE_TERM}",
 )
 ALLERGY_CLAUSE_PATTERNS: tuple[str, ...] = (
     r"(?:got|have)\s+(?:a\s+)?(.+?)\s+allerg(?:y|ies)",
-    r"allergic to[^\S\r\n]*(.+?)(?:[.!?]|$)",
-    rf"can(?:'|\u2019)?t have[^\S\r\n]*(.+?)(?:[.!?]|$)",
-    r"cannot have[^\S\r\n]*(.+?)(?:[.!?]|$)",
-    r"allerg(?:y|ies)[^\S\r\n]*[:\-][^\S\r\n]*(.+?)(?:[.!?]|$)",
+    rf"allergic to[^\S\r\n]*(.+?){_CLAUSE_TERM}",
+    rf"can(?:'|\u2019)?t have[^\S\r\n]*(.+?){_CLAUSE_TERM}",
+    rf"cannot have[^\S\r\n]*(.+?){_CLAUSE_TERM}",
+    rf"allerg(?:y|ies)[^\S\r\n]*[:\-][^\S\r\n]*(.+?){_CLAUSE_TERM}",
 )
 CUISINE_CLAUSE_PATTERNS: tuple[str, ...] = (
-    r"cuisine likes?:\s+(.+?)(?:[.!?]|$)",
-    r"cuisines?:\s+(.+?)(?:[.!?]|$)",
+    rf"cuisine likes?:\s+(.+?){_CLAUSE_TERM}",
+    rf"cuisines?:\s+(.+?){_CLAUSE_TERM}",
 )
 ALLERGY_ITEM_PREFIXES: tuple[str, ...] = (
     "and i'm also allergic to",
@@ -327,6 +349,12 @@ class ChatService:
             merged.dislikes = parsed.dislikes
         if parsed.cuisine_likes:
             merged.cuisine_likes = parsed.cuisine_likes
+        if parsed.cook_time_weekday_mins is not None:
+            merged.cook_time_weekday_mins = parsed.cook_time_weekday_mins
+        if parsed.cook_time_weekend_mins is not None:
+            merged.cook_time_weekend_mins = parsed.cook_time_weekend_mins
+        if parsed.diet_goals:
+            merged.diet_goals = parsed.diet_goals
         if parsed.notes:
             merged.notes = parsed.notes
         return merged
@@ -345,6 +373,12 @@ class ChatService:
             merged.dislikes = patch.dislikes
         if patch.cuisine_likes:
             merged.cuisine_likes = patch.cuisine_likes
+        if patch.cook_time_weekday_mins is not None:
+            merged.cook_time_weekday_mins = patch.cook_time_weekday_mins
+        if patch.cook_time_weekend_mins is not None:
+            merged.cook_time_weekend_mins = patch.cook_time_weekend_mins
+        if patch.diet_goals:
+            merged.diet_goals = patch.diet_goals
         if patch.notes:
             merged.notes = patch.notes
         return merged
@@ -381,7 +415,8 @@ class ChatService:
         re.IGNORECASE,
     )
     # Clause-boundary: comma/semicolon before pronoun "I" signals a new clause
-    _INITIAL_CLAUSE_BOUNDARY = re.compile(r"[,;]\s*(?=(?:and\s+)?[Ii](?:[\s'\u2019]))")
+    # Matches STT contractions: im, ive, id (no apostrophe) as well as standard i'm, i've
+    _INITIAL_CLAUSE_BOUNDARY = re.compile(r"[,;]\s*(?=(?:and\s+)?[Ii](?:[\s'\u2019]|m\b|ve\b|d\b))")
 
     def _split_clause_items(self, segment: str) -> List[str]:
         if not segment:
@@ -390,9 +425,9 @@ class ChatService:
         segment = self._TRAILING_FILLER.sub("", segment)
         # Split at clause boundaries before "I" so sub-clauses don't leak
         sub_segments = self._INITIAL_CLAUSE_BOUNDARY.split(segment)
-        parts: list[str] = []
-        for sub in sub_segments:
-            parts.extend(re.split(r"\s*(?:,|\band\b|\bor\b)\s*", sub))
+        # Only keep the FIRST sub-segment — later ones belong to different categories
+        first = sub_segments[0] if sub_segments else segment
+        parts = re.split(r"\s*(?:,|\band\b|\bor\b)\s*", first)
         return [item for item in (self._clean_list_item(part) for part in parts) if item]
 
     def _match_clause_segments(self, text: str, patterns: tuple[str, ...]) -> List[str]:
@@ -419,12 +454,21 @@ class ChatService:
 
     # Filler prefixes that get captured inside clause items after splitting.
     # Ordered longest-first so "i'm happy with most" is stripped before "most".
+    # Includes STT contractions without apostrophes (im, ive).
     _ITEM_FILLER_PREFIXES = re.compile(
         r"^(?:"
-        r"i'm happy with most|i'm happy with|i am happy with most|i am happy with|"
-        r"i\u2019m happy with most|i\u2019m happy with|"
+        r"im not fussy about|i'm not fussy about|i\u2019m not fussy about|"
+        r"im fine with most|i'm fine with most|i\u2019m fine with most|"
+        r"im fine with|i'm fine with|i\u2019m fine with|"
+        r"im good with most|i'm good with most|i\u2019m good with most|"
+        r"im good with|i'm good with|i\u2019m good with|"
+        r"im happy with most|i'm happy with most|i\u2019m happy with most|"
+        r"im happy with|i'm happy with|i\u2019m happy with|"
+        r"i am happy with most|i am happy with|"
         r"i enjoy most|i enjoy|most|"
-        r"happy with most|happy with"
+        r"happy with most|happy with|"
+        r"as long as its not|as long as it's not|as long as it\u2019s not|"
+        r"anything like that"
         r")\s+",
         re.IGNORECASE,
     )
@@ -486,6 +530,12 @@ class ChatService:
         return span if span >= 1 else None
 
     def _parse_prefs_from_message(self, message: str) -> UserPrefs:
+        # --- Try LLM-based extraction first ---
+        llm_result = extract_prefs_llm(message, self.llm_client)
+        if llm_result is not None:
+            return llm_result
+
+        # --- Regex fallback (structured / punctuated input) ---
         lowered_message = message.lower()
         servings = self._extract_number(lowered_message, [
             r"(\d+)\s*servings?",
@@ -544,30 +594,31 @@ class ChatService:
     _APO = r"['\u2019]"
 
     _REMOVE_ALLERGY_PATTERNS: tuple[re.Pattern[str], ...] = (
-        re.compile(rf"(?:i{_APO}?m\s+)?not\s+allergic\s+to\s+(.+?)(?:[.!?]|$)", re.IGNORECASE),
-        re.compile(r"remove\s+allerg(?:y|ies)\s+(?:to\s+|for\s+)?(.+?)(?:[.!?]|$)", re.IGNORECASE),
-        re.compile(r"no\s+allergy\s+to\s+(.+?)(?:[.!?]|$)", re.IGNORECASE),
+        re.compile(rf"(?:i{_APO}?m\s+)?not\s+allergic\s+to\s+(.+?){_CLAUSE_TERM}", re.IGNORECASE),
+        re.compile(rf"remove\s+allerg(?:y|ies)\s+(?:to\s+|for\s+)?(.+?){_CLAUSE_TERM}", re.IGNORECASE),
+        re.compile(rf"no\s+allergy\s+to\s+(.+?){_CLAUSE_TERM}", re.IGNORECASE),
     )
     _ADD_ALLERGY_PATTERNS: tuple[re.Pattern[str], ...] = (
-        re.compile(rf"(?:i{_APO}?m\s+|i\s+am\s+)?allergic\s+to\s+(.+?)(?:[.!?]|$)", re.IGNORECASE),
-        re.compile(rf"(?:i\s+)?can{_APO}?t\s+have\s+(.+?)(?:[.!?]|$)", re.IGNORECASE),
+        re.compile(rf"(?:i{_APO}?m\s+|i\s+am\s+)?allergic\s+to\s+(.+?){_CLAUSE_TERM}", re.IGNORECASE),
+        re.compile(rf"(?:i\s+)?can{_APO}?t\s+have\s+(.+?){_CLAUSE_TERM}", re.IGNORECASE),
     )
     _ADD_LIKE_PATTERNS: tuple[re.Pattern[str], ...] = (
-        re.compile(r"i\s+(?:actually\s+)?(?:really\s+)?like\s+(.+?)(?:[.!?]|$)", re.IGNORECASE),
-        re.compile(r"i\s+love\s+(.+?)(?:[.!?]|$)", re.IGNORECASE),
+        re.compile(rf"i\s+(?:actually\s+)?(?:really\s+)?like\s+(.+?){_CLAUSE_TERM}", re.IGNORECASE),
+        re.compile(rf"i\s+love\s+(.+?){_CLAUSE_TERM}", re.IGNORECASE),
     )
     _ADD_DISLIKE_PATTERNS: tuple[re.Pattern[str], ...] = (
-        re.compile(rf"i\s+(?:don{_APO}?t|do\s+not)\s+like\s+(.+?)(?:[.!?]|$)", re.IGNORECASE),
-        re.compile(r"i\s+(?:hate|detest|dislike)\s+(.+?)(?:[.!?]|$)", re.IGNORECASE),
+        re.compile(rf"i\s+(?:don{_APO}?t|do\s+not)\s+like\s+(.+?){_CLAUSE_TERM}", re.IGNORECASE),
+        re.compile(rf"i\s+(?:hate|detest|dislike)\s+(.+?){_CLAUSE_TERM}", re.IGNORECASE),
     )
     # Clause-boundary normalizer: comma/semicolon before "I" (+ space or
     # apostrophe) is replaced with ". " so pattern terminators work correctly.
     # Avoids "I don't like eggs, I'm not allergic to X" capturing across clauses.
-    _CLAUSE_BOUNDARY = re.compile(r"[,;]\s*(?=[Ii](?:\s|['\u2019]))")
+    # Also handles STT contractions without apostrophes (im, ive, id).
+    _CLAUSE_BOUNDARY = re.compile(r"[,;]\s*(?=[Ii](?:\s|['\u2019]|m\b|ve\b|d\b))")
 
     _GENERIC_REMOVE_PATTERNS: tuple[re.Pattern[str], ...] = (
-        re.compile(r"remove\s+(.+?)(?:\s+from\s+(?:the\s+)?(?:list|proposal|allergies|likes|dislikes))?(?:[.!?]|$)", re.IGNORECASE),
-        re.compile(r"(?:take\s+off|delete|drop)\s+(.+?)(?:\s+from\s+(?:the\s+)?(?:list|proposal|allergies|likes|dislikes))?(?:[.!?]|$)", re.IGNORECASE),
+        re.compile(rf"remove\s+(.+?)(?:\s+from\s+(?:the\s+)?(?:list|proposal|allergies|likes|dislikes))?{_CLAUSE_TERM}", re.IGNORECASE),
+        re.compile(rf"(?:take\s+off|delete|drop)\s+(.+?)(?:\s+from\s+(?:the\s+)?(?:list|proposal|allergies|likes|dislikes))?{_CLAUSE_TERM}", re.IGNORECASE),
     )
 
     def _split_edit_items(self, segment: str) -> List[str]:
@@ -751,6 +802,13 @@ class ChatService:
             num_lines.append(f"- Plan days: {draft.plan_days}")
         if "meals_per_day" in answered and draft.meals_per_day > 0:
             num_lines.append(f"- Meals/day: {draft.meals_per_day}")
+        # New fields — show when populated
+        if draft.cook_time_weekday_mins is not None:
+            num_lines.append(f"- Cook time (weekday): {draft.cook_time_weekday_mins} mins")
+        if draft.cook_time_weekend_mins is not None:
+            num_lines.append(f"- Cook time (weekend): {draft.cook_time_weekend_mins} mins")
+        if draft.diet_goals:
+            list_lines.append(f"- Diet goals: {', '.join(draft.diet_goals)}")
         sections = [s for s in ["\n".join(list_lines), "\n".join(num_lines)] if s]
         return "\n\n".join(sections) if sections else ""
 

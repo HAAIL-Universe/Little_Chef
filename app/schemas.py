@@ -28,6 +28,9 @@ class UserPrefs(BaseModel):
     servings: int
     meals_per_day: int
     plan_days: int = 0
+    cook_time_weekday_mins: Optional[int] = Field(default=None, description="Preferred max cook time on weekdays (minutes)")
+    cook_time_weekend_mins: Optional[int] = Field(default=None, description="Preferred max cook time on weekends (minutes)")
+    diet_goals: List[str] = Field(default_factory=list, description="Dietary goals e.g. high protein, low sugar")
     notes: str = ""
 
 
@@ -40,7 +43,12 @@ class ProposedUpsertPrefsAction(BaseModel):
     prefs: UserPrefs
 
 
-Unit = Literal["g", "ml", "count"]
+Unit = Literal[
+    "g", "ml", "count",
+    "tin", "bag", "box", "jar", "bottle", "pack",
+    "loaf", "slice", "piece", "can", "carton", "tub", "pot",
+    "bunch", "bulb", "head",
+]
 InventoryEventType = Literal[
     "add",
     "consume_cooked",
@@ -54,8 +62,8 @@ class InventoryEventCreateRequest(BaseModel):
     occurred_at: Optional[str] = None
     event_type: InventoryEventType
     item_name: str
-    quantity: float
-    unit: Unit
+    quantity: Optional[float] = None
+    unit: Optional[Unit] = None
     note: Optional[str] = ""
     source: Optional[str] = "ui"
 
@@ -65,8 +73,8 @@ class InventoryEvent(BaseModel):
     occurred_at: str
     event_type: InventoryEventType
     item_name: str
-    quantity: float
-    unit: Unit
+    quantity: Optional[float] = None
+    unit: Optional[Unit] = None
     note: Optional[str] = None
     source: Optional[str] = None
 

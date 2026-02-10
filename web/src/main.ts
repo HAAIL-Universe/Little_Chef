@@ -120,6 +120,7 @@ let flowMenuOpen = false;
 let flowMenuListenersBound = false;
 let recipePacksButton: HTMLButtonElement | null = null;
 let packsModalOverlay: HTMLDivElement | null = null;
+let mealplanReached = false;
 let devPanelVisible = false;
 let inventoryOverlay: HTMLDivElement | null = null;
 let inventoryStatusEl: HTMLElement | null = null;
@@ -142,6 +143,31 @@ const USER_BUBBLE_DEFAULT_HINT = "Long-press this chat bubble to navigate > Pref
 let userSystemHint = USER_BUBBLE_DEFAULT_HINT;
 const HISTORY_BADGE_DISPLAY_MAX = 99;
 const NORMAL_CHAT_FLOW_KEYS = new Set(["general", "inventory", "mealplan", "prefs"]);
+
+const CHEF_BUSY_PHRASES = [
+  "Prepping ingredients",
+  "Heating the pan",
+  "Chopping veg",
+  "Tasting the broth",
+  "Reducing the sauce",
+  "Simmering away",
+  "Seasoning to taste",
+  "Whisking it together",
+  "Checking the pantry",
+  "Plating up",
+  "Folding in flavours",
+  "Stirring the pot",
+  "Deglazing the pan",
+  "Rolling out the dough",
+  "Letting it rest",
+];
+const CHEF_BUSY_INTERVAL_MS = 2800;
+let chefBusyTimer: ReturnType<typeof setInterval> | null = null;
+let chefBusyIndex = -1;
+let chefBusyThinkingIndex = -1;
+let chefBusyDotCount = 0;
+let chefBusyDotTimer: ReturnType<typeof setInterval> | null = null;
+
 let overlayRoot: HTMLDivElement | null = null;
 let onboardPressTimer: number | null = null;
 let onboardPressStart: { x: number; y: number } | null = null;
@@ -553,6 +579,9 @@ async function submitProposalDecision(confirm: boolean, thinkingIndex?: number) 
         updateInventoryOverlayVisibility();
         userSystemHint = "Long-press this chat bubble to finish onboarding > Meal Plan";
         setUserBubbleEllipsis(false);
+        // Temporarily show the user bubble even in inventory flow so the hint is visible
+        const userBubble = document.getElementById("duet-user-bubble");
+        if (userBubble) userBubble.style.display = "";
         setBubbleText(document.getElementById("duet-user-text"), userSystemHint);
       }
       clearProposal();
@@ -948,9 +977,11 @@ function setupHistoryDrawerUi() {
     recipePacksButton.className = "icon-btn recipe-packs-btn";
     recipePacksButton.setAttribute("aria-label", "Recipe packs");
     recipePacksButton.textContent = "📖";
+    recipePacksButton.style.display = "none";
     recipePacksButton.addEventListener("click", () => openPacksModal());
     stage.appendChild(recipePacksButton);
   }
+  updateRecipePacksButtonVisibility();
   resetHistoryBadge();
 }
 
@@ -1413,9 +1444,11 @@ async function sendAsk(message: string, opts?: { flowLabel?: string; updateChatP
   }
   const userIndex = addHistory("user", displayText);
   const thinkingIndex = addHistory("assistant", "...");
+  startChefBusyCycle(thinkingIndex);
 
   const command = state.proposalId ? detectProposalCommand(normalizedMessage) : null;
   if (command) {
+    stopChefBusyCycle();
     setDuetStatus(command === "confirm" ? "Applying proposal confirmation..." : "Cancelling proposal...");
     setComposerBusy(true);
     try {
@@ -1467,6 +1500,7 @@ async function sendAsk(message: string, opts?: { flowLabel?: string; updateChatP
     }
     console.error(err);
   } finally {
+    stopChefBusyCycle();
     setComposerBusy(false);
   }
   return { userIndex, thinkingIndex };
@@ -1478,6 +1512,47 @@ function setComposerBusy(busy: boolean) {
   const sendBtn = document.getElementById("duet-send") as HTMLButtonElement | null;
   if (sendBtn) sendBtn.disabled = busy || !!(input && input.value.trim().length === 0);
   if (input) input.readOnly = busy;
+}
+
+function renderChefBusyPhrase() {
+  const phrase = CHEF_BUSY_PHRASES[chefBusyIndex % CHEF_BUSY_PHRASES.length];
+  const dots = ".".repeat(chefBusyDotCount + 1);
+  const text = `${phrase}${dots}`;
+  duetState.history[chefBusyThinkingIndex] = {
+    ...duetState.history[chefBusyThinkingIndex],
+    text,
+  };
+  const assistant = document.getElementById("duet-assistant-text");
+  if (assistant) assistant.textContent = text;
+}
+
+function startChefBusyCycle(thinkingIndex: number) {
+  stopChefBusyCycle();
+  chefBusyThinkingIndex = thinkingIndex;
+  chefBusyIndex = Math.floor(Math.random() * CHEF_BUSY_PHRASES.length);
+  chefBusyDotCount = 0;
+  renderChefBusyPhrase();
+  chefBusyDotTimer = setInterval(() => {
+    chefBusyDotCount = (chefBusyDotCount + 1) % 3;
+    renderChefBusyPhrase();
+  }, 500);
+  chefBusyTimer = setInterval(() => {
+    chefBusyIndex++;
+    chefBusyDotCount = 0;
+    renderChefBusyPhrase();
+  }, CHEF_BUSY_INTERVAL_MS);
+}
+
+function stopChefBusyCycle() {
+  if (chefBusyTimer !== null) {
+    clearInterval(chefBusyTimer);
+    chefBusyTimer = null;
+  }
+  if (chefBusyDotTimer !== null) {
+    clearInterval(chefBusyDotTimer);
+    chefBusyDotTimer = null;
+  }
+  chefBusyThinkingIndex = -1;
 }
 
 async function silentGreetOnce() {
@@ -1523,9 +1598,12 @@ function wire() {
     setText("auth-out", result);
     state.onboarded = !!result.json?.onboarded;
     state.inventoryOnboarded = !!result.json?.inventory_onboarded;
+    // Returning user who completed onboarding before — unlock recipe button
+    if (state.inventoryOnboarded) mealplanReached = true;
     renderOnboardMenuButtons();
     updatePrefsOverlayVisibility();
     updateInventoryOverlayVisibility();
+    updateRecipePacksButtonVisibility();
     await silentGreetOnce();
     inventoryHasLoaded = false;
     if (currentFlowKey === "inventory") {
@@ -1880,6 +1958,10 @@ function selectFlow(key: string) {
     refreshPrefsOverlay(true);
   }
   if (currentFlowKey === "mealplan") {
+    if (state.inventoryOnboarded && !mealplanReached) {
+      mealplanReached = true;
+      updateRecipePacksButtonVisibility();
+    }
     checkMealplanFirstVisit();
   }
   updateFlowStatusText();
@@ -1969,6 +2051,11 @@ function clampNumber(value: number, min: number, max: number): number {
     return min;
   }
   return Math.min(Math.max(value, min), max);
+}
+
+function updateRecipePacksButtonVisibility() {
+  if (!recipePacksButton) return;
+  recipePacksButton.style.display = mealplanReached ? "" : "none";
 }
 
 // ── Recipe packs modal ───────────────────────────────────────────────────────
