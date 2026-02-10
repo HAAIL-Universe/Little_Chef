@@ -292,3 +292,107 @@ Expected: all ~183+ tests pass.
 - **Tests run with in-memory repos** (`DATABASE_URL=""`)
 - **`authed_client` test fixture** creates user with `user_id="test-user"`
 - **`BUILT_IN_RECIPES`:** 3 recipes — Simple Tomato Pasta, Garlic Butter Chicken, Veggie Stir Fry
+
+---
+
+## Implementation Complete — Evening of 2026-02-10
+
+### What Was Done This Session
+
+All 6 checklist items from the MVP plan above have been implemented and verified. Here's exactly what changed:
+
+**1. 1-Day Cap in ChefAgent** (`app/services/chef_agent.py`)
+- `handle_fill()` now always generates a 1-day plan regardless of what the user requests.
+- If the user explicitly asked for >1 day, the reply includes: *"MVP supports 1-day plans. Here's your plan for today — multi-day planning is coming soon!"*
+- `meals_per_day` is still user-controllable (from message or prefs, default 3).
+
+**2. Prefs-First Filtering** (`app/services/chef_agent.py` + `app/services/mealplan_service.py`)
+- New `_excluded_recipe_ids()` helper checks each built-in recipe's title and ingredients against the user's `allergies[]` and `dislikes[]`.
+- `MealPlanService.generate()` now accepts an optional `excluded_recipe_ids` kwarg and filters recipes before building the plan.
+- If all recipes are excluded, returns a friendly "All available recipes conflict with your allergies/dislikes" message instead of crashing.
+
+**3. Inventory Notes** (`app/services/chef_agent.py`)
+- New `_annotate_inventory_notes()` method compares plan ingredients against the user's inventory.
+- Sets `plan.notes` to something like: *"In stock: tomato, pasta. Need to buy: chicken breast, butter."*
+- ChefAgent now accepts `inventory_service` as an optional `__init__` param (wired from `ChatService`).
+
+**4. General Chat Nudge** (`app/services/chat_service.py`)
+- Added `_MEALPLAN_NUDGE_RE` regex to detect mealplan-related keywords ("meal plan", "plan my meals", "what should i eat/cook/make").
+- Nudge response added in two places: `_handle_ask()` (ASK mode) and `_handle_prefs_flow_threaded()` (FILL mode on `/chat`).
+- Returns: *"To generate a meal plan, use the Meal Plan flow (send a message to /chat/mealplan with mode=fill and a thread_id)."*
+
+**5. Tests Updated** (`tests/test_chef_agent.py`)
+- 4 existing tests updated to assert 1-day plans instead of multi-day.
+- 6 new tests added: `test_chef_agent_mvp_one_day_cap`, `test_chef_agent_prefs_allergy_filter`, `test_chef_agent_all_recipes_excluded`, `test_chef_agent_inventory_notes`, `test_general_chat_mealplan_nudge_ask`, `test_general_chat_mealplan_nudge_fill`.
+- Total: 13 ChefAgent tests, 183 tests across the full suite.
+
+**6. Verified**
+- `python -m compileall app -q` — clean (no output).
+- `pytest tests/` — 183 passed, 0 failed.
+
+---
+
+## Morning Checklist — Pick Up Tomorrow
+
+Use this to verify the implementation is solid and walk through it with the Director.
+
+### 1. Spin Up the Environment
+```powershell
+cd z:\LittleChef
+.\.venv\Scripts\Activate.ps1
+```
+
+### 2. Run the Full Test Suite
+```powershell
+.\.venv\Scripts\python.exe -m pytest tests/ -q --tb=short
+```
+**Expected:** 183 passed, 0 failed. If anything fails, read the traceback — it should point to the exact assertion.
+
+### 3. Run Just the ChefAgent Tests (Focused)
+```powershell
+.\.venv\Scripts\python.exe -m pytest tests/test_chef_agent.py -v --tb=short
+```
+**Expected:** 13 passed. These cover:
+- [ ] Auth guard (401 without token)
+- [ ] Thread ID required (400 without thread_id)
+- [ ] Fill mode required (400 in ask mode)
+- [ ] Propose + confirm flow (1-day plan, MVP note, confirm applies)
+- [ ] Propose + decline flow (1-day plan, decline returns applied=False)
+- [ ] Defaults with no params (1-day, 3 meals from prefs, no MVP note)
+- [ ] Thread isolation (cross-thread confirm fails with 400)
+- [ ] MVP 1-day cap (request 5 days → get 1 day + MVP note)
+- [ ] Allergy filter (chicken allergy → no chicken recipes in plan)
+- [ ] All recipes excluded (graceful message, no crash)
+- [ ] Inventory notes (tomato in stock → appears in plan notes)
+- [ ] Nudge in ASK mode ("make me a meal plan" → nudge reply)
+- [ ] Nudge in FILL mode ("plan my meals" → nudge reply)
+
+### 4. Quick Manual Smoke Test (Optional)
+Start the server:
+```powershell
+.\.venv\Scripts\python.exe -m uvicorn app.main:app --reload --port 8000
+```
+Then in another terminal or via the UI:
+- Hit `POST /chat/mealplan` with `{"mode": "fill", "message": "plan for 5 days", "thread_id": "test-1"}` — should get 1-day plan + MVP note.
+- Hit `POST /chat` with `{"mode": "ask", "message": "make me a meal plan"}` — should get the nudge response.
+
+### 5. Review the Diff (Git)
+```powershell
+git diff HEAD~1 --stat
+git diff HEAD~1 -- app/services/chef_agent.py
+git diff HEAD~1 -- app/services/mealplan_service.py
+git diff HEAD~1 -- app/services/chat_service.py
+git diff HEAD~1 -- tests/test_chef_agent.py
+```
+These are the only 4 files modified in this cycle. Everything else is untouched.
+
+### 6. Acceptance Criteria Checklist (Tick Off With Director)
+- [ ] 1-day cap: any days value → exactly 1 day in plan
+- [ ] Multi-day note: requesting >1 day → reply contains "MVP supports 1-day"
+- [ ] Prefs loaded: allergies/dislikes filter out matching recipes
+- [ ] All-excluded graceful: no crash when every recipe is filtered
+- [ ] Inventory notes: plan.notes mentions in-stock vs need-to-buy
+- [ ] Chat nudge: mealplan keywords on `/chat` (ASK or FILL) → nudge text
+- [ ] Confirm-before-write: proposal → confirm → apply still works
+- [ ] Thread isolation: cross-thread confirm fails
+- [ ] All 183 tests green

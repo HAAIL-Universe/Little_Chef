@@ -9,10 +9,11 @@ from app.schemas import (
     ProposedGenerateMealPlanAction,
     UserMe,
 )
-from app.services.mealplan_service import MealPlanService
+from app.services.mealplan_service import MealPlanService, _INGREDIENTS_BY_RECIPE
 from app.services.proposal_store import ProposalStore
 from app.services.llm_client import LlmClient
 from app.services.prefs_service import PrefsService
+from app.services.recipe_service import BUILT_IN_RECIPES
 
 _DAYS_RE = re.compile(r"(\d+)\s*days?", re.IGNORECASE)
 _MEALS_RE = re.compile(r"(\d+)\s*meals?\s*(?:per\s*day|a\s*day)?", re.IGNORECASE)
@@ -25,11 +26,13 @@ class ChefAgent:
         proposal_store: ProposalStore,
         llm_client: Optional[LlmClient] = None,
         prefs_service: Optional[PrefsService] = None,
+        inventory_service=None,
     ) -> None:
         self.mealplan_service = mealplan_service
         self.proposal_store = proposal_store
         self.llm_client = llm_client
         self.prefs_service = prefs_service
+        self.inventory_service = inventory_service
         self._pending: Dict[Tuple[str, str], str] = {}  # (user_id, thread_id) -> proposal_id
         self._proposal_threads: Dict[str, Tuple[str, str]] = {}  # proposal_id -> (user_id, thread_id)
 
@@ -49,23 +52,29 @@ class ChefAgent:
         days = self._parse_days(message)
         meals_per_day = self._parse_meals_per_day(message)
 
+        # MVP: detect multi-day request before capping
+        requested_multi = days is not None and days > 1
+
         # Fall back to user prefs if available
-        if self.prefs_service and (days is None or meals_per_day is None):
+        prefs = None
+        if self.prefs_service:
             try:
                 prefs = self.prefs_service.get_prefs(user.user_id)
                 if prefs:
-                    if days is None and hasattr(prefs, "plan_days") and prefs.plan_days:
-                        days = prefs.plan_days
                     if meals_per_day is None and hasattr(prefs, "meals_per_day") and prefs.meals_per_day:
                         meals_per_day = prefs.meals_per_day
             except Exception:
                 pass
 
         # Final defaults
-        if days is None:
-            days = 3
         if meals_per_day is None:
             meals_per_day = 3
+
+        # MVP: always 1-day plan
+        days = 1
+
+        # Prefs-first filtering: exclude recipes matching allergies/dislikes
+        excluded_ids = self._excluded_recipe_ids(prefs)
 
         gen_request = MealPlanGenerateRequest(
             days=days,
@@ -73,7 +82,22 @@ class ChefAgent:
             include_user_library=request.include_user_library,
             notes="",
         )
-        plan = self.mealplan_service.generate(gen_request)
+        plan = self.mealplan_service.generate(gen_request, excluded_recipe_ids=excluded_ids)
+
+        # If all recipes were excluded, return a helpful message
+        total_meals = sum(len(d.meals) for d in plan.days)
+        if total_meals == 0:
+            return ChatResponse(
+                reply_text="All available recipes conflict with your allergies/dislikes. Try adjusting your preferences.",
+                confirmation_required=False,
+                proposal_id=None,
+                proposed_actions=[],
+                suggested_next_questions=[],
+                mode=request.mode or "fill",
+            )
+
+        # Inventory notes (informational)
+        plan = self._annotate_inventory_notes(plan, user.user_id)
 
         action = ProposedGenerateMealPlanAction(mealplan=plan)
         proposal_id = str(uuid.uuid4())
@@ -89,6 +113,11 @@ class ChefAgent:
             f"I've prepared a {day_count}-day meal plan with {meal_count} meals. "
             f"Please confirm to apply."
         )
+        if requested_multi:
+            reply = (
+                "MVP supports 1-day plans. Here's your plan for today "
+                "— multi-day planning is coming soon!\n\n" + reply
+            )
 
         return ChatResponse(
             reply_text=reply,
@@ -149,6 +178,57 @@ class ChefAgent:
         self.proposal_store.pop(user_id, proposal_id)
         self._pending.pop(key, None)
         self._proposal_threads.pop(proposal_id, None)
+
+    @staticmethod
+    def _excluded_recipe_ids(prefs) -> list:
+        """Return built-in recipe IDs that conflict with user allergies/dislikes."""
+        if not prefs:
+            return []
+        keywords: set[str] = set()
+        for a in getattr(prefs, "allergies", []) or []:
+            keywords.add(a.lower())
+        for d in getattr(prefs, "dislikes", []) or []:
+            keywords.add(d.lower())
+        if not keywords:
+            return []
+        excluded: list[str] = []
+        for recipe in BUILT_IN_RECIPES:
+            rid = recipe["id"]
+            title = recipe.get("title", "").lower()
+            if any(kw in title for kw in keywords):
+                excluded.append(rid)
+                continue
+            ingredients = _INGREDIENTS_BY_RECIPE.get(rid, [])
+            if any(any(kw in ing.item_name.lower() for kw in keywords) for ing in ingredients):
+                excluded.append(rid)
+        return excluded
+
+    def _annotate_inventory_notes(self, plan, user_id: str):
+        """Add informational notes about ingredient stock to the plan."""
+        if not self.inventory_service:
+            return plan
+        try:
+            inv = self.inventory_service.summary(user_id)
+        except Exception:
+            return plan
+        if not inv.items:
+            return plan
+        stock_names = {item.item_name.lower() for item in inv.items}
+        needed: set[str] = set()
+        for day in plan.days:
+            for meal in day.meals:
+                for ing in meal.ingredients:
+                    needed.add(ing.item_name.lower())
+        in_stock = sorted(needed & stock_names)
+        need_to_buy = sorted(needed - stock_names)
+        parts: list[str] = []
+        if in_stock:
+            parts.append(f"In stock: {', '.join(in_stock)}")
+        if need_to_buy:
+            parts.append(f"Need to buy: {', '.join(need_to_buy)}")
+        if parts:
+            plan.notes = ". ".join(parts) + "."
+        return plan
 
     @staticmethod
     def _parse_days(message: str) -> Optional[int]:

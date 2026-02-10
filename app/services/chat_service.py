@@ -115,6 +115,11 @@ _INVENTORY_QTY_UNIT_RE = re.compile(
     r'\d+\s*(?:g|kg|ml|l|pack|packs|bag|bags|tin|tins|can|cans|bottle|bottles|loaf|loaves)\b'
 )
 
+_MEALPLAN_NUDGE_RE = re.compile(
+    r"\b(?:meal\s*plan|plan\s+(?:my\s+)?meals?|what\s+should\s+i\s+(?:eat|cook|make))\b",
+    re.IGNORECASE,
+)
+
 logger = logging.getLogger(__name__)
 PREFS_PERSIST_FAILED_REASON = "prefs_persist_failed"
 
@@ -143,6 +148,7 @@ class ChatService:
             proposal_store=proposal_store,
             llm_client=llm_client,
             prefs_service=prefs_service,
+            inventory_service=inventory_service,
         )
         self.prefs_drafts: dict[tuple[str, str], UserPrefs] = {}
         self._prefs_proposal_ids: dict[tuple[str, str], str] = {}
@@ -899,6 +905,17 @@ class ChatService:
                 mode=effective_mode,
             )
 
+        # --- Misroute detection: mealplan text in prefs flow ---
+        if _MEALPLAN_NUDGE_RE.search(request.message):
+            return ChatResponse(
+                reply_text="To generate a meal plan, use the Meal Plan flow (send a message to /chat/mealplan with mode=fill and a thread_id).",
+                confirmation_required=False,
+                proposal_id=None,
+                proposed_actions=[],
+                suggested_next_questions=[],
+                mode=effective_mode,
+            )
+
         # --- Pending prefs proposal: treat non-confirm input as edit ---
         existing_pid = self._prefs_proposal_ids.get(key)
         if existing_pid:
@@ -1033,6 +1050,15 @@ class ChatService:
                 reply = f"Inventory: {content}"
             return ChatResponse(
                 reply_text=reply,
+                confirmation_required=False,
+                proposal_id=None,
+                proposed_actions=[],
+                suggested_next_questions=[],
+                mode=effective_mode,
+            )
+        if _MEALPLAN_NUDGE_RE.search(message):
+            return ChatResponse(
+                reply_text="To generate a meal plan, use the Meal Plan flow (send a message to /chat/mealplan with mode=fill and a thread_id).",
                 confirmation_required=False,
                 proposal_id=None,
                 proposed_actions=[],

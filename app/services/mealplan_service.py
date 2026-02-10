@@ -31,13 +31,17 @@ _INGREDIENTS_BY_RECIPE = {
 
 
 class MealPlanService:
-    def generate(self, request: MealPlanGenerateRequest) -> MealPlanResponse:
+    def generate(self, request: MealPlanGenerateRequest, *, excluded_recipe_ids: list | None = None) -> MealPlanResponse:
         days = request.days
         meals_per_day = request.meals_per_day or 3
         created_at = datetime.now(timezone.utc).isoformat()
         plan_id = f"plan-{uuid4()}"
 
         meals_catalog: List[dict] = BUILT_IN_RECIPES
+        if excluded_recipe_ids:
+            meals_catalog = [r for r in meals_catalog if r["id"] not in excluded_recipe_ids]
+        if not meals_catalog:
+            return MealPlanResponse(plan_id=plan_id, created_at=created_at, days=[], notes=request.notes or "")
         meals: List[MealPlanDay] = []
         for day_index in range(1, days + 1):
             day_meals: List[PlannedMeal] = []
