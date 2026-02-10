@@ -1,3 +1,7 @@
+import asyncio
+import logging
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import FileResponse, JSONResponse
 from pathlib import Path
@@ -15,10 +19,33 @@ from app.errors import (
     service_unavailable_handler,
 )
 
+logger = logging.getLogger("littlechef")
+
+
+async def warm_hf_cache() -> None:
+    """Pre-download HF dataset to local cache (runs in background thread)."""
+    try:
+        loop = asyncio.get_event_loop()
+        await loop.run_in_executor(None, _sync_warm_cache)
+        logger.info("HF recipe cache warmed successfully")
+    except Exception as e:
+        logger.warning(f"HF cache warming failed (non-fatal): {e}")
+
+
+def _sync_warm_cache() -> None:
+    from datasets import load_dataset  # type: ignore[import-untyped]
+    load_dataset("gossminn/wikibooks-cookbook", split="train")
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    asyncio.create_task(warm_hf_cache())
+    yield
+
 
 def create_app() -> FastAPI:
     load_env()
-    app = FastAPI(title="Little Chef", version="0.1.0")
+    app = FastAPI(title="Little Chef", version="0.1.0", lifespan=lifespan)
     app.include_router(health.router)
     app.include_router(auth.router)
     app.include_router(prefs.router)

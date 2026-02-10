@@ -7,6 +7,12 @@ from app.schemas import (
     RecipeBookListResponse,
     RecipeSearchRequest,
     RecipeSearchResponse,
+    BuiltInPackListResponse,
+    InstallPackRequest,
+    InstallPackResponse,
+    PackPreviewResponse,
+    UninstallPackRequest,
+    UninstallPackResponse,
     UserMe,
 )
 from app.services.recipe_service import get_recipe_service
@@ -22,7 +28,7 @@ router = APIRouter(prefix="", tags=["Recipes"])
 )
 def list_books(current_user: UserMe = Depends(get_current_user)) -> RecipeBookListResponse:
     service = get_recipe_service()
-    return service.list_books()
+    return service.list_books(user_id=current_user.user_id)
 
 
 @router.post(
@@ -40,7 +46,7 @@ async def upload_book(
     if len(content) == 0:
         raise BadRequestError("empty file")
     service = get_recipe_service()
-    return service.upload_book(title=title, filename=file.filename, content_type=file.content_type or "", data=content)
+    return service.upload_book(title=title, filename=file.filename, content_type=file.content_type or "", data=content, user_id=current_user.user_id)
 
 
 @router.get(
@@ -51,7 +57,7 @@ async def upload_book(
 def get_book(book_id: str, current_user: UserMe = Depends(get_current_user)) -> RecipeBook:
     service = get_recipe_service()
     try:
-        return service.get_book(book_id)
+        return service.get_book(book_id, user_id=current_user.user_id)
     except KeyError:
         raise NotFoundError("book not found")
 
@@ -64,9 +70,78 @@ def get_book(book_id: str, current_user: UserMe = Depends(get_current_user)) -> 
 def delete_book(book_id: str, current_user: UserMe = Depends(get_current_user)) -> None:
     service = get_recipe_service()
     try:
-        service.delete_book(book_id)
+        service.delete_book(book_id, user_id=current_user.user_id)
     except KeyError:
         raise NotFoundError("book not found")
+
+
+@router.get(
+    "/recipes/built-in-packs",
+    response_model=BuiltInPackListResponse,
+    responses={"401": {"model": ErrorResponse}},
+)
+def list_builtin_packs(current_user: UserMe = Depends(get_current_user)) -> BuiltInPackListResponse:
+    from app.services.builtin_packs_service import list_packs
+
+    service = get_recipe_service()
+    installed = service.installed_pack_ids(user_id=current_user.user_id)
+    return list_packs(installed_ids=installed)
+
+
+@router.get(
+    "/recipes/built-in-packs/{pack_id}/preview",
+    response_model=PackPreviewResponse,
+    responses={"400": {"model": ErrorResponse}, "401": {"model": ErrorResponse}},
+)
+def preview_builtin_pack(
+    pack_id: str,
+    max_recipes: int = 50,
+    current_user: UserMe = Depends(get_current_user),
+) -> PackPreviewResponse:
+    from app.services.builtin_packs_service import preview_pack
+
+    return preview_pack(pack_id, max_recipes)
+
+
+@router.post(
+    "/recipes/built-in-packs/install",
+    response_model=InstallPackResponse,
+    responses={"400": {"model": ErrorResponse}, "401": {"model": ErrorResponse}},
+)
+def install_builtin_pack(
+    request: InstallPackRequest,
+    current_user: UserMe = Depends(get_current_user),
+) -> InstallPackResponse:
+    from app.services.builtin_packs_service import install_pack
+
+    service = get_recipe_service()
+    return install_pack(
+        pack_id=request.pack_id,
+        max_recipes=request.max_recipes,
+        repo=service.repo,
+        user_id=current_user.user_id,
+        selected_titles=request.selected_titles,
+    )
+
+
+@router.post(
+    "/recipes/built-in-packs/uninstall",
+    response_model=UninstallPackResponse,
+    responses={"400": {"model": ErrorResponse}, "401": {"model": ErrorResponse}},
+)
+def uninstall_builtin_pack(
+    request: UninstallPackRequest,
+    current_user: UserMe = Depends(get_current_user),
+) -> UninstallPackResponse:
+    from app.services.builtin_packs_service import uninstall_pack
+
+    service = get_recipe_service()
+    return uninstall_pack(
+        pack_id=request.pack_id,
+        repo=service.repo,
+        user_id=current_user.user_id,
+        selected_titles=request.selected_titles,
+    )
 
 
 def reset_recipes_for_tests() -> None:
@@ -83,4 +158,4 @@ def reset_recipes_for_tests() -> None:
 )
 def search(request: RecipeSearchRequest, current_user: UserMe = Depends(get_current_user)) -> RecipeSearchResponse:
     service = get_recipe_service()
-    return service.search(request)
+    return service.search(request, user_id=current_user.user_id)

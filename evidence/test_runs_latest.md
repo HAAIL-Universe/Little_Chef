@@ -1,7 +1,21 @@
-﻿Status: PASS (142 passed, 0 failed, 1 warning)
-Start: 2026-02-09T14:20:00Z
-End: 2026-02-09T14:20:06Z
-Command: python -m pytest tests/ -v --tb=short && node scripts/ui_proposal_renderer_test.mjs
-Tests: 142 Python (142 pass) + UI renderer tests (PASS — 4 sections including prefs-returns-null)
-Branch: main
-HEAD: 18bf41f (staged: remove legacy duplicate prefs summary display)
+﻿Status: PASS
+Start: 2026-02-09T18:47:48Z
+End: 2026-02-09T18:48:08Z
+Branch: git unavailable
+HEAD: git unavailable
+Python: Z:\LittleChef\.venv\\Scripts\\python.exe
+compileall exit: 0
+import app.main exit: 0
+pytest exit: 0
+pytest summary: 156 passed, 1 warning in 3.90s
+playwright test:e2e exit: 0
+playwright summary:   8 passed (7.2s)
+git status -sb:
+```
+git unavailable
+```
+git diff --stat:
+```
+git unavailable
+```
+

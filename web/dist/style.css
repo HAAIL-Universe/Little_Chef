@@ -847,3 +847,554 @@ pre {
     padding: 10px;
   }
 }
+
+/* ── Recipe packs button ──────────────────────────────────── */
+.recipe-packs-btn {
+  position: absolute;
+  top: 148px;
+  right: 16px;
+  z-index: 50;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  overflow: visible;
+  box-shadow: var(--shadow);
+}
+
+/* ── Recipe packs modal ───────────────────────────────────── */
+.packs-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(5, 12, 20, 0.55);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 180ms ease;
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.packs-modal-overlay.open {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.packs-modal-wrapper {
+  display: flex;
+  flex-direction: column;
+  width: 92%;
+  max-width: 480px;
+  height: 85vh;
+  gap: 8px;
+}
+
+.packs-top-bar {
+  display: flex;
+  align-items: stretch;
+  gap: 8px;
+  flex: 0 0 auto;
+}
+
+.packs-top-bar .packs-tab-bar {
+  flex: 1;
+  margin-bottom: 0;
+}
+
+.packs-top-bar .packs-close-btn {
+  flex: 0 0 auto;
+  align-self: center;
+}
+
+.packs-modal {
+  flex: 1 1 0;
+  min-height: 0;
+  overflow-y: auto;
+  border-radius: 16px;
+  background: linear-gradient(145deg, rgba(255, 255, 255, 0.06), rgba(127, 164, 255, 0.10));
+  border: 1px solid rgba(255, 255, 255, 0.10);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.45);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  padding: 18px;
+  padding-top: 20px;
+  padding-bottom: 20px;
+  color: var(--text);
+  scrollbar-width: none;
+}
+
+.packs-modal::-webkit-scrollbar {
+  display: none;
+}
+
+.packs-close-btn {
+  width: 32px;
+  height: 32px;
+  font-size: 16px;
+  border-radius: 8px;
+  margin: 0;
+  padding: 0;
+  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.packs-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.packs-loading {
+  text-align: center;
+  opacity: 0.7;
+  font-size: 14px;
+}
+
+.pack-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.pack-card-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  flex: 1;
+}
+
+.pack-card-info strong {
+  font-size: 14px;
+}
+
+.pack-card-desc-row {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+}
+
+.pack-card-desc {
+  font-size: 12px;
+  opacity: 0.75;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  flex: 1 1 0;
+  min-width: 0;
+}
+
+.pack-card-count {
+  font-size: 11px;
+  opacity: 0.55;
+  white-space: nowrap;
+  flex: 0 0 auto;
+}
+
+.pack-install-btn {
+  flex: 1 1 0;
+  padding: 6px 14px;
+  border-radius: 8px;
+  background: linear-gradient(135deg, var(--accent), var(--accent-2));
+  color: #051225;
+  font-weight: 700;
+  font-size: 13px;
+  border: none;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: opacity 120ms ease;
+  min-width: 0;
+  text-align: center;
+}
+
+.pack-install-btn:hover {
+  opacity: 0.85;
+}
+
+.pack-install-btn:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.pack-install-btn.installed {
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--text);
+  opacity: 0.7;
+}
+
+/* ── Packs modal tabs ─────────────────────────────────────── */
+.packs-tab-bar {
+  display: flex;
+  gap: 0;
+  margin-bottom: 14px;
+  border-radius: 10px;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.packs-tab {
+  flex: 1;
+  padding: 8px 0;
+  border: none;
+  border-radius: 0;
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--text);
+  font-weight: 600;
+  font-size: 13px;
+  cursor: pointer;
+  transition: background 120ms ease;
+  margin: 0;
+}
+
+.packs-tab:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.packs-tab.active {
+  background: linear-gradient(135deg, var(--accent), var(--accent-2));
+  color: #051225;
+}
+
+/* ── My Recipes grouped sections ────────────────────────────── */
+.my-recipes-group {
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  overflow: hidden;
+}
+
+.my-recipes-group-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 14px;
+  cursor: pointer;
+  transition: background 120ms ease;
+}
+
+.my-recipes-group-header:hover {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.my-recipes-group-header strong {
+  font-size: 15px;
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.my-recipes-group-count {
+  font-size: 12px;
+  opacity: 0.55;
+  white-space: nowrap;
+}
+
+.my-recipes-group-toggle {
+  font-size: 12px;
+  opacity: 0.6;
+  flex: 0 0 auto;
+}
+
+.my-recipes-group-body {
+  padding: 0 10px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+/* ── Recipe expandable cards ────────────────────────────────── */
+.recipe-card {
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  overflow: hidden;
+}
+
+.recipe-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 12px;
+  cursor: pointer;
+  transition: background 120ms ease;
+}
+
+.recipe-card-header:hover {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.recipe-card-header strong {
+  font-size: 14px;
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.recipe-card-toggle {
+  font-size: 12px;
+  opacity: 0.6;
+  flex: 0 0 auto;
+  margin-left: 8px;
+}
+
+.recipe-card-body {
+  padding: 0 12px 12px;
+  font-size: 13px;
+  line-height: 1.5;
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+.recipe-card-body ul {
+  list-style: disc;
+  margin: 0 0 8px 16px;
+  padding: 0;
+}
+
+.recipe-card-body li {
+  margin-bottom: 2px;
+}
+
+.recipe-section-title {
+  font-weight: 700;
+  font-size: 13px;
+  margin-top: 8px;
+  margin-bottom: 4px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  opacity: 0.9;
+}
+
+.recipe-card-empty {
+  opacity: 0.6;
+  font-style: italic;
+}
+
+/* ── Pack preview / browse ──────────────────────────────────── */
+.pack-card-expandable {
+  flex-direction: column;
+  align-items: stretch;
+  justify-content: flex-start;
+}
+
+.pack-card-expandable.pack-expanded {
+  min-height: calc(85vh - 115px);
+}
+
+.pack-card-expandable.pack-expanded .pack-preview-body {
+  display: block;
+}
+
+.pack-card-expandable.pack-expanded .pack-preview-list {
+  max-height: calc(85vh - 255px);
+  overflow-y: auto;
+}
+
+.pack-card-actions {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  padding: 0 10px 8px;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.pack-browse-btn {
+  flex: 1 1 0;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: inherit;
+  border-radius: 6px;
+  padding: 6px 10px;
+  font-size: 12px;
+  cursor: pointer;
+  transition: background 120ms ease;
+  text-align: center;
+  min-width: 0;
+}
+
+.pack-browse-btn:hover {
+  background: rgba(255, 255, 255, 0.14);
+}
+
+.pack-installed-label {
+  font-size: 12px;
+  opacity: 0.7;
+}
+
+.pack-preview-body {
+  padding: 0 10px 10px;
+}
+
+.pack-preview-list {
+  max-height: 220px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-bottom: 8px;
+}
+
+.pack-preview-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  padding: 4px 6px;
+  border-radius: 4px;
+  cursor: default;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.pack-preview-item span {
+  flex: 1 1 0;
+  min-width: 0;
+}
+
+.pack-preview-item:hover {
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.pack-preview-item input[type="checkbox"] {
+  accent-color: var(--accent);
+  cursor: pointer;
+  flex: 0 0 16px;
+  width: 16px;
+  height: 16px;
+}
+
+.pack-preview-item-wrap {
+  display: flex;
+  flex-direction: column;
+}
+
+.pack-recipe-title.has-snippet {
+  cursor: pointer;
+  text-decoration: underline;
+  text-decoration-color: rgba(255, 255, 255, 0.2);
+  text-underline-offset: 2px;
+}
+
+.pack-recipe-title.has-snippet:hover {
+  text-decoration-color: rgba(255, 255, 255, 0.5);
+}
+
+.pack-recipe-snippet {
+  display: none;
+  font-size: 11.5px;
+  color: rgba(255, 255, 255, 0.55);
+  line-height: 1.4;
+  padding: 2px 6px 6px;
+}
+
+.pack-preview-item-wrap.snippet-open .pack-recipe-snippet {
+  display: block;
+}
+
+.pack-select-all {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  font-weight: 700;
+  padding: 4px 6px 6px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  margin-bottom: 4px;
+  cursor: pointer;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  opacity: 0.8;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.pack-select-all span {
+  flex: 1 1 0;
+}
+
+.pack-select-all input[type="checkbox"] {
+  flex: 0 0 16px;
+  width: 16px;
+  height: 16px;
+}
+
+.pack-install-selected-btn {
+  background: linear-gradient(135deg, var(--accent), var(--accent-2));
+  color: #051225;
+  border: none;
+  border-radius: 6px;
+  padding: 6px 14px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: opacity 120ms ease;
+  width: 100%;
+}
+
+.pack-install-selected-btn:hover {
+  opacity: 0.9;
+}
+
+.pack-install-selected-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.pack-install-selected-btn.installed {
+  background: rgba(255, 255, 255, 0.1);
+  color: inherit;
+  cursor: default;
+}
+
+.pack-uninstall-actions {
+  display: flex;
+  gap: 6px;
+  width: 100%;
+}
+
+.pack-uninstall-selected-btn,
+.pack-uninstall-all-btn {
+  flex: 1 1 0;
+  border: none;
+  border-radius: 6px;
+  padding: 6px 14px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: opacity 120ms ease;
+}
+
+.pack-uninstall-selected-btn {
+  background: rgba(255, 255, 255, 0.1);
+  color: var(--text);
+}
+
+.pack-uninstall-all-btn {
+  background: rgba(220, 80, 80, 0.7);
+  color: #fff;
+}
+
+.pack-uninstall-selected-btn:hover,
+.pack-uninstall-all-btn:hover {
+  opacity: 0.85;
+}
+
+.pack-uninstall-selected-btn:disabled,
+.pack-uninstall-all-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}

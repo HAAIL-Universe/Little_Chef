@@ -236,6 +236,107 @@ components:
           type: string
           format: date-time
 
+    BuiltInPack:
+      type: object
+      required: [pack_id, label, description, recipe_count]
+      properties:
+        pack_id:
+          type: string
+          description: Stable identifier for the pack (e.g., "soup", "cake").
+        label:
+          type: string
+          description: Human-readable pack name.
+        description:
+          type: string
+        recipe_count:
+          type: integer
+          minimum: 0
+          description: Approximate number of recipes in this pack.
+
+    BuiltInPackListResponse:
+      type: object
+      required: [packs]
+      properties:
+        packs:
+          type: array
+          items: { $ref: "#/components/schemas/BuiltInPack" }
+
+    PackPreviewRecipe:
+      type: object
+      required: [title, has_content]
+      properties:
+        title:
+          type: string
+        has_content:
+          type: boolean
+        snippet:
+          type: string
+          nullable: true
+          description: First introductory paragraph from the recipe (max 200 chars)
+
+    PackPreviewResponse:
+      type: object
+      required: [pack_id, label, recipes, total_available]
+      properties:
+        pack_id:
+          type: string
+        label:
+          type: string
+        recipes:
+          type: array
+          items: { $ref: "#/components/schemas/PackPreviewRecipe" }
+        total_available:
+          type: integer
+          minimum: 0
+
+    InstallPackRequest:
+      type: object
+      required: [pack_id]
+      properties:
+        pack_id:
+          type: string
+        max_recipes:
+          type: integer
+          minimum: 1
+          maximum: 200
+          default: 50
+        selected_titles:
+          type: array
+          items:
+            type: string
+          description: Optional list of recipe titles to install. If omitted, all matching recipes are installed.
+
+    InstallPackResponse:
+      type: object
+      required: [installed, books]
+      properties:
+        installed:
+          type: integer
+          minimum: 0
+        books:
+          type: array
+          items: { $ref: "#/components/schemas/RecipeBook" }
+
+    UninstallPackRequest:
+      type: object
+      required: [pack_id]
+      properties:
+        pack_id:
+          type: string
+        selected_titles:
+          type: array
+          items:
+            type: string
+          description: Optional list of recipe titles to uninstall. If omitted, entire pack is removed.
+
+    UninstallPackResponse:
+      type: object
+      required: [removed]
+      properties:
+        removed:
+          type: integer
+          minimum: 0
+
     RecipeBookStatus:
       type: string
       enum: [uploading, processing, ready, failed]
@@ -885,6 +986,113 @@ paths:
               schema: { $ref: "#/components/schemas/ErrorResponse" }
         "404":
           description: Not found
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+
+  /recipes/built-in-packs:
+    get:
+      tags: [Recipes]
+      summary: List available built-in recipe packs (static catalogue from Wikibooks Cookbook)
+      security: [{ BearerAuth: [] }]
+      responses:
+        "200":
+          description: Available packs
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/BuiltInPackListResponse" }
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+
+  /recipes/built-in-packs/{pack_id}/preview:
+    get:
+      tags: [Recipes]
+      summary: Preview recipe titles within a pack without installing
+      security: [{ BearerAuth: [] }]
+      parameters:
+        - name: pack_id
+          in: path
+          required: true
+          schema: { type: string }
+        - name: max_recipes
+          in: query
+          required: false
+          schema: { type: integer, minimum: 1, maximum: 200, default: 50 }
+      responses:
+        "200":
+          description: Pack preview with recipe titles
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/PackPreviewResponse" }
+        "400":
+          description: Unknown pack_id
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+
+  /recipes/built-in-packs/install:
+    post:
+      tags: [Recipes]
+      summary: Install a built-in recipe pack (downloads from Hugging Face on-demand)
+      security: [{ BearerAuth: [] }]
+      parameters:
+        - $ref: "#/components/parameters/CorrelationId"
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/InstallPackRequest" }
+      responses:
+        "200":
+          description: Pack installed
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/InstallPackResponse" }
+        "400":
+          description: Bad request (unknown pack_id)
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+
+  /recipes/built-in-packs/uninstall:
+    post:
+      tags: [Recipes]
+      summary: Uninstall recipes from an installed built-in pack (all or selected)
+      security: [{ BearerAuth: [] }]
+      parameters:
+        - $ref: "#/components/parameters/CorrelationId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/UninstallPackRequest" }
+      responses:
+        "200":
+          description: Recipes removed
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/UninstallPackResponse" }
+        "400":
+          description: Bad request (unknown pack_id)
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+        "401":
+          description: Unauthorized
           content:
             application/json:
               schema: { $ref: "#/components/schemas/ErrorResponse" }

@@ -34,7 +34,11 @@ def _clear_db_env():
 
 
 @pytest.fixture
-def app_instance():
+def app_instance(tmp_path, monkeypatch):
+    # Redirect recipe file storage to temp dir so tests don't pollute data/recipe_books/
+    import app.repos.recipe_repo as _recipe_repo_mod
+    monkeypatch.setattr(_recipe_repo_mod, "DATA_DIR", str(tmp_path / "recipe_books"))
+
     # Reset cached services/state for deterministic tests
     get_prefs_service.cache_clear()
     get_inventory_service.cache_clear()

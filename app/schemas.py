@@ -130,10 +130,57 @@ class RecipeBook(BaseModel):
     status: RecipeBookStatus
     error_message: Optional[str] = None
     created_at: str
+    text_content: Optional[str] = None
+    pack_id: Optional[str] = None
 
 
 class RecipeBookListResponse(BaseModel):
     books: List[RecipeBook]
+
+
+class BuiltInPack(BaseModel):
+    pack_id: str
+    label: str
+    description: str
+    recipe_count: int
+
+
+class BuiltInPackListResponse(BaseModel):
+    packs: List[BuiltInPack]
+    installed_pack_ids: List[str] = Field(default_factory=list)
+
+
+class PackPreviewRecipe(BaseModel):
+    title: str
+    has_content: bool
+    snippet: Optional[str] = None
+
+
+class PackPreviewResponse(BaseModel):
+    pack_id: str
+    label: str
+    recipes: List[PackPreviewRecipe]
+    total_available: int
+
+
+class InstallPackRequest(BaseModel):
+    pack_id: str
+    max_recipes: int = Field(default=500, ge=1, le=500)
+    selected_titles: Optional[List[str]] = None
+
+
+class InstallPackResponse(BaseModel):
+    installed: int
+    books: List[RecipeBook]
+
+
+class UninstallPackRequest(BaseModel):
+    pack_id: str
+    selected_titles: Optional[List[str]] = None
+
+
+class UninstallPackResponse(BaseModel):
+    removed: int
 
 
 class RecipeSearchRequest(BaseModel):

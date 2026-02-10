@@ -3,7 +3,25 @@
     "allow": [
       "Bash(python -m compileall:*)",
       "Bash(python -m pytest:*)",
-      "Bash(git add:*)"
+      "Bash(git add:*)",
+      "Bash(npx tsc:*)",
+      "Bash(npx playwright test:*)",
+      "Bash(python:*)",
+      "Bash(git commit:*)",
+      "Read(//z/**)",
+      "Bash(powershell:*)",
+      "Bash(xargs:*)",
+      "Bash(grep:*)",
+      "Bash(npx esbuild:*)",
+      "Bash(PYTHONPATH=\"z:/LittleChef\" LC_DEBUG_AUTH=1 \"z:/LittleChef/.venv/Scripts/python.exe\":*)",
+      "Bash(curl:*)",
+      "Bash(PYTHONPATH=\"z:/LittleChef\" \"z:/LittleChef/.venv/Scripts/python.exe\" -c:*)",
+      "Bash(PYTHONPATH=\"z:/LittleChef\" \"z:/LittleChef/.venv/Scripts/python.exe\":*)",
+      "Bash(PYTHONPATH=\"z:/LittleChef\" \"z:/LittleChef/.venv/Scripts/python.exe\" -m py_compile:*)",
+      "Bash(\"z:/LittleChef/.venv/Scripts/python.exe\" -m py_compile:*)",
+      "Bash(\"z:/LittleChef/.venv/Scripts/python.exe\" -m py_compile app/repos/recipe_repo.py)",
+      "Bash(.venv\\\\Scripts\\\\python.exe:*)",
+      "Bash(.venv/Scripts/python.exe:*)"
     ]
   }
 }

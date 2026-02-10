@@ -118,6 +118,8 @@ let flowMenuDropdown: HTMLDivElement | null = null;
 let flowMenuButton: HTMLButtonElement | null = null;
 let flowMenuOpen = false;
 let flowMenuListenersBound = false;
+let recipePacksButton: HTMLButtonElement | null = null;
+let packsModalOverlay: HTMLDivElement | null = null;
 let devPanelVisible = false;
 let inventoryOverlay: HTMLDivElement | null = null;
 let inventoryStatusEl: HTMLElement | null = null;
@@ -937,6 +939,17 @@ function setupHistoryDrawerUi() {
       }
     });
     stage.appendChild(historyToggle);
+  }
+
+  if (!recipePacksButton) {
+    recipePacksButton = document.createElement("button");
+    recipePacksButton.id = "duet-recipe-packs";
+    recipePacksButton.type = "button";
+    recipePacksButton.className = "icon-btn recipe-packs-btn";
+    recipePacksButton.setAttribute("aria-label", "Recipe packs");
+    recipePacksButton.textContent = "📖";
+    recipePacksButton.addEventListener("click", () => openPacksModal());
+    stage.appendChild(recipePacksButton);
   }
   resetHistoryBadge();
 }
@@ -1866,6 +1879,9 @@ function selectFlow(key: string) {
     updateThreadLabel();
     refreshPrefsOverlay(true);
   }
+  if (currentFlowKey === "mealplan") {
+    checkMealplanFirstVisit();
+  }
   updateFlowStatusText();
 }
 
@@ -1953,6 +1969,563 @@ function clampNumber(value: number, min: number, max: number): number {
     return min;
   }
   return Math.min(Math.max(value, min), max);
+}
+
+// ── Recipe packs modal ───────────────────────────────────────────────────────
+let mealplanNudged = false;
+
+async function checkMealplanFirstVisit() {
+  if (mealplanNudged) return;
+  try {
+    const resp = await doGet("/recipes/books");
+    if (resp.status === 200 && resp.json?.books?.length === 0) {
+      mealplanNudged = true;
+      addHistory(
+        "assistant",
+        "Welcome to the Meal Plan! You don't have any recipes yet.\n\nTap the 📖 button to browse and install a built-in recipe pack."
+      );
+      renderDuetHistory();
+      updateDuetBubbles();
+    } else {
+      mealplanNudged = true;
+    }
+  } catch {
+    // network error — skip nudge silently
+  }
+}
+
+function openPacksModal() {
+  if (packsModalOverlay && packsModalOverlay.isConnected) {
+    packsModalOverlay.style.display = "";
+    packsModalOverlay.classList.add("open");
+    // Reset to Browse tab on reopen
+    const browseTab = packsModalOverlay.querySelector('[data-tab="browse"]') as HTMLElement | null;
+    const myTab = packsModalOverlay.querySelector('[data-tab="my"]') as HTMLElement | null;
+    browseTab?.classList.add("active");
+    myTab?.classList.remove("active");
+    loadPacksCatalogue();
+    return;
+  }
+  const overlay = document.createElement("div");
+  overlay.className = "packs-modal-overlay";
+  overlay.addEventListener("click", (ev) => {
+    if (ev.target === overlay) closePacksModal();
+  });
+
+  // Wrapper holds the top bar + the modal panel in a column
+  const wrapper = document.createElement("div");
+  wrapper.className = "packs-modal-wrapper";
+
+  // Top bar: tabs + close button (outside the scrollable modal)
+  const topBar = document.createElement("div");
+  topBar.className = "packs-top-bar";
+
+  const tabBar = document.createElement("div");
+  tabBar.className = "packs-tab-bar";
+  const browseTab = document.createElement("button");
+  browseTab.type = "button";
+  browseTab.className = "packs-tab active";
+  browseTab.textContent = "Browse";
+  browseTab.setAttribute("data-tab", "browse");
+  const myTab = document.createElement("button");
+  myTab.type = "button";
+  myTab.className = "packs-tab";
+  myTab.textContent = "My Recipes";
+  myTab.setAttribute("data-tab", "my");
+  tabBar.appendChild(browseTab);
+  tabBar.appendChild(myTab);
+  topBar.appendChild(tabBar);
+
+  const closeBtn = document.createElement("button");
+  closeBtn.type = "button";
+  closeBtn.className = "icon-btn packs-close-btn";
+  closeBtn.textContent = "✕";
+  closeBtn.addEventListener("click", () => closePacksModal());
+  topBar.appendChild(closeBtn);
+
+  wrapper.appendChild(topBar);
+
+  // Modal panel (scrollable content only)
+  const panel = document.createElement("div");
+  panel.className = "packs-modal";
+
+  browseTab.addEventListener("click", () => {
+    browseTab.classList.add("active");
+    myTab.classList.remove("active");
+    loadPacksCatalogue();
+  });
+  myTab.addEventListener("click", () => {
+    myTab.classList.add("active");
+    browseTab.classList.remove("active");
+    loadMyRecipes();
+  });
+
+  const grid = document.createElement("div");
+  grid.className = "packs-grid";
+  grid.id = "packs-grid";
+  const loading = document.createElement("p");
+  loading.className = "packs-loading";
+  loading.textContent = "Loading packs…";
+  grid.appendChild(loading);
+  panel.appendChild(grid);
+
+  wrapper.appendChild(panel);
+  overlay.appendChild(wrapper);
+  document.body.appendChild(overlay);
+  packsModalOverlay = overlay;
+
+  requestAnimationFrame(() => overlay.classList.add("open"));
+  loadPacksCatalogue();
+}
+
+function closePacksModal() {
+  if (packsModalOverlay) {
+    packsModalOverlay.classList.remove("open");
+    setTimeout(() => {
+      if (packsModalOverlay) packsModalOverlay.style.display = "none";
+    }, 200);
+  }
+}
+
+async function loadPacksCatalogue() {
+  const grid = document.getElementById("packs-grid");
+  if (!grid) return;
+  grid.innerHTML = "<p class='packs-loading'>Loading packs…</p>";
+  try {
+    const resp = await doGet("/recipes/built-in-packs");
+    if (resp.status !== 200 || !resp.json?.packs) {
+      grid.innerHTML = "<p class='packs-loading'>Failed to load packs.</p>";
+      return;
+    }
+    const installedIds = new Set<string>(resp.json.installed_pack_ids ?? []);
+    grid.innerHTML = "";
+    for (const pack of resp.json.packs) {
+      const card = document.createElement("div");
+      card.className = "pack-card pack-card-expandable";
+
+      const header = document.createElement("div");
+      header.className = "pack-card-info";
+      header.innerHTML = `
+        <strong>${escapeHtml(pack.label)}</strong>
+        <span class="pack-card-desc-row"><span class="pack-card-desc">${escapeHtml(pack.description)}</span><span class="pack-card-count">${pack.recipe_count} recipes</span></span>
+      `;
+      card.appendChild(header);
+
+      const actions = document.createElement("div");
+      actions.className = "pack-card-actions";
+
+      const isInstalled = installedIds.has(pack.pack_id);
+
+      const browseBtn = document.createElement("button");
+      browseBtn.type = "button";
+      browseBtn.className = "pack-browse-btn";
+      browseBtn.textContent = "Browse";
+      if (isInstalled) {
+        browseBtn.textContent = "Browse (stored)";
+      }
+      actions.appendChild(browseBtn);
+
+      if (!isInstalled) {
+        const installAllBtn = document.createElement("button");
+        installAllBtn.type = "button";
+        installAllBtn.className = "pack-install-btn";
+        installAllBtn.textContent = "Store All";
+        installAllBtn.addEventListener("click", (e) => {
+          e.stopPropagation();
+          installPack(pack.pack_id, installAllBtn);
+        });
+        actions.appendChild(installAllBtn);
+      } else {
+        const doneLabel = document.createElement("span");
+        doneLabel.className = "pack-installed-label";
+        doneLabel.textContent = "Stored \u2713";
+        actions.appendChild(doneLabel);
+      }
+      card.appendChild(actions);
+
+      // Preview body (hidden by default)
+      const body = document.createElement("div");
+      body.className = "pack-preview-body";
+      body.style.display = "none";
+      card.appendChild(body);
+
+      let previewLoaded = false;
+      browseBtn.addEventListener("click", async (e) => {
+        e.stopPropagation();
+        const isOpen = body.style.display !== "none";
+        if (isOpen) {
+          body.style.display = "none";
+          card.classList.remove("pack-expanded");
+          browseBtn.textContent = isInstalled ? "Browse (stored)" : "Browse";
+          return;
+        }
+        // Collapse any other expanded pack first
+        const grid = document.getElementById("packs-grid");
+        if (grid) {
+          grid.querySelectorAll(".pack-expanded").forEach((el) => {
+            el.classList.remove("pack-expanded");
+            const prevBody = el.querySelector(".pack-preview-body") as HTMLElement | null;
+            if (prevBody) prevBody.style.display = "none";
+            const prevBtn = el.querySelector(".pack-browse-btn") as HTMLElement | null;
+            if (prevBtn) prevBtn.textContent = "Browse";
+          });
+        }
+        body.style.display = "block";
+        card.classList.add("pack-expanded");
+        browseBtn.textContent = "Hide";
+        // Scroll the expanded card into view, preserving top padding
+        const scrollParent = card.closest(".packs-modal") as HTMLElement | null;
+        if (scrollParent) {
+          const parentRect = scrollParent.getBoundingClientRect();
+          const cardRect = card.getBoundingClientRect();
+          const offset = cardRect.top - parentRect.top + scrollParent.scrollTop - 20;
+          scrollParent.scrollTo({ top: offset, behavior: "smooth" });
+        }
+        if (previewLoaded) return;
+        body.innerHTML = "<p class='packs-loading'>Loading preview…</p>";
+        try {
+          const previewResp = await doGet(`/recipes/built-in-packs/${encodeURIComponent(pack.pack_id)}/preview?max_recipes=500`);
+          if (previewResp.status !== 200 || !previewResp.json?.recipes) {
+            body.innerHTML = "<p class='packs-loading'>Failed to load preview.</p>";
+            return;
+          }
+          previewLoaded = true;
+          const recipes = previewResp.json.recipes;
+          if (recipes.length === 0) {
+            body.innerHTML = "<p class='packs-loading'>No recipes found in this pack.</p>";
+            return;
+          }
+          let listHtml = "<div class='pack-preview-list'>";
+          if (!isInstalled) {
+            listHtml += "<label class='pack-select-all'><span>Select all</span><input type='checkbox' class='pack-select-all-cb' checked /></label>";
+          } else {
+            listHtml += "<label class='pack-select-all'><span>Select all</span><input type='checkbox' class='pack-select-all-cb' /></label>";
+          }
+          for (const r of recipes) {
+            const checked = isInstalled ? "" : "checked";
+            const checkbox = `<input type='checkbox' class='pack-recipe-cb' value='${escapeHtml(r.title)}' ${checked} />`;
+            const snippetHtml = r.snippet ? `<div class='pack-recipe-snippet'>${escapeHtml(r.snippet)}</div>` : "";
+            listHtml += `<div class='pack-preview-item-wrap'><label class='pack-preview-item'><span class='pack-recipe-title${r.snippet ? " has-snippet" : ""}'>${escapeHtml(r.title)}</span>${checkbox}</label>${snippetHtml}</div>`;
+          }
+          listHtml += "</div>";
+          if (!isInstalled) {
+            listHtml += "<button type='button' class='pack-install-selected-btn'>Store Selected</button>";
+          } else {
+            listHtml += "<div class='pack-uninstall-actions'><button type='button' class='pack-uninstall-selected-btn'>Remove Selected</button><button type='button' class='pack-uninstall-all-btn'>Remove All</button></div>";
+          }
+          body.innerHTML = listHtml;
+
+          // Wire up snippet toggles
+          body.querySelectorAll(".pack-recipe-title.has-snippet").forEach(titleEl => {
+            titleEl.addEventListener("click", (e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              const wrap = (titleEl as HTMLElement).closest(".pack-preview-item-wrap");
+              if (wrap) wrap.classList.toggle("snippet-open");
+            });
+          });
+
+          // Wire up select-all
+          const selectAllCb = body.querySelector(".pack-select-all-cb") as HTMLInputElement | null;
+          const recipeCbs = body.querySelectorAll(".pack-recipe-cb") as NodeListOf<HTMLInputElement>;
+          if (selectAllCb) {
+            selectAllCb.addEventListener("change", () => {
+              recipeCbs.forEach(cb => { cb.checked = selectAllCb.checked; });
+            });
+          }
+
+          if (!isInstalled) {
+            const installSelBtn = body.querySelector(".pack-install-selected-btn") as HTMLButtonElement | null;
+            if (installSelBtn) {
+              installSelBtn.addEventListener("click", async () => {
+                const selected: string[] = [];
+                recipeCbs.forEach(cb => { if (cb.checked) selected.push(cb.value); });
+                if (selected.length === 0) return;
+                installSelBtn.disabled = true;
+                installSelBtn.textContent = "Storing…";
+                try {
+                  const iResp = await doPost("/recipes/built-in-packs/install", {
+                    pack_id: pack.pack_id,
+                    selected_titles: selected,
+                  });
+                  if (iResp.status === 200 && iResp.json) {
+                    installSelBtn.textContent = `Stored ${iResp.json.installed} recipe(s) \u2713`;
+                    installSelBtn.classList.add("installed");
+                  } else {
+                    installSelBtn.textContent = "Error";
+                    installSelBtn.disabled = false;
+                  }
+                } catch {
+                  installSelBtn.textContent = "Error";
+                  installSelBtn.disabled = false;
+                }
+              });
+            }
+          } else {
+            // Uninstall selected
+            const uninstSelBtn = body.querySelector(".pack-uninstall-selected-btn") as HTMLButtonElement | null;
+            if (uninstSelBtn) {
+              uninstSelBtn.addEventListener("click", async () => {
+                const selected: string[] = [];
+                recipeCbs.forEach(cb => { if (cb.checked) selected.push(cb.value); });
+                if (selected.length === 0) return;
+                uninstSelBtn.disabled = true;
+                uninstSelBtn.textContent = "Removing…";
+                try {
+                  const uResp = await doPost("/recipes/built-in-packs/uninstall", {
+                    pack_id: pack.pack_id,
+                    selected_titles: selected,
+                  });
+                  if (uResp.status === 200 && uResp.json) {
+                    uninstSelBtn.textContent = `Removed ${uResp.json.removed} recipe(s)`;
+                    // Refresh the catalogue to update installed state
+                    setTimeout(() => loadPacksCatalogue(), 800);
+                  } else {
+                    uninstSelBtn.textContent = "Error";
+                    uninstSelBtn.disabled = false;
+                  }
+                } catch {
+                  uninstSelBtn.textContent = "Error";
+                  uninstSelBtn.disabled = false;
+                }
+              });
+            }
+            // Uninstall all
+            const uninstAllBtn = body.querySelector(".pack-uninstall-all-btn") as HTMLButtonElement | null;
+            if (uninstAllBtn) {
+              uninstAllBtn.addEventListener("click", async () => {
+                uninstAllBtn.disabled = true;
+                uninstAllBtn.textContent = "Removing…";
+                try {
+                  const uResp = await doPost("/recipes/built-in-packs/uninstall", {
+                    pack_id: pack.pack_id,
+                  });
+                  if (uResp.status === 200 && uResp.json) {
+                    uninstAllBtn.textContent = `Removed ${uResp.json.removed} recipe(s)`;
+                    setTimeout(() => loadPacksCatalogue(), 800);
+                  } else {
+                    uninstAllBtn.textContent = "Error";
+                    uninstAllBtn.disabled = false;
+                  }
+                } catch {
+                  uninstAllBtn.textContent = "Error";
+                  uninstAllBtn.disabled = false;
+                }
+              });
+            }
+          }
+        } catch {
+          body.innerHTML = "<p class='packs-loading'>Failed to load preview.</p>";
+        }
+      });
+
+      grid.appendChild(card);
+    }
+  } catch {
+    grid.innerHTML = "<p class='packs-loading'>Failed to load packs.</p>";
+  }
+}
+
+async function loadMyRecipes() {
+  const grid = document.getElementById("packs-grid");
+  if (!grid) return;
+  grid.innerHTML = "<p class='packs-loading'>Loading your recipes\u2026</p>";
+  try {
+    const [booksResp, packsResp] = await Promise.all([
+      doGet("/recipes/books"),
+      doGet("/recipes/built-in-packs"),
+    ]);
+    if (booksResp.status !== 200 || !booksResp.json?.books) {
+      grid.innerHTML = "<p class='packs-loading'>Failed to load recipes.</p>";
+      return;
+    }
+    const books = booksResp.json.books;
+    if (books.length === 0) {
+      grid.innerHTML = "<p class='packs-loading'>No recipes yet. Browse packs to store some!</p>";
+      return;
+    }
+
+    // Build pack label lookup
+    const packLabels: Record<string, string> = {};
+    if (packsResp.status === 200 && packsResp.json?.packs) {
+      for (const p of packsResp.json.packs) {
+        packLabels[p.pack_id] = p.label;
+      }
+    }
+
+    // Group books by pack_id
+    const groups: Record<string, typeof books> = {};
+    const ungrouped: typeof books = [];
+    for (const book of books) {
+      if (book.pack_id) {
+        if (!groups[book.pack_id]) groups[book.pack_id] = [];
+        groups[book.pack_id].push(book);
+      } else {
+        ungrouped.push(book);
+      }
+    }
+
+    grid.innerHTML = "";
+
+    // Render each pack group as a collapsible section
+    const packIds = Object.keys(groups);
+    for (const pid of packIds) {
+      const section = document.createElement("div");
+      section.className = "my-recipes-group";
+
+      const groupHeader = document.createElement("div");
+      groupHeader.className = "my-recipes-group-header";
+      const label = packLabels[pid] || pid;
+      const count = groups[pid].length;
+      groupHeader.innerHTML = `
+        <strong>${escapeHtml(label)}</strong>
+        <span class="my-recipes-group-count">${count} recipe${count !== 1 ? "s" : ""}</span>
+        <span class="my-recipes-group-toggle">&#x25BC;</span>
+      `;
+      section.appendChild(groupHeader);
+
+      const groupBody = document.createElement("div");
+      groupBody.className = "my-recipes-group-body";
+      groupBody.style.display = "none";
+
+      for (const book of groups[pid]) {
+        groupBody.appendChild(buildRecipeCard(book));
+      }
+      section.appendChild(groupBody);
+
+      groupHeader.addEventListener("click", () => {
+        const isOpen = groupBody.style.display !== "none";
+        groupBody.style.display = isOpen ? "none" : "block";
+        const toggle = groupHeader.querySelector(".my-recipes-group-toggle");
+        if (toggle) toggle.innerHTML = isOpen ? "&#x25BC;" : "&#x25B2;";
+      });
+
+      grid.appendChild(section);
+    }
+
+    // Render ungrouped (uploaded) recipes
+    if (ungrouped.length > 0) {
+      const section = document.createElement("div");
+      section.className = "my-recipes-group";
+
+      const groupHeader = document.createElement("div");
+      groupHeader.className = "my-recipes-group-header";
+      groupHeader.innerHTML = `
+        <strong>Uploaded</strong>
+        <span class="my-recipes-group-count">${ungrouped.length} recipe${ungrouped.length !== 1 ? "s" : ""}</span>
+        <span class="my-recipes-group-toggle">&#x25BC;</span>
+      `;
+      section.appendChild(groupHeader);
+
+      const groupBody = document.createElement("div");
+      groupBody.className = "my-recipes-group-body";
+      groupBody.style.display = "none";
+
+      for (const book of ungrouped) {
+        groupBody.appendChild(buildRecipeCard(book));
+      }
+      section.appendChild(groupBody);
+
+      groupHeader.addEventListener("click", () => {
+        const isOpen = groupBody.style.display !== "none";
+        groupBody.style.display = isOpen ? "none" : "block";
+        const toggle = groupHeader.querySelector(".my-recipes-group-toggle");
+        if (toggle) toggle.innerHTML = isOpen ? "&#x25BC;" : "&#x25B2;";
+      });
+
+      grid.appendChild(section);
+    }
+  } catch {
+    grid.innerHTML = "<p class='packs-loading'>Failed to load recipes.</p>";
+  }
+}
+
+function buildRecipeCard(book: any): HTMLElement {
+  const card = document.createElement("div");
+  card.className = "recipe-card";
+
+  const header = document.createElement("div");
+  header.className = "recipe-card-header";
+  header.innerHTML = `
+    <strong>${escapeHtml(book.title || book.filename)}</strong>
+    <span class="recipe-card-toggle">&#x25BC;</span>
+  `;
+  card.appendChild(header);
+
+  const body = document.createElement("div");
+  body.className = "recipe-card-body";
+  body.style.display = "none";
+
+  if (book.text_content) {
+    body.innerHTML = renderRecipeContent(book.text_content);
+  } else {
+    body.innerHTML = "<p class='recipe-card-empty'>No content available.</p>";
+  }
+  card.appendChild(body);
+
+  header.addEventListener("click", () => {
+    const isOpen = body.style.display !== "none";
+    body.style.display = isOpen ? "none" : "block";
+    const toggle = header.querySelector(".recipe-card-toggle");
+    if (toggle) toggle.innerHTML = isOpen ? "&#x25BC;" : "&#x25B2;";
+  });
+
+  return card;
+}
+
+function renderRecipeContent(text: string): string {
+  const lines = text.split("\n");
+  let html = "";
+  let inSection = "";
+  for (const line of lines) {
+    const trimmed = line.trim();
+    if (!trimmed) continue;
+    if (trimmed.startsWith("# ")) {
+      // Skip the title heading (already shown in header)
+      continue;
+    }
+    if (trimmed.startsWith("## ") || trimmed.startsWith("### ")) {
+      // Section heading
+      if (inSection) html += "</ul>";
+      inSection = trimmed.replace(/^#+\s*/, "");
+      html += `<div class="recipe-section-title">${escapeHtml(inSection)}</div><ul>`;
+      continue;
+    }
+    // Regular line — treat as list item
+    html += `<li>${escapeHtml(trimmed)}</li>`;
+  }
+  if (inSection) html += "</ul>";
+  if (!html) html = `<p class="recipe-card-empty">No content to display.</p>`;
+  return html;
+}
+
+function escapeHtml(text: string): string {
+  const d = document.createElement("div");
+  d.textContent = text;
+  return d.innerHTML;
+}
+
+async function installPack(packId: string, btn: HTMLButtonElement) {
+  btn.disabled = true;
+  btn.textContent = "Storing…";
+  try {
+    const resp = await doPost("/recipes/built-in-packs/install", { pack_id: packId });
+    if (resp.status === 200 && resp.json) {
+      if (resp.json.installed > 0) {
+        btn.textContent = `Stored ✓ (${resp.json.installed})`;
+        btn.classList.add("installed");
+      } else {
+        btn.textContent = "Already stored";
+        btn.classList.add("installed");
+      }
+    } else {
+      btn.textContent = "Error";
+      btn.disabled = false;
+    }
+  } catch {
+    btn.textContent = "Error";
+    btn.disabled = false;
+  }
 }
 
 function hideOnboardMenu() {
