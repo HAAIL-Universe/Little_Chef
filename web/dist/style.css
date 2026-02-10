@@ -225,7 +225,7 @@ pre {
 
 .flow-menu {
   position: absolute;
-  top: 80px;
+  top: 90px;
   right: 16px;
   z-index: 90;
   display: flex;
@@ -480,7 +480,7 @@ pre {
 
 .history-toggle {
   position: absolute;
-  top: 12px;
+  top: 22px;
   right: 16px;
   z-index: 50;
   display: inline-flex;
@@ -570,6 +570,7 @@ pre {
   display: grid;
   gap: 4px;
   transition: transform 160ms ease, box-shadow 160ms ease;
+  z-index: 50;
 }
 
 .duet-bubble .bubble-label {
@@ -851,7 +852,7 @@ pre {
 /* ── Recipe packs button ──────────────────────────────────── */
 .recipe-packs-btn {
   position: absolute;
-  top: 148px;
+  top: 158px;
   right: 16px;
   z-index: 50;
   display: inline-flex;

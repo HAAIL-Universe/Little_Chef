@@ -145,28 +145,30 @@ const HISTORY_BADGE_DISPLAY_MAX = 99;
 const NORMAL_CHAT_FLOW_KEYS = new Set(["general", "inventory", "mealplan", "prefs"]);
 
 const CHEF_BUSY_PHRASES = [
-  "Prepping ingredients",
-  "Heating the pan",
-  "Chopping veg",
-  "Tasting the broth",
-  "Reducing the sauce",
-  "Simmering away",
-  "Seasoning to taste",
-  "Whisking it together",
-  "Checking the pantry",
-  "Plating up",
-  "Folding in flavours",
-  "Stirring the pot",
-  "Deglazing the pan",
-  "Rolling out the dough",
-  "Letting it rest",
+  "Stocking the cupboard",
+  "Making room in the fridge",
+  "Sorting the shelves",
+  "Counting tins",
+  "Checking use-by dates",
+  "Filling the freezer",
+  "Rummaging through the pantry",
+  "Labelling jars",
+  "Clearing shelf space",
+  "Weighing things up",
+  "Taking stock",
+  "Organising the spice rack",
+  "Updating the inventory",
+  "Double-checking quantities",
+  "Cataloguing supplies",
 ];
-const CHEF_BUSY_INTERVAL_MS = 2800;
+const CHEF_BUSY_INTERVAL_MS = 4500;
 let chefBusyTimer: ReturnType<typeof setInterval> | null = null;
 let chefBusyIndex = -1;
 let chefBusyThinkingIndex = -1;
 let chefBusyDotCount = 0;
 let chefBusyDotTimer: ReturnType<typeof setInterval> | null = null;
+let recipeNudgeTimer: ReturnType<typeof setTimeout> | null = null;
+let inventoryNudgeShowing = false;
 
 let overlayRoot: HTMLDivElement | null = null;
 let onboardPressTimer: number | null = null;
@@ -469,8 +471,8 @@ function ensureProposalActions(): HTMLDivElement | null {
   if (!proposalActionsContainer) {
     return null;
   }
-  const stage = document.querySelector(".duet-stage") as HTMLDivElement | null;
-  const target = stage ?? document.body;
+  const shell = document.getElementById("duet-shell") as HTMLElement | null;
+  const target = shell ?? document.body;
   if (proposalActionsContainer.parentElement !== target) {
     target.appendChild(proposalActionsContainer);
   }
@@ -768,7 +770,7 @@ function updateDuetBubbles() {
 function updateUserBubbleVisibility() {
   const userBubble = document.getElementById("duet-user-bubble");
   if (!userBubble) return;
-  const hide = currentFlowKey === "inventory";
+  const hide = currentFlowKey === "inventory" && !userBubbleEllipsisActive && !inventoryNudgeShowing;
   userBubble.style.display = hide ? "none" : "";
 }
 
@@ -781,9 +783,8 @@ function setUserBubbleEllipsis(enabled: boolean) {
     return;
   }
   userBubbleEllipsisActive = enabled;
-  if (!enabled) {
-    updateDuetBubbles();
-  }
+  updateUserBubbleVisibility();
+  updateDuetBubbles();
 }
 
 function applyDrawerProgress(progress: number, opts?: { dragging?: boolean; commit?: boolean }) {
@@ -967,7 +968,7 @@ function setupHistoryDrawerUi() {
         setDrawerOpen(!duetState.drawerOpen);
       }
     });
-    stage.appendChild(historyToggle);
+    shell.appendChild(historyToggle);
   }
 
   if (!recipePacksButton) {
@@ -979,7 +980,7 @@ function setupHistoryDrawerUi() {
     recipePacksButton.textContent = "📖";
     recipePacksButton.style.display = "none";
     recipePacksButton.addEventListener("click", () => openPacksModal());
-    stage.appendChild(recipePacksButton);
+    shell.appendChild(recipePacksButton);
   }
   updateRecipePacksButtonVisibility();
   resetHistoryBadge();
@@ -1445,6 +1446,9 @@ async function sendAsk(message: string, opts?: { flowLabel?: string; updateChatP
   const userIndex = addHistory("user", displayText);
   const thinkingIndex = addHistory("assistant", "...");
   startChefBusyCycle(thinkingIndex);
+  if (currentFlowKey === "inventory") {
+    scheduleRecipePacksNudge();
+  }
 
   const command = state.proposalId ? detectProposalCommand(normalizedMessage) : null;
   if (command) {
@@ -1553,6 +1557,39 @@ function stopChefBusyCycle() {
     chefBusyDotTimer = null;
   }
   chefBusyThinkingIndex = -1;
+  cancelRecipePacksNudge();
+}
+
+function scheduleRecipePacksNudge() {
+  cancelRecipePacksNudge();
+  recipeNudgeTimer = setTimeout(() => {
+    recipeNudgeTimer = null;
+    if (!composerBusy || currentFlowKey !== "inventory") return;
+    inventoryNudgeShowing = true;
+    // Ungate recipe packs button during processing
+    if (recipePacksButton) recipePacksButton.style.display = "";
+    // Show nudge on user bubble (replace 👍 temporarily)
+    updateUserBubbleVisibility();
+    const userEl = document.getElementById("duet-user-text");
+    if (userEl) setBubbleText(userEl, "Browse recipes while I work \u2014 tap \ud83d\udcd6");
+    const userBubble = document.getElementById("duet-user-bubble");
+    if (userBubble) userBubble.classList.remove("sent-mode");
+    setUserBubbleLabel(true);
+  }, 5000);
+}
+
+function cancelRecipePacksNudge() {
+  if (recipeNudgeTimer !== null) {
+    clearTimeout(recipeNudgeTimer);
+    recipeNudgeTimer = null;
+  }
+  if (inventoryNudgeShowing) {
+    inventoryNudgeShowing = false;
+    updateUserBubbleVisibility();
+    if (userBubbleEllipsisActive) {
+      updateDuetBubbles();
+    }
+  }
 }
 
 async function silentGreetOnce() {
@@ -1861,7 +1898,7 @@ function setupFlowChips() {
   setFlowMenuOpen(false);
   renderFlowMenu();
 
-  const menuHost = stage ?? shell;
+  const menuHost = shell;
   if (flowMenuContainer && menuHost && flowMenuContainer.parentElement !== menuHost) {
     menuHost.appendChild(flowMenuContainer);
   }
