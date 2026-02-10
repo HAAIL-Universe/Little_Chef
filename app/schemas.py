@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from pydantic import BaseModel, Field, conlist
 from typing import Optional, Dict, Any, List, Literal, Union
 from enum import Enum
@@ -115,6 +117,11 @@ class LowStockResponse(BaseModel):
 class ProposedInventoryEventAction(BaseModel):
     action_type: Literal["create_inventory_event"] = "create_inventory_event"
     event: InventoryEventCreateRequest
+
+
+class ProposedGenerateMealPlanAction(BaseModel):
+    action_type: Literal["generate_mealplan"] = "generate_mealplan"
+    mealplan: MealPlanResponse
 
 
 MealSlot = Literal["breakfast", "lunch", "dinner", "supper", "snack"]
@@ -282,7 +289,7 @@ class ChatResponse(BaseModel):
     reply_text: str
     confirmation_required: bool
     proposal_id: Optional[str] = None
-    proposed_actions: List[Union[ProposedUpsertPrefsAction, ProposedInventoryEventAction]] = Field(default_factory=list)
+    proposed_actions: List[Union[ProposedUpsertPrefsAction, ProposedInventoryEventAction, ProposedGenerateMealPlanAction]] = Field(default_factory=list)
     suggested_next_questions: List[str] = Field(default_factory=list)
     mode: Literal["ask", "fill"] = "ask"
 

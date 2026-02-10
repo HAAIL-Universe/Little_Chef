@@ -1,237 +1,294 @@
-# STT Preferences Parsing — LLM-Assisted Extraction (Option A)
+# LittleChef — Chef Agent MVP: 1-Day Meal Plan + General Chat Nudge
 
-> **Status:** COMPLETE — ~98% accuracy verified on live `gpt-5-mini` call  
-> **Session Date:** This session  
-> **Next Thread:** Apply same STT/LLM treatment to **Inventory Flow**
-
----
-
-## What Was Accomplished
-
-Speech-to-text (STT) preference input was broken — every category received the entire tail of the input text ("cross-contamination" bug). We implemented **Option A: LLM-assisted parsing** with regex fallback, and discovered + fixed **3 stacked critical bugs** that had prevented `generate_structured_reply` from EVER working since its inception (affecting prefs, inventory edit, and inventory draft — all three `kind` branches).
-
-### Summary of Changes
-
-1. **Expanded `UserPrefs` schema** — 3 new optional fields
-2. **Created `prefs_parse_service.py`** — LLM-backed prefs extraction
-3. **Fixed `generate_structured_reply`** — 3 critical bugs (wrong API parameter, outdated SDK, token budget)
-4. **Enhanced system prompt** — allergen group expansion, protein routing, word-to-number
-5. **Wired LLM-first parsing into `chat_service.py`** — with regex fallback
-6. **Fixed regex fallback** — `_CLAUSE_TERM` terminator, first-sub-segment-only
-7. **Created STT test suite** — 5 tests in `test_stt_prefs_parsing.py`
-8. **All 170 tests passing**
+> **Status:** READY TO IMPLEMENT
+> **Session Date:** 2026-02-10
+> **Source:** Full codebase audit of chef_agent, mealplan_service, chat routing, prefs, inventory, recipe sources
 
 ---
 
-## Critical Bugs Fixed in `generate_structured_reply`
+## Repo Findings
 
-These bugs affected ALL three `kind` branches (prefs, edit, draft). The `except Exception` handler silently swallowed every error, making it look like the LLM was disabled when it was actually crashing.
+### Chat Endpoints & Routing
 
-### Bug 1: Wrong API Parameter (Chat Completions vs Responses API)
+| Endpoint | File | Handler | Notes |
+|----------|------|---------|-------|
+| `POST /chat` | `app/api/routers/chat.py:33` | `ChatService.handle_chat()` | General chat; dispatches to ASK or FILL (prefs wizard). No mealplan routing. |
+| `POST /chat/inventory` | `app/api/routers/chat.py:48` | `InventoryAgent.handle_fill()` | Dedicated inventory lane. Requires `mode=fill` + `thread_id`. |
+| `POST /chat/mealplan` | `app/api/routers/chat.py:66` | `ChefAgent.handle_fill()` | Dedicated mealplan lane. Requires `mode=fill` + `thread_id`. Already wired. |
+| `POST /chat/confirm` | `app/api/routers/chat.py:84` | `ChatService.confirm()` | Dispatch chain: ChefAgent → InventoryAgent → prefs fallback. |
 
-**Was:** `response_format={"type": "json_schema", ...}` — this is the Chat Completions API parameter.  
-**Fix:** `text={"format": {"type": "json_schema", "name": "...", "strict": True, "schema": {...}}}` — this is the Responses API parameter.
+### Confirm Dispatch Order (`chat_service.py:289-302`)
+1. `chef_agent.handles_proposal()` — checked first
+2. `inventory_agent.handles_proposal()` — checked second
+3. Prefs fallback via `proposal_store.peek()` — last resort
 
-The OpenAI Responses API (`client.responses.create()`) does NOT accept `response_format`. It uses `text={"format": ...}`.
+### Meal Plan Generator
+- **File:** `app/services/mealplan_service.py`
+- `MealPlanService.generate(request)` — takes `MealPlanGenerateRequest(days, meals_per_day, include_user_library, notes)`
+- Iterates `BUILT_IN_RECIPES` round-robin to fill `meals_per_day` slots per day
+- Uses `_INGREDIENTS_BY_RECIPE` dict for ingredient lists
+- Returns `MealPlanResponse` with `plan_id`, `days[]`, `created_at`, `notes`
+- **No prefs filtering exists** — allergies/dislikes are not checked
 
-### Bug 2: Outdated SDK (`openai==1.54.1` → `1.86.0`)
+### ChefAgent (Current State)
+- **File:** `app/services/chef_agent.py`
+- `handle_fill()` — parses days/meals from message, falls back to user prefs, generates plan, stores proposal
+- `confirm()` — pops proposal, returns `plan_id` as applied event
+- **Gaps:** No 1-day cap. No prefs filtering. No allergy enforcement. No inventory awareness. No nudge for multi-day.
 
-**Was:** `openai==1.54.1` — the `client.responses` namespace doesn't exist in this version. Every call threw `AttributeError: 'OpenAI' object has no attribute 'responses'`.  
-**Fix:** Upgraded to `openai==1.86.0` in `requirements.txt`.
+### Preferences
+- **Service:** `app/services/prefs_service.py` — `get_prefs(user_id)` returns `UserPrefs` (or `DEFAULT_PREFS` with `plan_days=7, meals_per_day=3`)
+- **Schema:** `app/schemas.py:29` — `UserPrefs` has `allergies[]`, `dislikes[]`, `cuisine_likes[]`, `servings`, `meals_per_day`, `plan_days`
 
-### Bug 3: Token Budget Consumed by Reasoning
+### Inventory
+- **Service:** `app/services/inventory_service.py` — `summary(user_id)` returns `InventorySummaryResponse` with items `[(item_name, quantity, unit, location)]`
+- No complex expiry/burn-down; just event-sourced add/consume aggregates
 
-**Was:** `max_output_tokens=600`. The model `gpt-5-mini` uses reasoning tokens by default, consuming 320–576 tokens internally, leaving nothing for the actual JSON output. Result was `status: incomplete`, empty `output_text`.  
-**Fix:** `max_output_tokens=2048` for prefs (and edit/draft). Added `reasoning={"effort": "low"}` to reduce reasoning overhead.
+### Recipe Sources
+- **Built-ins:** `app/services/recipe_service.py:14` — `BUILT_IN_RECIPES = [{"id": "builtin_1", "title": "Simple Tomato Pasta"}, {"id": "builtin_2", "title": "Garlic Butter Chicken"}, {"id": "builtin_3", "title": "Veggie Stir Fry"}]`
+- **Ingredient map:** `app/services/mealplan_service.py:18` — `_INGREDIENTS_BY_RECIPE` maps recipe IDs to `IngredientLine[]`
+- **User library:** `RecipeService.search()` does text search across built-ins + user-uploaded books (via `recipe_repo.search_text()`)
+- No invented recipes — all `PlannedMeal` objects carry `RecipeSource` with `built_in_recipe_id` and `citations[]`
+
+### Proposal Store
+- **File:** `app/services/proposal_store.py`
+- In-memory, per-user, TTL 900s
+- `save(user_id, proposal_id, action)`, `peek(user_id, proposal_id)`, `pop(user_id, proposal_id)`
+
+### General Chat `_handle_ask()` (`chat_service.py:1000-1044`)
+- Keyword-match dispatch: "pref" → show prefs, "low on" → low stock, "inventory" → summary
+- Falls through to LLM or generic "Try FILL mode" reply
+- **No mealplan keyword detection exists** — needs adding
+
+### Existing Tests for ChefAgent (`tests/test_chef_agent.py`)
+7 tests exist: auth guard, thread_id guard, fill-mode guard, propose+confirm, propose+decline, defaults, thread isolation. All currently pass multi-day plans — these need updating for 1-day cap.
 
 ---
 
-## Files Modified
+## MVP Behavior Summary
 
-### `requirements.txt`
-- `openai==1.86.0` (was `1.54.1`)
+### 1-Day Plan Only
+- `ChefAgent.handle_fill()` always generates a **1-day** meal plan regardless of what the user requests.
+- If the user message explicitly mentions more than 1 day (e.g. "plan for 5 days"), the agent:
+  - Still generates a 1-day plan
+  - Includes a note in `reply_text`: *"MVP supports 1-day plans. Here's your plan for today — multi-day planning is coming soon!"*
+- `meals_per_day` is still user-controllable (from message or prefs, default 3).
 
-### `app/schemas.py` (line 31-33)
-3 new optional fields on `UserPrefs`:
+### Prefs-First Enforcement
+- Before generating, ChefAgent loads `prefs_service.get_prefs(user_id)`.
+- `allergies[]` and `dislikes[]` are extracted.
+- Recipes whose title or ingredients match any allergy/dislike keyword are **excluded** from the plan.
+- If no recipes remain after filtering, reply with a helpful message instead of an empty plan.
+- `meals_per_day` from prefs used as fallback when not specified in message.
+
+### Inventory Awareness (Simple)
+- After generating the plan, load `inventory_service.summary(user_id)`.
+- For each `PlannedMeal`, mark ingredients that are already in stock (informational only).
+- Include a `notes` field on the plan: *"You already have: X, Y. You'll need: A, B."*
+- No complex burn-down or reordering.
+
+### General Chat Nudge
+- In `ChatService._handle_ask()`, if the message contains mealplan-related keywords (`"meal plan"`, `"plan my meals"`, `"plan for"`, `"what should i eat"`, `"what should i cook"`), return a nudge:
+  - *"To generate a meal plan, use the Meal Plan flow (/chat/mealplan with mode=fill)."*
+- Also in `_handle_prefs_flow_threaded()` (fill mode on `/chat`), same detection → same nudge.
+- No smart routing, no auto-switch, no buttons.
+
+### Confirm-Before-Write
+- The existing pattern is already correct: `handle_fill()` → propose → `confirm()` → apply.
+- No changes needed to the confirm dispatch chain.
+
+---
+
+## Checklist of Changes
+
+- [ ] **1. ChefAgent: enforce 1-day cap** — `app/services/chef_agent.py`
+- [ ] **2. ChefAgent: prefs-first filtering** — `app/services/chef_agent.py` + `app/services/mealplan_service.py`
+- [ ] **3. ChefAgent: inventory notes** — `app/services/chef_agent.py`
+- [ ] **4. General chat nudge** — `app/services/chat_service.py`
+- [ ] **5. Update tests** — `tests/test_chef_agent.py`
+- [ ] **6. Verify** — compileall + pytest
+
+---
+
+## Step-by-Step Implementation Plan
+
+### Step 1: Enforce 1-Day Cap in ChefAgent
+
+**File:** `app/services/chef_agent.py` — `handle_fill()` method (lines 39-99)
+
+**Current behavior:** Parses `days` from message, falls back to prefs `plan_days`, final default 3. Passes to `mealplan_service.generate()`.
+
+**Change:**
+- After parsing `days` from message, check if `days > 1`.
+- Set `requested_multi = (days is not None and days > 1)`.
+- Force `days = 1` always.
+- `meals_per_day` logic stays the same (parse from message → prefs fallback → default 3).
+- If `requested_multi`, prepend to `reply_text`: *"MVP supports 1-day plans. Here's your plan for today — multi-day planning is coming soon!\n\n"*
+
+**Diff size:** ~10 lines changed in `handle_fill()`.
+
+### Step 2: Prefs-First Filtering
+
+**Files:**
+- `app/services/chef_agent.py` — add `_filter_recipes_by_prefs()` helper
+- `app/services/mealplan_service.py` — add optional `excluded_recipe_ids` param to `generate()`
+
+**Current behavior:** `MealPlanService.generate()` cycles through `BUILT_IN_RECIPES` round-robin with no filtering.
+
+**Change in `mealplan_service.py`:**
+- Add `excluded_recipe_ids: list[str] | None = None` parameter to `MealPlanGenerateRequest` (or pass it as a separate arg to `generate()`).
+- Preferred approach: Add `excluded_recipe_ids` as an optional keyword arg to `MealPlanService.generate()` to avoid changing the schema (the schema is physics-bound; this is an internal implementation detail).
+- Filter `meals_catalog` to exclude any recipe whose `id` is in `excluded_recipe_ids`.
+- If filtered catalog is empty, raise or return an empty plan (let ChefAgent handle the UX).
+
+**Change in `chef_agent.py`:**
+- In `handle_fill()`, after loading prefs, extract `allergies + dislikes` as lowercase set.
+- Import `BUILT_IN_RECIPES` from `recipe_service` and `_INGREDIENTS_BY_RECIPE` from `mealplan_service`.
+- Build `excluded_ids`: for each recipe, check if title or any ingredient name contains an allergy/dislike keyword.
+- Pass `excluded_recipe_ids=excluded_ids` to `mealplan_service.generate()`.
+- If the generated plan has zero meals (all recipes excluded), return a `ChatResponse` with `confirmation_required=False` and a message like *"All available recipes conflict with your allergies/dislikes. Try adjusting your preferences."*
+
+**Diff size:** ~5 lines in `mealplan_service.py`, ~25 lines in `chef_agent.py`.
+
+### Step 3: Inventory Notes (Informational)
+
+**File:** `app/services/chef_agent.py` — `handle_fill()` method
+
+**Change:**
+- After generating the plan, call `self._get_inventory_service().summary(user.user_id)` if an inventory service is available.
+- ChefAgent doesn't currently hold an `inventory_service`. Add it as an optional `__init__` param (set from `ChatService._get_mealplan_service()` wiring won't work — wire from `ChatService.__init__()` where `inventory_service` is already available).
+- Collect all ingredient `item_name` values from the plan.
+- Compare against inventory items (case-insensitive).
+- Split into `in_stock` and `need_to_buy` lists.
+- Set `plan.notes` to: *"In stock: {in_stock}. Need to buy: {need_to_buy}."* (or skip if inventory is empty).
+
+**Wiring change in `chat_service.py:142`:** Pass `inventory_service=inventory_service` when constructing `ChefAgent`.
+
+**Diff size:** ~20 lines in `chef_agent.py`, ~1 line in `chat_service.py`.
+
+### Step 4: General Chat Nudge
+
+**File:** `app/services/chat_service.py` — `_handle_ask()` (line 1000) and `_handle_prefs_flow_threaded()` (line 886)
+
+**Change in `_handle_ask()`:**
+- Add a new keyword check before the final `return None`, after the existing inventory check:
 ```python
-cook_time_weekday_mins: Optional[int] = Field(default=None, description="Preferred max cook time on weekdays (minutes)")
-cook_time_weekend_mins: Optional[int] = Field(default=None, description="Preferred max cook time on weekends (minutes)")
-diet_goals: List[str] = Field(default_factory=list, description="Dietary goals e.g. high protein, low sugar")
-```
-
-### `Contracts/physics.yaml`
-Added matching fields under the `UserPrefs` schema definition.
-
-### `app/services/llm_client.py` (273 lines total)
-**Major changes:**
-- `import json` added at top
-- `_PREFS_SYSTEM_PROMPT` (line 13): Enhanced prompt with:
-  - Allergen group expansion instructions (e.g., "dairy" → `["dairy", "milk", "cheese", "butter", "cream"]`)
-  - Protein routing to `notes` (not `cuisine_likes`)
-  - Word-to-number conversion guidance ("about thirty minutes" → 30)
-  - `cook_time_weekday_mins`, `cook_time_weekend_mins`, `diet_goals` field instructions
-- `_PREFS_SCHEMA` (line ~55): All 10 fields required, `additionalProperties: false`, uses `"type": ["string", "null"]` for nullable fields — compliant with strict mode
-- `generate_structured_reply` (line 157): Now uses:
-  ```python
-  resp = client.responses.create(
-      model=model,
-      input=input_msgs,
-      text={
-          "format": {
-              "type": "json_schema",
-              "name": schema_name,
-              "strict": True,
-              "schema": schema,
-          }
-      },
-      max_output_tokens=max_tokens,
-      reasoning={"effort": "low"},
-  )
-  raw = resp.output_text
-  if raw:
-      return json.loads(raw)
-  ```
-- All 3 schema branches (prefs, edit, draft) updated: `additionalProperties: False`, all fields in `required` array
-
-### `app/services/prefs_parse_service.py` (NEW — 80 lines)
-- `extract_prefs_llm(text, llm) -> Optional[UserPrefs]`
-- Calls `llm.generate_structured_reply(text, kind="prefs")`
-- Converts dict to `UserPrefs` via `_dict_to_user_prefs()` with type coercion helpers (`_str_list`, `_int_or`, `_optional_int`)
-
-### `app/services/chat_service.py`
-- Imports `extract_prefs_llm`
-- `_parse_prefs_from_message` (line 532): Tries LLM first, falls back to regex
-- `_CLAUSE_TERM`: Shared terminator regex for all clause patterns (prevents cross-contamination)
-- Expanded `LIKE_CLAUSE_PATTERNS` for STT contractions ("I'm", "we're")
-- `_split_clause_items`: Only uses first sub-segment
-- Expanded `_ITEM_FILLER_PREFIXES`
-- `_merge_prefs_draft` / `_merge_with_defaults`: Handle 3 new fields
-- `_build_rolling_summary`: Displays cook times and diet goals
-
-### `tests/test_stt_prefs_parsing.py` (NEW — 5 tests)
-1. Structured paragraph parsing
-2. Semi-structured input
-3. Cross-contamination check (allergies don't bleed into dislikes)
-4. New schema fields presence (cook times, diet goals)
-5. LLM path integration (mocked `generate_structured_reply`)
-
-### `scripts/diag_llm_prefs.py` (NEW — diagnostic)
-Standalone script for live LLM prefs testing. Used during debugging to verify API calls outside the test harness. Has verbose error output.
-
----
-
-## OpenAI Responses API — Reference for Next Thread
-
-The working pattern for structured output via the Responses API:
-
-```python
-from openai import OpenAI
-import json
-
-client = OpenAI(timeout=12)
-resp = client.responses.create(
-    model="gpt-5-mini",
-    input=[
-        {"role": "system", "content": "...system prompt..."},
-        {"role": "user", "content": user_text},
-    ],
-    text={
-        "format": {
-            "type": "json_schema",
-            "name": "schema_name_here",   # required wrapper field
-            "strict": True,                # required wrapper field
-            "schema": {                    # the actual JSON Schema
-                "type": "object",
-                "properties": { ... },
-                "required": ["every", "field", "listed"],
-                "additionalProperties": False,
-            },
-        }
-    },
-    max_output_tokens=2048,
-    reasoning={"effort": "low"},
+_MEALPLAN_NUDGE_RE = re.compile(
+    r"\b(?:meal\s*plan|plan\s+(?:my\s+)?meals?|what\s+should\s+i\s+(?:eat|cook|make))\b",
+    re.IGNORECASE,
 )
-result = json.loads(resp.output_text)
 ```
+- If `_MEALPLAN_NUDGE_RE.search(message)`, return a `ChatResponse` with:
+  - `reply_text`: *"To generate a meal plan, use the Meal Plan flow (send a message to /chat/mealplan with mode=fill and a thread_id)."*
+  - `confirmation_required: False`
 
-**Key rules for strict mode:**
-- Every object MUST have `"additionalProperties": False`
-- ALL fields MUST be in the `"required"` array (use `"type": ["string", "null"]` for optional)
-- The schema wrapper MUST include `"name"` and `"strict": True`
-- Parse via `json.loads(resp.output_text)` — NOT `resp.output`
+**Change in `_handle_prefs_flow_threaded()`:**
+- Add the same check at the top (after inventory misroute detection, before wizard logic):
+- If message matches `_MEALPLAN_NUDGE_RE`, return the nudge response.
 
-**SDK requirement:** `openai>=1.86.0` (the `client.responses` namespace was added circa 1.75+)
+**Diff size:** ~20 lines total (regex + two insertion points).
+
+### Step 5: Update Tests
+
+**File:** `tests/test_chef_agent.py`
+
+**Tests to update:**
+| Test | Current | Change |
+|------|---------|--------|
+| `test_chef_agent_propose_and_confirm` | Requests 5 days, asserts 5 days | Change to assert 1 day (MVP cap). Verify reply mentions "MVP supports 1-day". |
+| `test_chef_agent_propose_and_decline` | Requests 2 days, asserts 2 days plan exists | Verify plan has 1 day. |
+| `test_chef_agent_defaults_when_no_params` | Asserts 7 days (from prefs default) | Change to assert 1 day. |
+| `test_chef_agent_thread_isolation` | Requests 2 and 4 days | Both should produce 1-day plans. |
+
+**New tests to add:**
+| Test | Purpose |
+|------|---------|
+| `test_chef_agent_mvp_one_day_cap` | Explicitly request "5 days", verify 1 day returned + MVP note in reply_text. |
+| `test_chef_agent_prefs_allergy_filter` | Set prefs with allergy (e.g. "chicken"), verify no chicken recipes in plan. |
+| `test_chef_agent_all_recipes_excluded` | Set prefs that exclude all 3 built-in recipes, verify graceful "no recipes" response. |
+| `test_chef_agent_inventory_notes` | Add inventory items, generate plan, verify `notes` mentions in-stock items. |
+| `test_general_chat_mealplan_nudge_ask` | Send "make me a meal plan" to `/chat` in ASK mode, verify nudge response. |
+| `test_general_chat_mealplan_nudge_fill` | Send "plan my meals" to `/chat` in FILL mode, verify nudge response. |
+
+**Setting prefs in tests:** Use `authed_client.put("/prefs", json={"prefs": {...}})` before the mealplan call.
+**Setting inventory in tests:** Use `authed_client.post("/inventory/events", json={...})` before the mealplan call.
+
+**Diff size:** ~80-100 lines of test code changes.
+
+### Step 6: Verify
+
+1. `python -m compileall app` — no syntax errors
+2. `python -m pytest tests/ -x -q --tb=short` — all tests pass
+3. Manual check: confirm-before-write still holds, no cross-agent confirm bleed
 
 ---
 
-## Test Commands
+## Files Touched (Scoped List)
 
-```powershell
-cd z:\LittleChef
-.\.venv\Scripts\python.exe -m pytest tests/ -x -q
-```
+| File | Action | Reason |
+|------|--------|--------|
+| `app/services/chef_agent.py` | MODIFY | 1-day cap, prefs filtering, inventory notes |
+| `app/services/mealplan_service.py` | MODIFY | Add `excluded_recipe_ids` param to `generate()` |
+| `app/services/chat_service.py` | MODIFY | Mealplan nudge in `_handle_ask()` + `_handle_prefs_flow_threaded()`, pass `inventory_service` to ChefAgent |
+| `tests/test_chef_agent.py` | MODIFY | Update existing tests for 1-day cap, add new tests |
 
-All 170 tests should pass. Key STT tests:
-```powershell
-.\.venv\Scripts\python.exe -m pytest tests/test_stt_prefs_parsing.py -v
-```
-
-Live LLM diagnostic (requires `.env` with `LLM_ENABLED=1`, `OPENAI_API_KEY`, `OPENAI_MODEL=gpt-5-mini`):
-```powershell
-.\.venv\Scripts\python.exe scripts/diag_llm_prefs.py
-```
+**Not touched:** `app/schemas.py`, `app/api/routers/chat.py`, `Contracts/physics.yaml`, `web/` — no changes needed.
 
 ---
 
-## What's Next: Inventory Flow (New Thread)
+## Acceptance Criteria
 
-The inventory flow needs the **same STT/LLM treatment** applied to preferences parsing. The key insight: `generate_structured_reply` now works for ALL three `kind` branches (`prefs`, `edit`, `draft`), so the inventory paths should already benefit from the 3 bug fixes (API parameter, SDK upgrade, token budget). However, the following work remains:
+1. **1-day cap:** `POST /chat/mealplan` with any `days` value always produces a plan with exactly 1 day.
+2. **Multi-day note:** If user requests >1 day, `reply_text` contains "MVP supports 1-day".
+3. **Prefs loaded:** Allergies and dislikes filter out recipes; `meals_per_day` from prefs used as fallback.
+4. **All-excluded graceful:** If all recipes match allergy/dislike, response says so without crashing.
+5. **Inventory notes:** Plan `notes` field mentions in-stock vs need-to-buy (or omitted if no inventory).
+6. **General chat nudge:** Sending mealplan-related text to `/chat` (ASK or FILL mode) returns nudge text, not a plan.
+7. **Confirm-before-write:** Proposal → confirm → apply pattern still works; no silent writes.
+8. **Thread isolation:** ChefAgent proposals are scoped to `(user_id, thread_id)`; cross-thread confirm fails.
+9. **All tests pass:** `pytest tests/` green, including updated + new tests.
 
-### 1. Verify Inventory LLM Path Works
-The `edit` and `draft` schemas in `generate_structured_reply` (lines ~183-240 in `llm_client.py`) have already been updated with `additionalProperties: False` and full `required` arrays. They should work now. Test with real STT inventory input.
+---
 
-### 2. Check `inventory_parse_service.py`
-This file likely calls `generate_structured_reply(text, kind="edit")` or `kind="draft"`. Verify:
-- The calling code handles the return correctly (`json.loads` is now done inside `generate_structured_reply`, so the caller gets a `dict` or `None`)
-- Error handling is appropriate
-- The LLM-first → regex-fallback pattern is wired in (same pattern as prefs)
+## Verification Plan
 
-### 3. System Prompts for Inventory
-The `edit` and `draft` branches currently have `system_msg = None`. Consider adding inventory-specific system prompts similar to `_PREFS_SYSTEM_PROMPT` for better accuracy:
-- Item name normalization ("two cans of diced tomatoes" → `name_raw: "diced tomatoes"`, `quantity_raw: "2"`, `unit_raw: "can"`)
-- Expiration date parsing ("next Tuesday" → ISO date)
-- Unit standardization
-
-### 4. Create Inventory STT Tests
-Mirror the pattern from `test_stt_prefs_parsing.py`:
-- Structured inventory input ("I have 2 pounds of chicken, 3 cans of tomatoes, a dozen eggs")
-- Semi-structured STT ramble
-- Cross-contamination between inventory items
-- LLM path integration (mocked)
-- Real STT accuracy test (with `LLM_ENABLED=1`)
-
-### 5. Max Token Tuning
-The `edit` and `draft` branches now use `max_output_tokens=2048` (same as prefs). This should be sufficient. If inventory lists are very long, may need bumping. Monitor `status: incomplete` responses.
-
-### Architecture Reference
+### 1. Static Correctness
+```powershell
+.\.venv\Scripts\python.exe -m compileall app -q
 ```
-STT Input → chat_service (or inventory equivalent)
-         → Try LLM first (extract_inventory_llm?)
-         → generate_structured_reply(text, kind="edit"|"draft")
-         → client.responses.create(model, input, text={"format": ...}, ...)
-         → json.loads(resp.output_text)
-         → Convert to domain model
-         → Fall back to regex on None
+Expected: no output (clean).
+
+### 2. Runtime Sanity
+```powershell
+.\.venv\Scripts\python.exe -c "from app.services.chef_agent import ChefAgent; print('OK')"
+.\.venv\Scripts\python.exe -c "from app.services.mealplan_service import MealPlanService; print('OK')"
+.\.venv\Scripts\python.exe -c "from app.services.chat_service import ChatService; print('OK')"
 ```
+
+### 3. Behavioral Tests
+```powershell
+.\.venv\Scripts\python.exe -m pytest tests/test_chef_agent.py -x -q --tb=short
+```
+
+### 4. Full Suite
+```powershell
+.\.venv\Scripts\python.exe -m pytest tests/ -x -q --tb=short
+```
+Expected: all ~183+ tests pass.
+
+### 5. Contract Compliance
+- Confirm-before-write: verified by `test_chef_agent_propose_and_confirm`
+- No cross-agent bleed: verified by `test_chef_agent_thread_isolation`
+- Physics match: `/chat/mealplan` endpoint already in `physics.yaml`; no new endpoints added
+- File boundaries: ChefAgent is service-layer only; router is HTTP-only
 
 ---
 
 ## Environment Notes
 
-- **Windows** — use `.venv\Scripts\python.exe` not `.venv/bin/python`
+- **Windows** — use `.venv\Scripts\python.exe`
 - **Python environment:** `.venv` in project root
 - **SDK:** `openai==1.86.0` — do NOT downgrade
-- **Model:** `gpt-5-mini` with `reasoning={"effort": "low"}`
-- `.env` file has `LLM_ENABLED=1`, `OPENAI_API_KEY`, `OPENAI_MODEL=gpt-5-mini`
-- Tests run with in-memory repos (`DATABASE_URL=""`)
-- `authed_client` test fixture creates user with `user_id="test-user"`
+- **Tests run with in-memory repos** (`DATABASE_URL=""`)
+- **`authed_client` test fixture** creates user with `user_id="test-user"`
+- **`BUILT_IN_RECIPES`:** 3 recipes — Simple Tomato Pasta, Garlic Butter Chicken, Veggie Stir Fry

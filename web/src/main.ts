@@ -1103,11 +1103,23 @@ function renderInventoryLists(low: LowStockItem[], summary: InventorySummaryItem
       li.textContent = "No items.";
       summaryList.appendChild(li);
     } else {
-      summary.forEach((item) => {
-        const li = document.createElement("li");
-        li.textContent = `${item.item_name} - ${formatQuantity(item.quantity, item.unit, item.approx)}`;
-        summaryList.appendChild(li);
+      const groups: Record<string, InventorySummaryItem[]> = {};
+      summary.forEach(item => {
+        const loc = item.location || "pantry";
+        (groups[loc] ??= []).push(item);
       });
+      for (const loc of ["pantry", "fridge", "freezer"]) {
+        if (!groups[loc]?.length) continue;
+        const hdr = document.createElement("li");
+        hdr.className = "inv-loc-header";
+        hdr.textContent = loc.charAt(0).toUpperCase() + loc.slice(1);
+        summaryList.appendChild(hdr);
+        groups[loc].forEach(item => {
+          const li = document.createElement("li");
+          li.textContent = `${item.item_name} - ${formatQuantity(item.quantity, item.unit, item.approx)}`;
+          summaryList.appendChild(li);
+        });
+      }
     }
   }
 }

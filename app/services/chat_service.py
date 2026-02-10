@@ -20,6 +20,7 @@ from app.services.llm_client import (
     set_runtime_model,
 )
 from app.services.inventory_agent import InventoryAgent
+from app.services.chef_agent import ChefAgent
 from app.services.prefs_parse_service import extract_prefs_llm
 
 NUMBER_WORDS: dict[str, int] = {
@@ -127,6 +128,7 @@ class ChatService:
         llm_client: LlmClient | None = None,
         thread_messages_repo=None,
         inventory_agent: InventoryAgent | None = None,
+        chef_agent: ChefAgent | None = None,
     ) -> None:
         self.prefs_service = prefs_service
         self.inventory_service = inventory_service
@@ -136,11 +138,22 @@ class ChatService:
         self.inventory_agent = inventory_agent or InventoryAgent(
             inventory_service, proposal_store, llm_client
         )
+        self.chef_agent = chef_agent or ChefAgent(
+            mealplan_service=self._get_mealplan_service(),
+            proposal_store=proposal_store,
+            llm_client=llm_client,
+            prefs_service=prefs_service,
+        )
         self.prefs_drafts: dict[tuple[str, str], UserPrefs] = {}
         self._prefs_proposal_ids: dict[tuple[str, str], str] = {}
         self.thread_modes: dict[tuple[str, str], str] = {}
         self._prefs_wizard_answered: dict[tuple[str, str], set[str]] = {}
         self._prefs_wizard_current_q: dict[tuple[str, str], str | None] = {}
+
+    @staticmethod
+    def _get_mealplan_service():
+        from app.services.mealplan_service import get_mealplan_service
+        return get_mealplan_service()
 
     @property
     def _system_prompt(self) -> str:
@@ -276,6 +289,10 @@ class ChatService:
         confirm: bool,
         thread_id: str | None = None,
     ) -> tuple[bool, List[str], str | None]:
+        if self.chef_agent.handles_proposal(user.user_id, proposal_id):
+            if not self.chef_agent.handles_proposal(user.user_id, proposal_id, thread_id):
+                return False, [], None
+            return self.chef_agent.confirm(user, proposal_id, confirm, thread_id)
         if self.inventory_agent.handles_proposal(user.user_id, proposal_id):
             if not self.inventory_agent.handles_proposal(user.user_id, proposal_id, thread_id):
                 return False, [], None

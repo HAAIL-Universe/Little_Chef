@@ -59,6 +59,25 @@ def chat_inventory(
 
 
 @router.post(
+    "/chat/mealplan",
+    response_model=ChatResponse,
+    responses={
+        "400": {"model": ErrorResponse},
+        "401": {"model": ErrorResponse},
+    },
+)
+def chat_mealplan(
+    request: ChatRequest,
+    current_user: UserMe = Depends(get_current_user),
+) -> ChatResponse:
+    if not request.thread_id:
+        raise BadRequestError("Thread id is required for meal plan flow.")
+    if not request.mode or (request.mode or "").lower() != "fill":
+        raise BadRequestError("mealplan supports fill only (use mode='fill').")
+    return _chat_service.chef_agent.handle_fill(current_user, request)
+
+
+@router.post(
     "/chat/confirm",
     response_model=ConfirmProposalResponse,
     responses={

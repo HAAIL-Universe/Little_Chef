@@ -620,7 +620,7 @@ components:
 
     ProposedActionType:
       type: string
-      enum: [upsert_prefs, create_inventory_event]
+      enum: [upsert_prefs, create_inventory_event, generate_mealplan]
 
     ProposedActionBase:
       type: object
@@ -650,10 +650,20 @@ components:
             event:
               $ref: "#/components/schemas/InventoryEventCreateRequest"
 
+    ProposedGenerateMealPlanAction:
+      allOf:
+        - $ref: "#/components/schemas/ProposedActionBase"
+        - type: object
+          required: [mealplan]
+          properties:
+            mealplan:
+              $ref: "#/components/schemas/MealPlanResponse"
+
     ProposedAction:
       oneOf:
         - $ref: "#/components/schemas/ProposedUpsertPrefsAction"
         - $ref: "#/components/schemas/ProposedInventoryEventAction"
+        - $ref: "#/components/schemas/ProposedGenerateMealPlanAction"
 
     ChatRequest:
       type: object
@@ -1235,6 +1245,35 @@ paths:
           content:
             application/json:
               schema: { $ref: "#/components/schemas/ChatResponse" }
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+
+  /chat/mealplan:
+    post:
+      tags: [Chat]
+      summary: Chat-driven meal plan generation (FILL mode only). Proposes a meal plan for user confirmation.
+      security: [{ BearerAuth: [] }]
+      parameters:
+        - $ref: "#/components/parameters/CorrelationId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ChatRequest" }
+      responses:
+        "200":
+          description: Chat response with proposed meal plan
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ChatResponse" }
+        "400":
+          description: Bad request
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
         "401":
           description: Unauthorized
           content:
