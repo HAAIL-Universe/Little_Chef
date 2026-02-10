@@ -49,6 +49,7 @@ Unit = Literal[
     "loaf", "slice", "piece", "can", "carton", "tub", "pot",
     "bunch", "bulb", "head",
 ]
+Location = Literal["pantry", "fridge", "freezer"]
 InventoryEventType = Literal[
     "add",
     "consume_cooked",
@@ -64,6 +65,7 @@ class InventoryEventCreateRequest(BaseModel):
     item_name: str
     quantity: Optional[float] = None
     unit: Optional[Unit] = None
+    location: Location = "pantry"
     note: Optional[str] = ""
     source: Optional[str] = "ui"
 
@@ -75,6 +77,7 @@ class InventoryEvent(BaseModel):
     item_name: str
     quantity: Optional[float] = None
     unit: Optional[Unit] = None
+    location: Location = "pantry"
     note: Optional[str] = None
     source: Optional[str] = None
 
@@ -87,6 +90,7 @@ class InventorySummaryItem(BaseModel):
     item_name: str
     quantity: float
     unit: Unit
+    location: Location = "pantry"
     approx: bool = False
 
 

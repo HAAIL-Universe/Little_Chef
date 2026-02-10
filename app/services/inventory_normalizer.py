@@ -170,6 +170,36 @@ def _parse_date_gb(raw: Optional[str]) -> Tuple[Optional[str], List[str]]:
     return None, warnings
 
 
+_FREEZER_KEYWORDS = {"frozen"}
+_FRIDGE_ITEMS = {
+    "chicken", "beef", "mince", "minced", "pork", "lamb", "fish", "salmon",
+    "prawns", "turkey", "ham", "bacon", "sausage", "sausages",
+    "milk", "yogurt", "yoghurt", "cheese", "cream", "butter", "creme fraiche",
+    "eggs", "egg",
+    "cucumber", "peppers", "pepper", "spinach", "lettuce", "rocket",
+    "mushrooms", "mushroom", "tomatoes", "tomato", "celery", "courgette",
+    "broccoli", "cauliflower", "cabbage", "spring onion", "spring onions",
+}
+
+
+def infer_item_location(item_name: str, notes: str = "", default: str = "pantry") -> str:
+    """Infer storage location from item name and notes."""
+    lower = item_name.lower()
+    notes_lower = (notes or "").lower()
+    # Frozen keyword anywhere → freezer
+    if any(kw in lower for kw in _FREEZER_KEYWORDS) or any(kw in notes_lower for kw in _FREEZER_KEYWORDS):
+        return "freezer"
+    # Check item name tokens against fridge items
+    tokens = set(re.findall(r"[\w]+", lower))
+    if tokens & _FRIDGE_ITEMS:
+        return "fridge"
+    # Multi-word fridge items (e.g. "spring onion")
+    for fridge_item in _FRIDGE_ITEMS:
+        if " " in fridge_item and fridge_item in lower:
+            return "fridge"
+    return default
+
+
 def normalize_items(raw_items: List[RawItem], location: str) -> List[Dict]:
     out: List[Dict] = []
     for r in raw_items:
@@ -182,15 +212,18 @@ def normalize_items(raw_items: List[RawItem], location: str) -> List[Dict]:
         qty, unit, w_units = _parse_quantity_unit(r.get("quantity_raw"), r.get("unit_raw"))
         expires_on, w_date = _parse_date_gb(r.get("expires_raw"))
 
+        notes_raw = r.get("notes_raw") or ""
+        item_location = infer_item_location(display_name, notes_raw, default=location)
+
         warnings = w_units + w_date
-        if location == "pantry" and display_name in {"eggs"}:
+        if item_location == "pantry" and display_name in {"eggs"}:
             warnings.append("LOCATION_SUSPICIOUS")
         item = {
             "item": {
                 "name_raw": name_raw,
                 "display_name": display_name,
                 "item_key": item_key,
-                "location": location,
+                "location": item_location,
                 "quantity": qty,
                 "unit": unit,
                 "expires_on": expires_on,

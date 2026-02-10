@@ -164,6 +164,7 @@ class LlmClient:
 
     def __init__(self) -> None:
         self.timeout = float(os.getenv("OPENAI_TIMEOUT_S", "30"))
+        self.structured_timeout = float(os.getenv("OPENAI_STRUCTURED_TIMEOUT_S", "120"))
 
     def generate_reply(self, system_prompt: str, user_text: str) -> str:
         env_enabled = _is_truthy(os.getenv("LLM_ENABLED"))
@@ -213,7 +214,7 @@ class LlmClient:
         if not _valid_model(model):
             return None
         try:
-            client = OpenAI(timeout=self.timeout)
+            client = OpenAI(timeout=self.structured_timeout)
             if kind == "prefs":
                 schema = _PREFS_SCHEMA
                 schema_name = "prefs_output"
@@ -285,7 +286,7 @@ class LlmClient:
                 schema_name = "draft_output"
                 from datetime import date as _date
                 system_msg = _DRAFT_SYSTEM_PROMPT.format(today=_date.today().isoformat())
-                max_tokens = 4096
+                max_tokens = 8192
 
             input_msgs = []
             if system_msg:

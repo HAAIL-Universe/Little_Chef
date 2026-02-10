@@ -161,6 +161,13 @@ components:
         - bulb
         - head
 
+    Location:
+      type: string
+      enum:
+        - pantry
+        - fridge
+        - freezer
+
     InventoryEventType:
       type: string
       enum:
@@ -188,6 +195,9 @@ components:
           minimum: 0
         unit:
           $ref: "#/components/schemas/Unit"
+        location:
+          $ref: "#/components/schemas/Location"
+          default: "pantry"
         note:
           type: string
           default: ""
@@ -213,6 +223,8 @@ components:
           type: number
         unit:
           $ref: "#/components/schemas/Unit"
+        location:
+          $ref: "#/components/schemas/Location"
         note:
           type: string
         source:
@@ -228,6 +240,9 @@ components:
           type: number
         unit:
           $ref: "#/components/schemas/Unit"
+        location:
+          $ref: "#/components/schemas/Location"
+          default: "pantry"
         approx:
           type: boolean
           default: false
@@ -652,6 +667,9 @@ components:
         include_user_library:
           type: boolean
           default: true
+        location:
+          $ref: "#/components/schemas/Location"
+          description: Storage location for inventory items (pantry, fridge, or freezer).
         thread_id:
           type: string
           format: uuid

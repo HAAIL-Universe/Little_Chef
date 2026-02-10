@@ -111,6 +111,7 @@ let proposalDenyButton: HTMLButtonElement | null = null;
 const proposalDismissedIds = new Set<string>();
 let lastResponseRequiresConfirmation = false;
 let userBubbleEllipsisActive = false;
+let sentIndicatorBtn: HTMLButtonElement | null = null;
 let currentFlowKey = flowOptions[0].key;
 let composerBusy = false;
 let flowMenuContainer: HTMLDivElement | null = null;
@@ -464,7 +465,7 @@ function ensureProposalActions(): HTMLDivElement | null {
       );
     }
 
-    container.append(proposalConfirmButton, proposalEditButton, proposalDenyButton);
+    container.append(proposalDenyButton, proposalEditButton, proposalConfirmButton);
     proposalActionsContainer = container;
   }
 
@@ -755,22 +756,26 @@ function updateDuetBubbles() {
   const lastAssistant = [...duetState.history].reverse().find((h) => h.role === "assistant");
   const lastUser = [...duetState.history].reverse().find((h) => h.role === "user");
   const assistantFallback =
-    "Welcome — I’m Little Chef.\n\nTo start onboarding, follow the instructions below.";
+    "Welcome — I'm Little Chef.\n\nTo start onboarding, follow the instructions below.";
   setBubbleText(assistant, lastAssistant?.text ?? assistantFallback);
-  const showSentText = userBubbleEllipsisActive && isNormalChatFlow();
+  const showSent = userBubbleEllipsisActive && isNormalChatFlow();
   const fallbackText = isNormalChatFlow() ? userSystemHint : lastUser?.text ?? userSystemHint;
-  setBubbleText(user, showSentText ? USER_BUBBLE_SENT_TEXT : fallbackText);
+  setBubbleText(user, fallbackText);
   const userBubble = document.getElementById("duet-user-bubble");
   if (userBubble) {
-    userBubble.classList.toggle("sent-mode", showSentText);
+    userBubble.classList.remove("sent-mode");
   }
-  setUserBubbleLabel(!showSentText);
+  setUserBubbleLabel(true);
+  // Show/hide the column sent-indicator button
+  if (sentIndicatorBtn) {
+    sentIndicatorBtn.classList.toggle("visible", showSent);
+  }
 }
 
 function updateUserBubbleVisibility() {
   const userBubble = document.getElementById("duet-user-bubble");
   if (!userBubble) return;
-  const hide = currentFlowKey === "inventory" && !userBubbleEllipsisActive && !inventoryNudgeShowing;
+  const hide = currentFlowKey === "inventory" && !inventoryNudgeShowing;
   userBubble.style.display = hide ? "none" : "";
 }
 
@@ -981,6 +986,15 @@ function setupHistoryDrawerUi() {
     recipePacksButton.style.display = "none";
     recipePacksButton.addEventListener("click", () => openPacksModal());
     shell.appendChild(recipePacksButton);
+  }
+  if (!sentIndicatorBtn) {
+    sentIndicatorBtn = document.createElement("button");
+    sentIndicatorBtn.id = "duet-sent-indicator";
+    sentIndicatorBtn.type = "button";
+    sentIndicatorBtn.className = "sent-indicator-btn";
+    sentIndicatorBtn.setAttribute("aria-label", "Message sent");
+    sentIndicatorBtn.textContent = USER_BUBBLE_SENT_TEXT;
+    shell.appendChild(sentIndicatorBtn);
   }
   updateRecipePacksButtonVisibility();
   resetHistoryBadge();
@@ -2728,10 +2742,7 @@ function setupDock() {
   */
 }
 
-function bindOnboardingLongPress() {
-  const userBubble = document.getElementById("duet-user-bubble");
-  if (!userBubble) return;
-
+function _bindLongPressToElement(el: HTMLElement) {
   const clearTimer = () => {
     if (onboardPressTimer !== null) {
       window.clearTimeout(onboardPressTimer);
@@ -2748,7 +2759,7 @@ function bindOnboardingLongPress() {
     }
   };
 
-  userBubble.addEventListener("pointerdown", (ev) => {
+  el.addEventListener("pointerdown", (ev) => {
     onboardPressStart = { x: ev.clientX, y: ev.clientY };
     clearTimer();
     onboardPointerId = ev.pointerId;
@@ -2757,17 +2768,17 @@ function bindOnboardingLongPress() {
       onboardPressTimer = null;
       onboardPressStart = null;
       try {
-        userBubble.setPointerCapture(ev.pointerId);
+        el.setPointerCapture(ev.pointerId);
       } catch (_err) {
         // ignore if capture not supported
       }
     }, 500);
   });
 
-  userBubble.addEventListener("pointermove", (ev) => {
+  el.addEventListener("pointermove", (ev) => {
     if (onboardMenuActive) {
-      const el = document.elementFromPoint(ev.clientX, ev.clientY) as HTMLElement | null;
-      const item = el?.closest("[data-onboard-item]") as HTMLElement | null;
+      const hit = document.elementFromPoint(ev.clientX, ev.clientY) as HTMLElement | null;
+      const item = hit?.closest("[data-onboard-item]") as HTMLElement | null;
       if (item !== onboardActiveItem) {
         if (onboardActiveItem) {
           onboardActiveItem.classList.remove("active");
@@ -2789,7 +2800,7 @@ function bindOnboardingLongPress() {
     }
   });
 
-  userBubble.addEventListener("pointerup", (ev) => {
+  el.addEventListener("pointerup", (ev) => {
     if (onboardMenuActive) {
       const startHovered = onboardActiveItem?.dataset.onboardItem === "start";
       if (startHovered) {
@@ -2802,14 +2813,20 @@ function bindOnboardingLongPress() {
     }
     cancel();
   });
-  userBubble.addEventListener("pointercancel", () => cancel());
-  userBubble.addEventListener("lostpointercapture", () => {
+  el.addEventListener("pointercancel", () => cancel());
+  el.addEventListener("lostpointercapture", () => {
     if (onboardMenuActive) {
       cancel({ hideMenu: false });
     } else {
       cancel();
     }
   });
+}
+
+function bindOnboardingLongPress() {
+  const userBubble = document.getElementById("duet-user-bubble");
+  if (userBubble) _bindLongPressToElement(userBubble);
+  if (sentIndicatorBtn) _bindLongPressToElement(sentIndicatorBtn);
   document.addEventListener("click", (ev) => {
     if (!onboardMenu || onboardMenu.style.display === "none") return;
     if (Date.now() < onboardIgnoreDocClickUntilMs) return;

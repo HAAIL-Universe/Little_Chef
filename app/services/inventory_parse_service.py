@@ -19,6 +19,10 @@ def extract_new_draft(text: str, llm: Optional[LlmClient]) -> Optional[List[Draf
     if reply is None:
         # LLM is disabled or model invalid — signal unavailable
         return None
+    if not reply:
+        # Empty dict = LLM was available but API call failed — treat as unavailable
+        # so the caller can fall back to the regex parser
+        return None
     if "items" not in reply:
         return []
     items = reply.get("items") or []

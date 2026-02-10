@@ -226,7 +226,7 @@ pre {
 .flow-menu {
   position: absolute;
   top: 90px;
-  right: 16px;
+  right: 22px;
   z-index: 90;
   display: flex;
   flex-direction: column;
@@ -481,7 +481,7 @@ pre {
 .history-toggle {
   position: absolute;
   top: 22px;
-  right: 16px;
+  right: 22px;
   z-index: 50;
   display: inline-flex;
   align-items: center;
@@ -498,7 +498,7 @@ pre {
   position: absolute;
   top: 50%;
   transform: translateY(-50%);
-  right: 16px;
+  right: 22px;
   display: flex;
   flex-direction: column;
   gap: 10px;
@@ -853,13 +853,43 @@ pre {
 .recipe-packs-btn {
   position: absolute;
   top: 158px;
-  right: 16px;
+  right: 22px;
   z-index: 50;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   overflow: visible;
   box-shadow: var(--shadow);
+}
+
+/* ── Sent indicator (thumbs-up column button) ───────────── */
+.sent-indicator-btn {
+  position: absolute;
+  top: 226px;
+  right: 22px;
+  z-index: 50;
+  width: 46px;
+  height: 46px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  background: rgba(255, 255, 255, 0.08);
+  box-shadow: var(--shadow);
+  display: none;
+  align-items: center;
+  justify-content: center;
+  font-size: 24px;
+  line-height: 1;
+  cursor: grab;
+  color: var(--text);
+  padding: 0;
+}
+
+.sent-indicator-btn:active {
+  cursor: grabbing;
+}
+
+.sent-indicator-btn.visible {
+  display: inline-flex;
 }
 
 /* ── Recipe packs modal ───────────────────────────────────── */

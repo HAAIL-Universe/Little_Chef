@@ -43,12 +43,13 @@ class InventoryService:
             return False
 
     def summary(self, user_id: str) -> InventorySummaryResponse:
-        aggregates: Dict[tuple[str, str], float] = {}
+        aggregates: Dict[tuple[str, str, str], float] = {}
         events = self.repo.all_events(user_id)
         for ev in events:
             unit = ev.unit or "count"
+            location = getattr(ev, "location", None) or "pantry"
             qty = ev.quantity if ev.quantity is not None else 0
-            key = (self._normalize(ev.item_name), unit)
+            key = (self._normalize(ev.item_name), unit, location)
             if ev.event_type == "adjust":
                 aggregates[key] = qty
             else:
@@ -56,12 +57,12 @@ class InventoryService:
                 aggregates[key] = aggregates.get(key, 0) + delta
 
         items: List[InventorySummaryItem] = []
-        for (name, unit), qty in aggregates.items():
+        for (name, unit, location), qty in aggregates.items():
             approx = False
             if qty < 0:
                 qty = 0
                 approx = True
-            items.append(InventorySummaryItem(item_name=name, quantity=qty, unit=unit, approx=approx))
+            items.append(InventorySummaryItem(item_name=name, quantity=qty, unit=unit, location=location, approx=approx))
 
         generated_at = datetime.now(timezone.utc).isoformat()
         return InventorySummaryResponse(items=items, generated_at=generated_at)

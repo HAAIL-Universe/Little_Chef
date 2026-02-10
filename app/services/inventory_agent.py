@@ -10,7 +10,7 @@ from app.schemas import (
     ProposedInventoryEventAction,
     UserMe,
 )
-from app.services.inventory_normalizer import normalize_items
+from app.services.inventory_normalizer import infer_item_location, normalize_items
 from app.services.inventory_parse_service import (
     DraftItemRaw,
     extract_edit_ops,
@@ -337,7 +337,7 @@ class InventoryAgent:
             # Parser-path proposals have empty raw_items — use re-parse + merge
             if not pending.raw_items:
                 edit_actions, edit_warnings, edit_follow_ups = self._parse_inventory_actions(
-                    request.message
+                    request.message, location
                 )
                 existing = self.proposal_store.peek(user.user_id, pending.proposal_id) or []
                 merged = self._merge_edit_actions(existing, edit_actions)
@@ -353,6 +353,7 @@ class InventoryAgent:
                         suggested_next_questions=[],
                         mode=request.mode or "fill",
                     )
+                self._apply_location_inference(merged)
                 self.proposal_store.save(user.user_id, pending.proposal_id, merged)
                 reply = "I prepared an inventory update. Please confirm to apply."
                 if edit_follow_ups:
@@ -403,7 +404,7 @@ class InventoryAgent:
         raw_items = extract_new_draft(request.message, self.llm_client)
         if raw_items is None:
             # LLM unavailable — fall back to regex parser
-            inv_actions, parse_warnings, follow_ups = self._parse_inventory_actions(request.message)
+            inv_actions, parse_warnings, follow_ups = self._parse_inventory_actions(request.message, location)
             if inv_actions:
                 proposal_id = str(uuid.uuid4())
                 actions, allowlist_warnings = self._filter_inventory_actions(
@@ -420,6 +421,7 @@ class InventoryAgent:
                     )
                 self._bind_proposal(user.user_id, thread_id, proposal_id)
                 self._pending[key] = InventoryPending([], location, proposal_id)
+                self._apply_location_inference(actions)
                 self.proposal_store.save(user.user_id, proposal_id, actions)
                 reply = "I prepared an inventory update. Please confirm to apply."
                 if follow_ups:
@@ -569,6 +571,15 @@ class InventoryAgent:
                 warnings.append("Dropped non-inventory action from proposal.")
         return filtered, warnings
 
+    def _apply_location_inference(
+        self, actions: List[ProposedInventoryEventAction]
+    ) -> None:
+        """Infer per-item location from item name and notes for regex-parsed actions."""
+        for act in actions:
+            ev = act.event
+            inferred = infer_item_location(ev.item_name, ev.note or "", default=ev.location)
+            ev.location = inferred
+
     def _render_proposal(
         self,
         normalized: List[dict],
@@ -576,24 +587,43 @@ class InventoryAgent:
         location: str,
         allowlist_warnings: Optional[List[str]] = None,
     ) -> str:
-        lines = [f"Location: {location}"]
-        for idx, item in enumerate(normalized, 1):
+        # Group items by location
+        location_order = ["pantry", "fridge", "freezer"]
+        by_location: Dict[str, List[Tuple[dict, dict]]] = {}
+        for item in normalized:
             it = item["item"]
-            warnings = item.get("warnings", [])
-            warn_txt = " ".join(f"[{w}]" for w in warnings) if warnings else ""
-            q = it.get('quantity')
-            u = it.get('unit') or ''
-            if q is not None:
-                # Format: "500g" or "6 tin" or "2 count"
-                q_str = f"{q:g}" if q == int(q) else f"{q}"
-                qty = f"{q_str}{u}" if u in ('g', 'ml') else f"{q_str} {u}".strip()
+            loc = it.get("location", location)
+            by_location.setdefault(loc, []).append((item, it))
+
+        lines: List[str] = []
+        counter = 1
+        used_locations = [loc for loc in location_order if loc in by_location]
+        # Also include any unexpected locations not in the standard order
+        for loc in by_location:
+            if loc not in used_locations:
+                used_locations.append(loc)
+        single_location = len(used_locations) == 1
+        for loc in used_locations:
+            if single_location:
+                lines.append(f"Location: {loc.title()}")
             else:
-                qty = ""
-            expiry = it.get("expires_on") or ""
-            name = it.get('display_name') or it.get('base_name') or it.get('name_raw', '')
-            notes = it.get('notes') or ''
-            notes_txt = f"({notes})" if notes else ""
-            lines.append(f"{idx}. {name} {qty} {expiry} {notes_txt} {warn_txt}".strip())
+                lines.append(f"\n{loc.title()}:")
+            for item, it in by_location[loc]:
+                warnings = item.get("warnings", [])
+                warn_txt = " ".join(f"[{w}]" for w in warnings) if warnings else ""
+                q = it.get('quantity')
+                u = it.get('unit') or ''
+                if q is not None:
+                    q_str = f"{q:g}" if q == int(q) else f"{q}"
+                    qty = f"{q_str}{u}" if u in ('g', 'ml') else f"{q_str} {u}".strip()
+                else:
+                    qty = ""
+                expiry = it.get("expires_on") or ""
+                name = it.get('display_name') or it.get('base_name') or it.get('name_raw', '')
+                notes = it.get('notes') or ''
+                notes_txt = f"({notes})" if notes else ""
+                lines.append(f"{counter}. {name} {qty} {expiry} {notes_txt} {warn_txt}".strip())
+                counter += 1
         if unmatched:
             lines.append(f"Unmatched edits: {', '.join(unmatched)}")
         if allowlist_warnings:
@@ -643,6 +673,7 @@ class InventoryAgent:
                     item_name=it.get("display_name") or it.get("item_key") or "",
                     quantity=raw_qty if raw_qty is not None else None,
                     unit=raw_unit if raw_unit else None,
+                    location=it.get("location", "pantry"),
                     note=it.get("notes") or "",
                     source="chat",
                 )
@@ -682,7 +713,7 @@ class InventoryAgent:
         return unmatched
 
     def _parse_inventory_actions(
-        self, message: str
+        self, message: str, location: str = "pantry"
     ) -> Tuple[List[ProposedInventoryEventAction], List[str], List[str]]:
         text = message.strip()
         # Normalise smart/curly apostrophes to straight so filler patterns match
@@ -909,6 +940,7 @@ class InventoryAgent:
                         item_name=item_name,
                         quantity=quantity,
                         unit=unit,
+                        location=location,
                         note="",
                         source="chat",
                     )
@@ -991,6 +1023,7 @@ class InventoryAgent:
                         item_name=cleaned,
                         quantity=1.0,
                         unit="count",
+                        location=location,
                         note="",
                         source="chat",
                     )
@@ -1039,6 +1072,7 @@ class InventoryAgent:
                         item_name=cleaned,
                         quantity=1.0,
                         unit="count",
+                        location=location,
                         note="",
                         source="chat",
                     )
@@ -1063,9 +1097,9 @@ class InventoryAgent:
         return actions, warnings, follow_ups
 
     def _parse_inventory_action(
-        self, message: str
+        self, message: str, location: str = "pantry"
     ) -> Tuple[Optional[ProposedInventoryEventAction], List[str]]:
-        actions, warnings, _follow_ups = self._parse_inventory_actions(message)
+        actions, warnings, _follow_ups = self._parse_inventory_actions(message, location)
         if not actions:
             return None, warnings
         return actions[0], warnings

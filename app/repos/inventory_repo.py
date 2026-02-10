@@ -26,6 +26,7 @@ class InventoryRepository:
             item_name=req.item_name.strip(),
             quantity=req.quantity,
             unit=req.unit,
+            location=req.location or "pantry",
             note=req.note or "",
             source=req.source,
         )
@@ -59,6 +60,7 @@ class DbInventoryRepository:
             "item_name": req.item_name.strip(),
             "quantity": req.quantity,
             "unit": req.unit,
+            "location": req.location or "pantry",
             "note": req.note or "",
             "source": req.source,
         }
@@ -110,6 +112,7 @@ class DbInventoryRepository:
                     item_name=data["item_name"],
                     quantity=data["quantity"],
                     unit=data["unit"],
+                    location=data.get("location", "pantry"),
                     note=data.get("note"),
                     source=data.get("source"),
                 )
