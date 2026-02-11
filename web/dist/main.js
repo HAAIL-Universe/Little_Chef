@@ -31,6 +31,16 @@ function isDebugEnabled() {
         return false;
     }
 }
+function isSkipAuth() {
+    var _a, _b;
+    try {
+        return typeof window !== "undefined"
+            && ((_b = (_a = window.location) === null || _a === void 0 ? void 0 : _a.search) === null || _b === void 0 ? void 0 : _b.includes("skipauth=1"));
+    }
+    catch {
+        return false;
+    }
+}
 function safeLocalStorage() {
     if (typeof window === "undefined")
         return null;
@@ -1353,6 +1363,34 @@ function updatePrefsOverlayVisibility() {
     if (visible && (!prefsOverlayHasLoaded || !(prefsOverlayDetails === null || prefsOverlayDetails === void 0 ? void 0 : prefsOverlayDetails.childElementCount))) {
         refreshPrefsOverlay();
     }
+    updatePrefsNarratorHint();
+}
+function updatePrefsNarratorHint() {
+    const id = "prefs-narrator-hint";
+    const shouldShow = currentFlowKey === "prefs" && !state.onboarded && !composeActive;
+    let el = document.getElementById(id);
+    if (shouldShow) {
+        if (!el) {
+            el = document.createElement("div");
+            el.id = id;
+            el.className = "prefs-narrator-hint";
+            const primary = document.createElement("div");
+            primary.className = "pnh-primary";
+            primary.textContent = "Triple\u2011tap to chat.";
+            const sub = document.createElement("div");
+            sub.className = "pnh-sub";
+            sub.textContent = "I\u2019ll help you fill this in.";
+            el.appendChild(primary);
+            el.appendChild(sub);
+            const shell = document.getElementById("duet-shell");
+            if (shell)
+                shell.appendChild(el);
+        }
+        el.style.display = "";
+    }
+    else if (el) {
+        el.style.display = "none";
+    }
 }
 function setupPrefsOverlay() {
     const shell = document.getElementById("duet-shell");
@@ -2000,12 +2038,14 @@ function wire() {
                 refreshSystemHints();
                 renderOnboardMenuButtons();
                 updateDuetBubbles();
+                openLoginModal();
             }
         })
             .catch(() => {
             refreshSystemHints();
             renderOnboardMenuButtons();
             updateDuetBubbles();
+            openLoginModal();
         });
     }
     else if ((_j = state.token) === null || _j === void 0 ? void 0 : _j.trim()) {
@@ -2020,7 +2060,15 @@ function wire() {
             refreshSystemHints();
             renderOnboardMenuButtons();
             updateDuetBubbles();
+            openLoginModal();
         });
+    }
+    else {
+        // No token and not an Auth0 callback — show login modal as landing view
+        // Skip when ?skipauth=1 is present (e2e tests, local dev)
+        if (!isSkipAuth()) {
+            openLoginModal();
+        }
     }
     wireDuetComposer();
     wireFloatingComposerTrigger(document.querySelector(".duet-stage"));
@@ -2214,6 +2262,7 @@ function showComposeOverlay() {
     overlay.classList.add("active");
     composeActive = true;
     composerVisible = true;
+    updatePrefsNarratorHint();
     // Hide the old composer bar (keep it in DOM for rollback)
     const composer = document.getElementById("duet-composer");
     if (composer) {
@@ -2263,6 +2312,7 @@ function hideComposeOverlay() {
     overlay.classList.remove("active");
     composeActive = false;
     composerVisible = false;
+    updatePrefsNarratorHint();
     syncFlowMenuVisibility();
     input === null || input === void 0 ? void 0 : input.blur();
 }
@@ -3348,7 +3398,7 @@ function _bindLongPressToElement(el) {
             catch (_err) {
                 // ignore if capture not supported
             }
-        }, 500);
+        }, 300);
     });
     el.addEventListener("pointermove", (ev) => {
         if (onboardMenuActive) {

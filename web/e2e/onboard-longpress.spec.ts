@@ -2,7 +2,7 @@ import { test, expect } from '@playwright/test';
 
 test.describe('Onboard long-press menu', () => {
   test('opens above the bubble and stays topmost', async ({ page }) => {
-    await page.goto('/', { waitUntil: 'networkidle' });
+    await page.goto('/?skipauth=1', { waitUntil: 'networkidle' });
     const bubble = page.locator('#duet-user-bubble');
     await expect(bubble).toBeVisible({ timeout: 15000 });
     const box = await bubble.boundingBox();

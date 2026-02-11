@@ -2,7 +2,7 @@ import { expect, test } from "@playwright/test";
 
 test.describe("History badge and bubble", () => {
   test("sent bubble and badge track normal chat activity", async ({ page }) => {
-    await page.goto("/", { waitUntil: "networkidle" });
+    await page.goto("/?skipauth=1", { waitUntil: "networkidle" });
     const bubbleText = page.locator("#duet-user-bubble .bubble-text");
     await expect(bubbleText).toBeVisible({ timeout: 15000 });
 

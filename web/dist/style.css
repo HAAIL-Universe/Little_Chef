@@ -916,6 +916,30 @@ pre {
   user-select: none;
 }
 
+/* ── Prefs flow narrator hint (pre-onboard) ── */
+.prefs-narrator-hint {
+  position: fixed;
+  top: 35%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  text-align: center;
+  pointer-events: none;
+  user-select: none;
+  z-index: 5;
+  opacity: 0.45;
+  transition: opacity 0.25s ease;
+}
+.prefs-narrator-hint .pnh-primary {
+  font-size: 20px;
+  color: var(--text);
+  line-height: 1.5;
+}
+.prefs-narrator-hint .pnh-sub {
+  font-size: 13px;
+  color: rgba(230, 238, 248, 0.4);
+  margin-top: 6px;
+}
+
 .icon-btn {
   width: 46px;
   height: 46px;

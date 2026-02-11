@@ -25,7 +25,7 @@ test.describe('Dev Panel remember row', () => {
   });
 
   test('renders remember-me checkbox near the JWT controls', async ({ page }) => {
-    await page.goto('/', { waitUntil: 'networkidle' });
+    await page.goto('/?skipauth=1&debug=1', { waitUntil: 'networkidle' });
     await page.locator('#flow-menu-trigger').click();
     const devPanelItem = page.locator('.flow-menu-dropdown .flow-menu-item', { hasText: 'Dev Panel' });
     await expect(devPanelItem).toBeVisible({ timeout: 10000 });

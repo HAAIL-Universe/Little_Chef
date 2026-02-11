@@ -33,6 +33,15 @@ function isDebugEnabled(): boolean {
   }
 }
 
+function isSkipAuth(): boolean {
+  try {
+    return typeof window !== "undefined"
+      && window.location?.search?.includes("skipauth=1");
+  } catch {
+    return false;
+  }
+}
+
 function safeLocalStorage(): Storage | null {
   if (typeof window === "undefined") return null;
   try {
@@ -1424,6 +1433,33 @@ function updatePrefsOverlayVisibility() {
   if (visible && (!prefsOverlayHasLoaded || !prefsOverlayDetails?.childElementCount)) {
     refreshPrefsOverlay();
   }
+  updatePrefsNarratorHint();
+}
+
+function updatePrefsNarratorHint() {
+  const id = "prefs-narrator-hint";
+  const shouldShow = currentFlowKey === "prefs" && !state.onboarded && !composeActive;
+  let el = document.getElementById(id);
+  if (shouldShow) {
+    if (!el) {
+      el = document.createElement("div");
+      el.id = id;
+      el.className = "prefs-narrator-hint";
+      const primary = document.createElement("div");
+      primary.className = "pnh-primary";
+      primary.textContent = "Triple\u2011tap to chat.";
+      const sub = document.createElement("div");
+      sub.className = "pnh-sub";
+      sub.textContent = "I\u2019ll help you fill this in.";
+      el.appendChild(primary);
+      el.appendChild(sub);
+      const shell = document.getElementById("duet-shell");
+      if (shell) shell.appendChild(el);
+    }
+    el.style.display = "";
+  } else if (el) {
+    el.style.display = "none";
+  }
 }
 
 function setupPrefsOverlay() {
@@ -2096,12 +2132,14 @@ function wire() {
           refreshSystemHints();
           renderOnboardMenuButtons();
           updateDuetBubbles();
+          openLoginModal();
         }
       })
       .catch(() => {
         refreshSystemHints();
         renderOnboardMenuButtons();
         updateDuetBubbles();
+        openLoginModal();
       });
   } else if (state.token?.trim()) {
     // Auto-validate remembered dev JWT (fire-and-forget)
@@ -2115,7 +2153,14 @@ function wire() {
       refreshSystemHints();
       renderOnboardMenuButtons();
       updateDuetBubbles();
+      openLoginModal();
     });
+  } else {
+    // No token and not an Auth0 callback — show login modal as landing view
+    // Skip when ?skipauth=1 is present (e2e tests, local dev)
+    if (!isSkipAuth()) {
+      openLoginModal();
+    }
   }
 
   wireDuetComposer();
@@ -2327,6 +2372,7 @@ function showComposeOverlay() {
   overlay.classList.add("active");
   composeActive = true;
   composerVisible = true;
+  updatePrefsNarratorHint();
 
   // Hide the old composer bar (keep it in DOM for rollback)
   const composer = document.getElementById("duet-composer") as HTMLElement | null;
@@ -2380,6 +2426,7 @@ function hideComposeOverlay() {
   overlay.classList.remove("active");
   composeActive = false;
   composerVisible = false;
+  updatePrefsNarratorHint();
   syncFlowMenuVisibility();
   input?.blur();
 }
@@ -3483,7 +3530,7 @@ function _bindLongPressToElement(el: HTMLElement) {
       } catch (_err) {
         // ignore if capture not supported
       }
-    }, 500);
+    }, 300);
   });
 
   el.addEventListener("pointermove", (ev) => {

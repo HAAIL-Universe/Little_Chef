@@ -41,7 +41,7 @@ test("proposal actions stack toggles on confirmation_required flow", async ({ pa
     });
   });
 
-  await page.goto("/", { waitUntil: "networkidle" });
+  await page.goto("/?skipauth=1", { waitUntil: "networkidle" });
 
   const input = page.locator("#duet-input");
   const sendBtn = page.locator("#duet-send");

@@ -87,7 +87,7 @@ test("inventory overlay appears after confirming inventory proposal", async ({ p
     });
   });
 
-  await page.goto("/", { waitUntil: "networkidle" });
+  await page.goto("/?skipauth=1", { waitUntil: "networkidle" });
 
   // Select Inventory flow
   const trigger = page.locator("#flow-menu-trigger");
