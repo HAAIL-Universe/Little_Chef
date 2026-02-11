@@ -145,6 +145,42 @@ let userSystemHint = USER_BUBBLE_DEFAULT_HINT;
 const HISTORY_BADGE_DISPLAY_MAX = 99;
 const NORMAL_CHAT_FLOW_KEYS = new Set(["general", "inventory", "mealplan", "prefs"]);
 
+let assistantFallbackText =
+  "Welcome — I'm Little Chef.\n\nTo start onboarding, follow the instructions below.";
+
+function getOnboardingStatus() {
+  return {
+    is_logged_in: !!state.token?.trim(),
+    prefs_complete: !!state.onboarded,
+    inventory_complete: !!state.inventoryOnboarded,
+    mealplan_complete: mealplanReached,
+  };
+}
+
+function refreshSystemHints() {
+  const s = getOnboardingStatus();
+  if (!s.is_logged_in) {
+    userSystemHint = "Enter your JWT token above and tap Auth to sign in.";
+    assistantFallbackText = "Welcome — I'm Little Chef.\n\nPlease sign in to get started.";
+  } else if (!s.prefs_complete) {
+    userSystemHint = USER_BUBBLE_DEFAULT_HINT;
+    assistantFallbackText =
+      "Welcome — I'm Little Chef.\n\nTo start onboarding, follow the instructions below.";
+  } else if (!s.inventory_complete) {
+    userSystemHint = "Long-press this chat bubble to navigate > Inventory";
+    assistantFallbackText =
+      "Preferences saved! Next step: set up your inventory.\n\nLong-press the system bubble below to navigate to Inventory.";
+  } else if (!s.mealplan_complete) {
+    userSystemHint = "Long-press this chat bubble to finish onboarding > Meal Plan";
+    assistantFallbackText =
+      "Inventory set up! Next step: create your first meal plan.\n\nLong-press the system bubble below to navigate to Meal Plan.";
+  } else {
+    userSystemHint = "Long-press this chat bubble to switch flows.";
+    assistantFallbackText =
+      "Welcome back! You're all set up.\n\nUse the flows to manage preferences, inventory, or meal plans.";
+  }
+}
+
 const CHEF_BUSY_PHRASES = [
   "Stocking the cupboard",
   "Making room in the fridge",
@@ -755,9 +791,7 @@ function updateDuetBubbles() {
   const user = document.getElementById("duet-user-text");
   const lastAssistant = [...duetState.history].reverse().find((h) => h.role === "assistant");
   const lastUser = [...duetState.history].reverse().find((h) => h.role === "user");
-  const assistantFallback =
-    "Welcome — I'm Little Chef.\n\nTo start onboarding, follow the instructions below.";
-  setBubbleText(assistant, lastAssistant?.text ?? assistantFallback);
+  setBubbleText(assistant, lastAssistant?.text ?? assistantFallbackText);
   const showSent = userBubbleEllipsisActive && isNormalChatFlow();
   const fallbackText = isNormalChatFlow() ? userSystemHint : lastUser?.text ?? userSystemHint;
   setBubbleText(user, fallbackText);
@@ -1663,10 +1697,12 @@ function wire() {
     state.inventoryOnboarded = !!result.json?.inventory_onboarded;
     // Returning user who completed onboarding before — unlock recipe button
     if (state.inventoryOnboarded) mealplanReached = true;
+    refreshSystemHints();
     renderOnboardMenuButtons();
     updatePrefsOverlayVisibility();
     updateInventoryOverlayVisibility();
     updateRecipePacksButtonVisibility();
+    updateDuetBubbles();
     await silentGreetOnce();
     inventoryHasLoaded = false;
     if (currentFlowKey === "inventory") {

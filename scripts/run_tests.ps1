@@ -227,6 +227,8 @@ try {
   & npm --prefix web run build
   Info "node scripts/ui_proposal_renderer_test.mjs"
   & node "$PSScriptRoot\ui_proposal_renderer_test.mjs"
+  Info "node scripts/ui_onboarding_hints_test.mjs"
+  & node "$PSScriptRoot\ui_onboarding_hints_test.mjs"
   Info "npm --prefix web exec playwright install --with-deps"
   & npm --prefix web exec playwright install --with-deps
   $playwrightInstallExit = $LASTEXITCODE
