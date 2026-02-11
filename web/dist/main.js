@@ -1973,14 +1973,36 @@ function wire() {
     setupPrefsOverlay();
     setupDevPanel();
     applyRememberedJwtInput(jwtInput);
-    refreshSystemHints();
-    // Auth0 callback detection (async, non-blocking)
+    // Auth0 callback detection
     const auth0CallbackPending = new URLSearchParams(window.location.search).has("code")
         && new URLSearchParams(window.location.search).has("state");
-    handleAuth0Callback().catch(() => { });
-    // Auto-validate remembered dev JWT (fire-and-forget, same pattern as Auth0 callback)
-    // Skip when an Auth0 callback is pending — Auth0 will set its own token.
-    if (((_j = state.token) === null || _j === void 0 ? void 0 : _j.trim()) && !auth0CallbackPending) {
+    refreshSystemHints();
+    if (auth0CallbackPending) {
+        // Override hints to show "signing in" while Auth0 callback resolves
+        assistantFallbackText = "Signing in\u2026";
+        userSystemHint = "Signing in\u2026";
+        updateDuetBubbles();
+    }
+    if (auth0CallbackPending) {
+        // Auth0 is returning from login — await the callback before showing UI.
+        // Show a brief "Signing in…" state so the user doesn't see login-first flash.
+        handleAuth0Callback()
+            .then((ok) => {
+            if (!ok) {
+                // Callback failed — fall back to normal login-first state
+                refreshSystemHints();
+                renderOnboardMenuButtons();
+                updateDuetBubbles();
+            }
+        })
+            .catch(() => {
+            refreshSystemHints();
+            renderOnboardMenuButtons();
+            updateDuetBubbles();
+        });
+    }
+    else if ((_j = state.token) === null || _j === void 0 ? void 0 : _j.trim()) {
+        // Auto-validate remembered dev JWT (fire-and-forget)
         performPostLogin().catch(() => {
             // Token invalid/expired — clear and revert to login-first state
             state.token = "";
