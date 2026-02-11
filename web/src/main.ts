@@ -2068,10 +2068,13 @@ function wire() {
   refreshSystemHints();
 
   // Auth0 callback detection (async, non-blocking)
+  const auth0CallbackPending = new URLSearchParams(window.location.search).has("code")
+    && new URLSearchParams(window.location.search).has("state");
   handleAuth0Callback().catch(() => {});
 
   // Auto-validate remembered dev JWT (fire-and-forget, same pattern as Auth0 callback)
-  if (state.token?.trim()) {
+  // Skip when an Auth0 callback is pending — Auth0 will set its own token.
+  if (state.token?.trim() && !auth0CallbackPending) {
     performPostLogin().catch(() => {
       // Token invalid/expired — clear and revert to login-first state
       state.token = "";

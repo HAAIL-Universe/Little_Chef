@@ -1975,9 +1975,12 @@ function wire() {
     applyRememberedJwtInput(jwtInput);
     refreshSystemHints();
     // Auth0 callback detection (async, non-blocking)
+    const auth0CallbackPending = new URLSearchParams(window.location.search).has("code")
+        && new URLSearchParams(window.location.search).has("state");
     handleAuth0Callback().catch(() => { });
     // Auto-validate remembered dev JWT (fire-and-forget, same pattern as Auth0 callback)
-    if ((_j = state.token) === null || _j === void 0 ? void 0 : _j.trim()) {
+    // Skip when an Auth0 callback is pending — Auth0 will set its own token.
+    if (((_j = state.token) === null || _j === void 0 ? void 0 : _j.trim()) && !auth0CallbackPending) {
         performPostLogin().catch(() => {
             // Token invalid/expired — clear and revert to login-first state
             state.token = "";
