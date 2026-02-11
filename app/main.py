@@ -47,6 +47,18 @@ async def lifespan(app: FastAPI):
 
 def create_app() -> FastAPI:
     load_env()
+
+    # --- Startup LLM config diagnostic (never prints secrets) ---
+    from app.services.llm_client import _env_get, _is_truthy, _valid_model
+    _llm_flag = _env_get("LLM_ENABLED")
+    _llm_model = _env_get("OPENAI_MODEL")
+    _llm_key_set = bool(_env_get("OPENAI_API_KEY"))
+    logger.info(
+        "LLM config: enabled=%s (raw=%r), model=%r (valid=%s), api_key_set=%s",
+        _is_truthy(_llm_flag), _llm_flag, _llm_model,
+        _valid_model(_llm_model), _llm_key_set,
+    )
+
     app = FastAPI(title="Little Chef", version="0.1.0", lifespan=lifespan)
     app.include_router(health.router)
     app.include_router(auth.router)

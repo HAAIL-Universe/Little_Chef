@@ -10,6 +10,27 @@ logger = logging.getLogger(__name__)
 _runtime_enabled: Optional[bool] = None
 _runtime_model: Optional[str] = None
 
+
+def _env_get(key: str, default: Optional[str] = None) -> Optional[str]:
+    """Case-insensitive env var lookup with quote stripping.
+
+    On Linux (Render), env var names are case-sensitive. If the user set
+    ``LLM_enabled`` instead of ``LLM_ENABLED`` in the Render dashboard,
+    ``_env_get("LLM_ENABLED")`` returns None.  This helper falls back
+    to a case-insensitive scan of ``os.environ`` and also strips
+    surrounding quotes from the value (common copy-paste artefact).
+    """
+    # Fast path: exact match
+    val = os.getenv(key)
+    if val is not None:
+        return val.strip().strip("\"'")
+    # Slow path: case-insensitive scan
+    key_lower = key.lower()
+    for k, v in os.environ.items():
+        if k.lower() == key_lower:
+            return v.strip().strip("\"'")
+    return default
+
 _PREFS_SYSTEM_PROMPT = (
     "You are a preference extractor for a meal planning app. "
     "Extract the user's food preferences from their message. "
@@ -140,7 +161,7 @@ def runtime_enabled(default_env_enabled: bool) -> bool:
 
 
 def current_model() -> Optional[str]:
-    return os.getenv("OPENAI_MODEL")
+    return _env_get("OPENAI_MODEL")
 
 
 def set_runtime_model(model: Optional[str]) -> None:
@@ -167,8 +188,8 @@ class LlmClient:
         self.structured_timeout = float(os.getenv("OPENAI_STRUCTURED_TIMEOUT_S", "120"))
 
     def generate_reply(self, system_prompt: str, user_text: str) -> str:
-        env_enabled = _is_truthy(os.getenv("LLM_ENABLED"))
-        env_model = os.getenv("OPENAI_MODEL")
+        env_enabled = _is_truthy(_env_get("LLM_ENABLED"))
+        env_model = _env_get("OPENAI_MODEL")
         model = effective_model(env_model)
 
         if not runtime_enabled(env_enabled):
@@ -177,7 +198,7 @@ class LlmClient:
             return self.INVALID_MODEL_REPLY
 
         try:
-            client = OpenAI(timeout=self.timeout)
+            client = OpenAI(api_key=_env_get("OPENAI_API_KEY"), timeout=self.timeout)
             response = client.responses.create(
                 model=model,
                 input=[
@@ -206,15 +227,15 @@ class LlmClient:
         When disabled/invalid model, returns None (signals LLM unavailable).
         When API call fails, returns empty dict {} (signals tried-and-failed).
         """
-        env_enabled = _is_truthy(os.getenv("LLM_ENABLED"))
-        env_model = os.getenv("OPENAI_MODEL")
+        env_enabled = _is_truthy(_env_get("LLM_ENABLED"))
+        env_model = _env_get("OPENAI_MODEL")
         model = effective_model(env_model)
         if not runtime_enabled(env_enabled):
             return None
         if not _valid_model(model):
             return None
         try:
-            client = OpenAI(timeout=self.structured_timeout)
+            client = OpenAI(api_key=_env_get("OPENAI_API_KEY"), timeout=self.structured_timeout)
             if kind == "prefs":
                 schema = _PREFS_SCHEMA
                 schema_name = "prefs_output"
