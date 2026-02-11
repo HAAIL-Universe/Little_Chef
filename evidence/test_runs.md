@@ -1,3 +1,30 @@
+## Test Run 2026-02-11T15:00:00Z
+- Status: PASS
+- Start: 2026-02-11T14:50:00Z
+- End: 2026-02-11T15:00:00Z
+- Branch: claude/romantic-jones
+- HEAD: 2de7b1c (staged: Logout flow reset + prior cycles)
+- Command: `python -m pytest tests/ -x -q --tb=short && node scripts/ui_onboarding_hints_test.mjs`
+- Details: pytest 183 passed, 1 warning (113.89s). UI tests 17/17 PASS. tsc pass (1 pre-existing TS2339). Cycle: Logout in gear menu + selectFlow("general") reset.
+
+## Test Run 2026-02-11T14:15:00Z
+- Status: PASS
+- Start: 2026-02-11T14:10:00Z
+- End: 2026-02-11T14:15:00Z
+- Branch: claude/romantic-jones
+- HEAD: 2de7b1c (unstaged: app/main.py meta-tag injection)
+- Command: `python -m pytest tests/ -x -q --tb=short`
+- Details: pytest 183 passed, 1 warning (116.60s). Cycle: Auth0 meta-tag injection via FastAPI. TestClient verified 3 tags injected with env vars, derivation fallback, graceful degradation.
+
+## Test Run 2026-02-11T13:30:00Z
+- Status: PASS
+- Start: 2026-02-11T13:25:00Z
+- End: 2026-02-11T13:30:00Z
+- Branch: claude/romantic-jones
+- HEAD: 2de7b1c (unstaged edits on top)
+- Command: `python -m pytest tests/ -x -q --tb=short && node scripts/ui_onboarding_hints_test.mjs`
+- Details: pytest 183 passed, 1 warning (113.64s). UI tests 17/17 PASS (added 4: gearMenuIncludesLogout x2, shouldAutoValidateOnStartup x2). tsc pass (1 pre-existing TS2339). Cycle: auto-validate remembered JWT + Logout gear menu + Auth0 logout.
+
 ## Test Run 2026-02-09T10:00:00Z
 - Status: PASS (96 passed, 2 pre-existing failures)
 - Start: 2026-02-09T10:00:00Z

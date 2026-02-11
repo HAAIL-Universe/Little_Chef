@@ -59,6 +59,22 @@ function gearMenuIncludesDevPanel(debugEnabled) {
   return debugEnabled;
 }
 
+/**
+ * Replicate renderFlowMenu() Settings gating.
+ * Returns true if Settings should appear in gear menu.
+ */
+function gearMenuIncludesSettings(tokenTrimmed) {
+  return !!tokenTrimmed;
+}
+
+/**
+ * Replicate wire() startup auto-validate condition.
+ * Returns true if performPostLogin() should fire on startup.
+ */
+function shouldAutoValidateOnStartup(tokenTrimmed) {
+  return !!tokenTrimmed;
+}
+
 // ---- refreshSystemHints tests ----
 
 // Test: not logged in
@@ -170,5 +186,37 @@ console.log("debug disabled, no Dev Panel: PASS");
   assert(gearMenuIncludesDevPanel(true), "debug on: Dev Panel present");
 }
 console.log("debug enabled, Dev Panel present: PASS");
+
+// ---- logout gear-menu tests ----
+
+// Test: logged out -> no Settings in gear menu
+{
+  assert(!gearMenuIncludesSettings(false), "logged out: no Settings");
+  assert(!gearMenuIncludesSettings(""), "empty token: no Settings");
+}
+console.log("gear menu logged out, no Settings: PASS");
+
+// Test: logged in -> Settings in gear menu
+{
+  assert(gearMenuIncludesSettings(true), "logged in: Settings present");
+  assert(gearMenuIncludesSettings("some-jwt-token"), "token truthy: Settings present");
+}
+console.log("gear menu logged in, Settings present: PASS");
+
+// ---- startup auto-validate tests ----
+
+// Test: no remembered token -> no auto-validate
+{
+  assert(!shouldAutoValidateOnStartup(false), "no token: no auto-validate");
+  assert(!shouldAutoValidateOnStartup(""), "empty token: no auto-validate");
+}
+console.log("startup no token, no auto-validate: PASS");
+
+// Test: remembered token present -> auto-validate fires
+{
+  assert(shouldAutoValidateOnStartup(true), "token present: auto-validate fires");
+  assert(shouldAutoValidateOnStartup("remembered-jwt"), "jwt truthy: auto-validate fires");
+}
+console.log("startup remembered token, auto-validate fires: PASS");
 
 console.log("\nui onboarding hints test: PASS");

@@ -1503,3 +1503,15 @@ pre {
   opacity: 0.6;
   cursor: not-allowed;
 }
+.lc-modal-action.lc-modal-danger {
+  background: rgba(220, 38, 38, 0.55);
+}
+.lc-modal-action.lc-modal-danger:hover {
+  background: rgba(220, 38, 38, 0.75);
+}
+.lc-modal-warning {
+  color: #fca5a5;
+  font-size: 0.88rem;
+  line-height: 1.45;
+  margin: 0.25rem 0 0.75rem;
+}

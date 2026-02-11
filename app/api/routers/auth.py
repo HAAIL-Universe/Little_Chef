@@ -67,3 +67,22 @@ def auth_me(
         return user
     except (JWTVerificationError, JWTConfigurationError) as exc:
         raise UnauthorizedError(str(exc)) from exc
+
+
+@router.delete(
+    "/auth/me",
+    responses={
+        "200": {"description": "Account deleted"},
+        "401": {"model": ErrorResponse},
+    },
+)
+def auth_delete_account(
+    authorization: str | None = Header(None, convert_underscores=False, alias="Authorization"),
+):
+    token = _extract_bearer_token(authorization)
+    service = get_auth_service()
+    try:
+        deleted = service.delete_account(token)
+        return {"deleted": deleted}
+    except (JWTVerificationError, JWTConfigurationError) as exc:
+        raise UnauthorizedError(str(exc)) from exc

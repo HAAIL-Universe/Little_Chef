@@ -1,9 +1,11 @@
 import asyncio
 import logging
+import os
+import re
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, HTTPException
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
 from pathlib import Path
 
 from app.config.env import load_env
@@ -65,12 +67,36 @@ def create_app() -> FastAPI:
     @app.get("/", include_in_schema=True)
     def ui_index():
         index_path = dist_dir / "index.html"
-        if index_path.exists():
-            return FileResponse(index_path, media_type="text/html")
-        return JSONResponse(
-            status_code=503,
-            content={"error": "ui_not_built", "message": "UI build missing. Run npm --prefix web install && npm --prefix web run build."},
-        )
+        if not index_path.exists():
+            return JSONResponse(
+                status_code=503,
+                content={"error": "ui_not_built", "message": "UI build missing. Run npm --prefix web install && npm --prefix web run build."},
+            )
+        html = index_path.read_text(encoding="utf-8")
+
+        # --- Auth0 meta-tag injection ---
+        domain = os.getenv("LC_AUTH0_DOMAIN", "")
+        if not domain:
+            # Derive from LC_JWT_ISSUER (e.g. "https://tenant.eu.auth0.com/")
+            issuer = os.getenv("LC_JWT_ISSUER", "")
+            m = re.match(r"https?://([^/\s]+)", issuer)
+            if m and "." in m.group(1):
+                domain = m.group(1)
+        client_id = os.getenv("LC_AUTH0_CLIENT_ID", "")
+        audience = os.getenv("LC_AUTH0_AUDIENCE", "")
+
+        meta_tags = ""
+        if domain:
+            meta_tags += f'  <meta name="lc-auth0-domain" content="{domain}">\n'
+        if client_id:
+            meta_tags += f'  <meta name="lc-auth0-client-id" content="{client_id}">\n'
+        if audience:
+            meta_tags += f'  <meta name="lc-auth0-audience" content="{audience}">\n'
+
+        if meta_tags:
+            html = html.replace("</head>", meta_tags + "</head>", 1)
+
+        return HTMLResponse(content=html, headers={"Cache-Control": "no-store"})
 
     @app.get("/static/{path:path}", include_in_schema=True)
     def ui_static(path: str):

@@ -5,7 +5,7 @@ from typing import Optional
 from app.auth.jwt_verifier import JWTVerifier, JWTVerificationError
 from app.schemas import UserMe
 from app.db.conn import get_database_url, connect
-from app.repos.user_repo import ensure_user
+from app.repos.user_repo import ensure_user, delete_user
 from app.errors import ServiceUnavailableError
 import psycopg
 
@@ -48,6 +48,20 @@ class AuthService:
             provider_subject=provider_subject,
             email=email,
         )
+
+    def delete_account(self, token: str) -> bool:
+        """Verify the token, then delete the user and all cascade-linked data."""
+        claims = self.verifier.verify(token)
+        provider_subject: Optional[str] = claims.get("sub")
+        if not provider_subject:
+            raise JWTVerificationError("Missing sub claim")
+        user_id = _deterministic_user_id(provider_subject)
+        if not get_database_url():
+            return False
+        with connect() as conn, conn.cursor() as cur:
+            deleted = delete_user(cur, user_id)
+            conn.commit()
+        return deleted
 
 
 @lru_cache(maxsize=1)

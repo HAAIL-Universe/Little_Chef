@@ -655,6 +655,7 @@ function setFlowMenuOpen(open) {
     flowMenuButton === null || flowMenuButton === void 0 ? void 0 : flowMenuButton.setAttribute("aria-expanded", open ? "true" : "false");
 }
 function renderFlowMenu() {
+    var _a;
     const dropdown = flowMenuDropdown;
     const trigger = flowMenuButton;
     if (!dropdown || !trigger)
@@ -672,6 +673,18 @@ function renderFlowMenu() {
         });
         dropdown.appendChild(item);
     });
+    if ((_a = state.token) === null || _a === void 0 ? void 0 : _a.trim()) {
+        const settingsItem = document.createElement("button");
+        settingsItem.type = "button";
+        settingsItem.className = "flow-menu-item";
+        settingsItem.textContent = "Settings";
+        settingsItem.setAttribute("role", "menuitem");
+        settingsItem.addEventListener("click", () => {
+            setFlowMenuOpen(false);
+            openSettingsModal();
+        });
+        dropdown.appendChild(settingsItem);
+    }
     if (isDebugEnabled()) {
         const devItem = document.createElement("button");
         devItem.type = "button";
@@ -1654,6 +1667,7 @@ async function performPostLogin() {
         mealplanReached = true;
     refreshSystemHints();
     renderOnboardMenuButtons();
+    renderFlowMenu();
     updatePrefsOverlayVisibility();
     updateInventoryOverlayVisibility();
     updateRecipePacksButtonVisibility();
@@ -1736,8 +1750,146 @@ function closeLoginModal() {
     if (modal)
         modal.remove();
 }
+// ---------------------------------------------------------------------------
+// Settings modal
+// ---------------------------------------------------------------------------
+function openSettingsModal() {
+    if (document.getElementById("lc-settings-modal"))
+        return;
+    const overlay = document.createElement("div");
+    overlay.id = "lc-settings-modal";
+    overlay.className = "lc-modal-overlay";
+    overlay.addEventListener("click", (ev) => {
+        if (ev.target === overlay)
+            closeSettingsModal();
+    });
+    const panel = document.createElement("div");
+    panel.className = "lc-modal-panel";
+    const closeBtn = document.createElement("button");
+    closeBtn.type = "button";
+    closeBtn.className = "lc-modal-close";
+    closeBtn.textContent = "\u00d7";
+    closeBtn.setAttribute("aria-label", "Close");
+    closeBtn.addEventListener("click", closeSettingsModal);
+    const title = document.createElement("h2");
+    title.textContent = "Settings";
+    title.className = "lc-modal-title";
+    // --- Logout button ---
+    const logoutBtn = document.createElement("button");
+    logoutBtn.type = "button";
+    logoutBtn.className = "lc-modal-action";
+    logoutBtn.textContent = "Log out";
+    logoutBtn.addEventListener("click", () => {
+        closeSettingsModal();
+        performLogout();
+    });
+    // --- Delete Account button ---
+    const deleteBtn = document.createElement("button");
+    deleteBtn.type = "button";
+    deleteBtn.className = "lc-modal-action lc-modal-danger";
+    deleteBtn.textContent = "Delete account";
+    deleteBtn.addEventListener("click", () => {
+        showDeleteConfirmation(panel);
+    });
+    panel.appendChild(closeBtn);
+    panel.appendChild(title);
+    panel.appendChild(logoutBtn);
+    panel.appendChild(deleteBtn);
+    overlay.appendChild(panel);
+    document.body.appendChild(overlay);
+}
+function showDeleteConfirmation(panel) {
+    // Replace panel content with confirmation
+    panel.innerHTML = "";
+    const closeBtn = document.createElement("button");
+    closeBtn.type = "button";
+    closeBtn.className = "lc-modal-close";
+    closeBtn.textContent = "\u00d7";
+    closeBtn.setAttribute("aria-label", "Close");
+    closeBtn.addEventListener("click", closeSettingsModal);
+    const title = document.createElement("h2");
+    title.textContent = "Delete account?";
+    title.className = "lc-modal-title";
+    const warning = document.createElement("p");
+    warning.className = "lc-modal-warning";
+    warning.textContent = "This will permanently delete your account and all data (preferences, inventory, meal plans, recipes). This cannot be undone.";
+    const confirmBtn = document.createElement("button");
+    confirmBtn.type = "button";
+    confirmBtn.className = "lc-modal-action lc-modal-danger";
+    confirmBtn.textContent = "Yes, delete my account";
+    confirmBtn.addEventListener("click", async () => {
+        confirmBtn.disabled = true;
+        confirmBtn.textContent = "Deleting\u2026";
+        try {
+            const res = await fetch("/auth/me", {
+                method: "DELETE",
+                headers: { Authorization: `Bearer ${state.token}` },
+            });
+            if (res.ok) {
+                closeSettingsModal();
+                await performLogout();
+            }
+            else {
+                confirmBtn.textContent = "Failed \u2014 try again";
+                confirmBtn.disabled = false;
+            }
+        }
+        catch {
+            confirmBtn.textContent = "Failed \u2014 try again";
+            confirmBtn.disabled = false;
+        }
+    });
+    const cancelBtn = document.createElement("button");
+    cancelBtn.type = "button";
+    cancelBtn.className = "lc-modal-action";
+    cancelBtn.textContent = "Cancel";
+    cancelBtn.addEventListener("click", () => {
+        closeSettingsModal();
+        openSettingsModal();
+    });
+    panel.appendChild(closeBtn);
+    panel.appendChild(title);
+    panel.appendChild(warning);
+    panel.appendChild(confirmBtn);
+    panel.appendChild(cancelBtn);
+}
+function closeSettingsModal() {
+    const modal = document.getElementById("lc-settings-modal");
+    if (modal)
+        modal.remove();
+}
+async function performLogout() {
+    // 1) Clear local session
+    state.token = "";
+    state.onboarded = null;
+    state.inventoryOnboarded = null;
+    mealplanReached = false;
+    // 2) Clear remembered dev JWT
+    clearRememberedJwt();
+    // 3) Close login modal if open
+    closeLoginModal();
+    // 4) Refresh UI to login-first state
+    refreshSystemHints();
+    renderOnboardMenuButtons();
+    updatePrefsOverlayVisibility();
+    updateInventoryOverlayVisibility();
+    updateRecipePacksButtonVisibility();
+    updateDuetBubbles();
+    selectFlow("general");
+    // 5) Auth0 logout (will redirect; must be last)
+    try {
+        const client = await loadAuth0Client();
+        if (client) {
+            client.logout({ logoutParams: { returnTo: window.location.origin } });
+            return; // Auth0 will navigate away
+        }
+    }
+    catch {
+        // Auth0 not configured or failed — local logout is sufficient
+    }
+}
 function wire() {
-    var _a, _b, _c, _d, _e, _f, _g, _h;
+    var _a, _b, _c, _d, _e, _f, _g, _h, _j;
     enforceViewportLock();
     const jwtInput = document.getElementById("jwt");
     (_a = document.getElementById("btn-auth")) === null || _a === void 0 ? void 0 : _a.addEventListener("click", async () => {
@@ -1824,6 +1976,20 @@ function wire() {
     refreshSystemHints();
     // Auth0 callback detection (async, non-blocking)
     handleAuth0Callback().catch(() => { });
+    // Auto-validate remembered dev JWT (fire-and-forget, same pattern as Auth0 callback)
+    if ((_j = state.token) === null || _j === void 0 ? void 0 : _j.trim()) {
+        performPostLogin().catch(() => {
+            // Token invalid/expired — clear and revert to login-first state
+            state.token = "";
+            state.onboarded = null;
+            state.inventoryOnboarded = null;
+            mealplanReached = false;
+            clearRememberedJwt();
+            refreshSystemHints();
+            renderOnboardMenuButtons();
+            updateDuetBubbles();
+        });
+    }
     wireDuetComposer();
     wireFloatingComposerTrigger(document.querySelector(".duet-stage"));
     setupHistoryDrawerUi();
