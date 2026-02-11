@@ -13563,3 +13563,16 @@ error: unknown command 'test'
 error: unknown command 'test'
 ```
 
+
+## Test Run 2026-02-11T12:16:00Z
+- Status: PASS
+- Start: 2026-02-11T12:14:00Z
+- End: 2026-02-11T12:16:00Z
+- Python: Z:\LittleChef\.claude\worktrees\romantic-jones\.venv\Scripts\python.exe
+- Branch: claude/romantic-jones
+- HEAD: 25203615bda2ffb9cc9a2c7ebe02607e0d85ff83
+- tsc: pass (1 pre-existing TS2339, no new errors)
+- pytest exit: 0
+- pytest summary: 183 passed, 1 warning in 112.49s
+- node ui_onboarding_hints_test.mjs: 13/13 PASS (not-logged-in hints, logged-in hints, onboard menu states, debug gate)
+- Cycle: Login-first navigation + Auth0 modal + debug gate

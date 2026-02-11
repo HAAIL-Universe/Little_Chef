@@ -20,6 +20,19 @@ const DEV_JWT_DURATION_OPTIONS: { value: number; label: string }[] = [
   { value: 7 * DEV_JWT_DEFAULT_TTL_MS, label: "7 days" },
 ];
 
+const LC_DEBUG_KEY = "lc_debug";
+function isDebugEnabled(): boolean {
+  try {
+    if (typeof window !== "undefined" && window.location?.search?.includes("debug=1")) {
+      window.localStorage?.setItem(LC_DEBUG_KEY, "1");
+      return true;
+    }
+    return window.localStorage?.getItem(LC_DEBUG_KEY) === "1";
+  } catch {
+    return false;
+  }
+}
+
 function safeLocalStorage(): Storage | null {
   if (typeof window === "undefined") return null;
   try {
@@ -160,8 +173,8 @@ function getOnboardingStatus() {
 function refreshSystemHints() {
   const s = getOnboardingStatus();
   if (!s.is_logged_in) {
-    userSystemHint = "Enter your JWT token above and tap Auth to sign in.";
-    assistantFallbackText = "Welcome — I'm Little Chef.\n\nPlease sign in to get started.";
+    userSystemHint = "Long-press this chat bubble to log in.";
+    assistantFallbackText = "Welcome — I'm Little Chef.\n\nLong-press the system bubble below to sign in.";
   } else if (!s.prefs_complete) {
     userSystemHint = USER_BUBBLE_DEFAULT_HINT;
     assistantFallbackText =
@@ -704,16 +717,18 @@ function renderFlowMenu() {
     });
     dropdown.appendChild(item);
   });
-  const devItem = document.createElement("button");
-  devItem.type = "button";
-  devItem.className = "flow-menu-item";
-  devItem.textContent = "Dev Panel";
-  devItem.setAttribute("role", "menuitem");
-  devItem.addEventListener("click", () => {
-    toggleDevPanel();
-    setFlowMenuOpen(false);
-  });
-  dropdown.appendChild(devItem);
+  if (isDebugEnabled()) {
+    const devItem = document.createElement("button");
+    devItem.type = "button";
+    devItem.className = "flow-menu-item";
+    devItem.textContent = "Dev Panel";
+    devItem.setAttribute("role", "menuitem");
+    devItem.addEventListener("click", () => {
+      toggleDevPanel();
+      setFlowMenuOpen(false);
+    });
+    dropdown.appendChild(devItem);
+  }
 
   const currentLabel = flowDisplayLabel(currentFlowKey);
   trigger.textContent = "⚙";
@@ -1676,6 +1691,129 @@ async function silentGreetOnce() {
   }
 }
 
+// ---------------------------------------------------------------------------
+// Auth0 SPA login + modal
+// ---------------------------------------------------------------------------
+let auth0Client: any = null;
+
+async function loadAuth0Client(): Promise<any> {
+  if (auth0Client) return auth0Client;
+  const meta = (name: string) => document.querySelector<HTMLMetaElement>(`meta[name="${name}"]`)?.content ?? "";
+  const domain = meta("lc-auth0-domain");
+  const clientId = meta("lc-auth0-client-id");
+  const audience = meta("lc-auth0-audience");
+  if (!domain || !clientId) return null;
+  try {
+    const cdnUrl = "https://cdn.jsdelivr.net/npm/@auth0/auth0-spa-js@2/dist/auth0-spa-js.production.esm.js";
+    const mod = await (Function("url", "return import(url)")(cdnUrl) as Promise<any>);
+    auth0Client = await mod.createAuth0Client({
+      domain,
+      clientId,
+      authorizationParams: {
+        redirect_uri: window.location.origin,
+        ...(audience ? { audience } : {}),
+      },
+    });
+    return auth0Client;
+  } catch (err) {
+    console.error("[auth0] failed to load SDK", err);
+    return null;
+  }
+}
+
+async function performPostLogin() {
+  clearProposal();
+  const result = await doGet("/auth/me");
+  setText("auth-out", result);
+  state.onboarded = !!result.json?.onboarded;
+  state.inventoryOnboarded = !!result.json?.inventory_onboarded;
+  if (state.inventoryOnboarded) mealplanReached = true;
+  refreshSystemHints();
+  renderOnboardMenuButtons();
+  updatePrefsOverlayVisibility();
+  updateInventoryOverlayVisibility();
+  updateRecipePacksButtonVisibility();
+  updateDuetBubbles();
+  await silentGreetOnce();
+  inventoryHasLoaded = false;
+  if (currentFlowKey === "inventory") {
+    refreshInventoryOverlay(true);
+  }
+}
+
+async function handleAuth0Callback(): Promise<boolean> {
+  const params = new URLSearchParams(window.location.search);
+  if (!params.has("code") || !params.has("state")) return false;
+  try {
+    const client = await loadAuth0Client();
+    if (!client) return false;
+    await client.handleRedirectCallback();
+    const token = await client.getTokenSilently();
+    if (token) {
+      state.token = token;
+      // Clean URL without reload
+      const cleanUrl = window.location.origin + window.location.pathname;
+      window.history.replaceState({}, document.title, cleanUrl);
+      await performPostLogin();
+      return true;
+    }
+  } catch (err) {
+    console.error("[auth0] callback handling failed", err);
+  }
+  return false;
+}
+
+function openLoginModal() {
+  if (document.getElementById("lc-login-modal")) return;
+  const overlay = document.createElement("div");
+  overlay.id = "lc-login-modal";
+  overlay.className = "lc-modal-overlay";
+  overlay.addEventListener("click", (ev) => {
+    if (ev.target === overlay) closeLoginModal();
+  });
+
+  const panel = document.createElement("div");
+  panel.className = "lc-modal-panel";
+
+  const closeBtn = document.createElement("button");
+  closeBtn.type = "button";
+  closeBtn.className = "lc-modal-close";
+  closeBtn.textContent = "\u00d7";
+  closeBtn.setAttribute("aria-label", "Close");
+  closeBtn.addEventListener("click", closeLoginModal);
+
+  const title = document.createElement("h2");
+  title.textContent = "Sign in";
+  title.className = "lc-modal-title";
+
+  const auth0Btn = document.createElement("button");
+  auth0Btn.type = "button";
+  auth0Btn.className = "lc-modal-action";
+  auth0Btn.textContent = "Continue with Auth0";
+  auth0Btn.addEventListener("click", async () => {
+    auth0Btn.disabled = true;
+    auth0Btn.textContent = "Redirecting\u2026";
+    const client = await loadAuth0Client();
+    if (client) {
+      await client.loginWithRedirect();
+    } else {
+      auth0Btn.textContent = "Auth0 not configured";
+      auth0Btn.disabled = false;
+    }
+  });
+
+  panel.appendChild(closeBtn);
+  panel.appendChild(title);
+  panel.appendChild(auth0Btn);
+  overlay.appendChild(panel);
+  document.body.appendChild(overlay);
+}
+
+function closeLoginModal() {
+  const modal = document.getElementById("lc-login-modal");
+  if (modal) modal.remove();
+}
+
 function wire() {
   enforceViewportLock();
   const jwtInput = document.getElementById("jwt") as HTMLInputElement;
@@ -1690,24 +1828,7 @@ function wire() {
     } else {
       clearRememberedJwt();
     }
-    clearProposal();
-    const result = await doGet("/auth/me");
-    setText("auth-out", result);
-    state.onboarded = !!result.json?.onboarded;
-    state.inventoryOnboarded = !!result.json?.inventory_onboarded;
-    // Returning user who completed onboarding before — unlock recipe button
-    if (state.inventoryOnboarded) mealplanReached = true;
-    refreshSystemHints();
-    renderOnboardMenuButtons();
-    updatePrefsOverlayVisibility();
-    updateInventoryOverlayVisibility();
-    updateRecipePacksButtonVisibility();
-    updateDuetBubbles();
-    await silentGreetOnce();
-    inventoryHasLoaded = false;
-    if (currentFlowKey === "inventory") {
-      refreshInventoryOverlay(true);
-    }
+    await performPostLogin();
   });
 
   document.getElementById("btn-chat")?.addEventListener("click", async () => {
@@ -1779,6 +1900,11 @@ function wire() {
   setupPrefsOverlay();
   setupDevPanel();
   applyRememberedJwtInput(jwtInput);
+  refreshSystemHints();
+
+  // Auth0 callback detection (async, non-blocking)
+  handleAuth0Callback().catch(() => {});
+
   wireDuetComposer();
   wireFloatingComposerTrigger(document.querySelector(".duet-stage") as HTMLElement | null);
   setupHistoryDrawerUi();
@@ -2109,6 +2235,22 @@ function ensureOnboardMenu() {
 function renderOnboardMenuButtons() {
   if (!onboardMenu) return;
   onboardMenu.innerHTML = "";
+
+  // Before login: show only Login button
+  if (!state.token?.trim()) {
+    const loginBtn = document.createElement("button");
+    loginBtn.type = "button";
+    loginBtn.className = "flow-menu-item";
+    loginBtn.textContent = "Login";
+    loginBtn.dataset.onboardItem = "login";
+    loginBtn.addEventListener("click", () => {
+      hideOnboardMenu();
+      openLoginModal();
+    });
+    onboardMenu.appendChild(loginBtn);
+    return;
+  }
+
   const prefsBtn = document.createElement("button");
   prefsBtn.type = "button";
   prefsBtn.className = "flow-menu-item";
@@ -2850,10 +2992,13 @@ function _bindLongPressToElement(el: HTMLElement) {
 
   el.addEventListener("pointerup", (ev) => {
     if (onboardMenuActive) {
-      const startHovered = onboardActiveItem?.dataset.onboardItem === "start";
-      if (startHovered) {
+      const hoveredItem = onboardActiveItem?.dataset.onboardItem;
+      if (hoveredItem === "start") {
         startOnboarding();
         hideOnboardMenu();
+      } else if (hoveredItem === "login") {
+        hideOnboardMenu();
+        openLoginModal();
       }
       onboardDragActive = false;
       cancel({ hideMenu: false });

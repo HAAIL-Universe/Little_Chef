@@ -413,6 +413,14 @@ pre {
   opacity: 0.75;
 }
 
+.inv-loc-header {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  opacity: 0.6;
+  margin-top: 6px;
+}
+
 .prefs-overlay {
   background: rgba(14, 32, 54, 0.85);
 }
@@ -1426,6 +1434,72 @@ pre {
 
 .pack-uninstall-selected-btn:disabled,
 .pack-uninstall-all-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* ---- Login modal ---- */
+.lc-modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 2147483645;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.45);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+}
+.lc-modal-panel {
+  position: relative;
+  width: min(340px, 90vw);
+  padding: 1.5rem 1.25rem;
+  border-radius: 1rem;
+  background: rgba(255, 255, 255, 0.12);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.25);
+  color: #fff;
+  text-align: center;
+}
+.lc-modal-close {
+  position: absolute;
+  top: 0.5rem;
+  right: 0.75rem;
+  background: none;
+  border: none;
+  color: rgba(255, 255, 255, 0.6);
+  font-size: 1.4rem;
+  cursor: pointer;
+  line-height: 1;
+  padding: 0.25rem;
+}
+.lc-modal-close:hover {
+  color: #fff;
+}
+.lc-modal-title {
+  margin: 0 0 1.25rem;
+  font-size: 1.15rem;
+  font-weight: 600;
+}
+.lc-modal-action {
+  display: block;
+  width: 100%;
+  padding: 0.75rem 1rem;
+  border: none;
+  border-radius: 0.5rem;
+  background: rgba(255, 255, 255, 0.18);
+  color: #fff;
+  font-size: 0.95rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.lc-modal-action:hover {
+  background: rgba(255, 255, 255, 0.28);
+}
+.lc-modal-action:disabled {
   opacity: 0.6;
   cursor: not-allowed;
 }

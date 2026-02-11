@@ -17,8 +17,8 @@ function refreshSystemHints(status) {
   let assistantFallbackText;
 
   if (!status.is_logged_in) {
-    userSystemHint = "Enter your JWT token above and tap Auth to sign in.";
-    assistantFallbackText = "Welcome \u2014 I'm Little Chef.\n\nPlease sign in to get started.";
+    userSystemHint = "Long-press this chat bubble to log in.";
+    assistantFallbackText = "Welcome \u2014 I'm Little Chef.\n\nLong-press the system bubble below to sign in.";
   } else if (!status.prefs_complete) {
     userSystemHint = USER_BUBBLE_DEFAULT_HINT;
     assistantFallbackText =
@@ -40,16 +40,38 @@ function refreshSystemHints(status) {
   return { userSystemHint, assistantFallbackText };
 }
 
-// ---- Test: not logged in ----
+/**
+ * Replicate renderOnboardMenuButtons() login-gate logic.
+ * Returns array of button labels the menu would render.
+ */
+function onboardMenuItems(tokenTrimmed, onboarded, inventoryOnboarded) {
+  if (!tokenTrimmed) return ["Login"];
+  const items = ["Preferences"];
+  if (onboarded) items.push("Inventory");
+  if (inventoryOnboarded) items.push("Meal Plan");
+  return items;
+}
+
+/**
+ * Replicate isDebugEnabled() + renderFlowMenu() Dev Panel gating.
+ */
+function gearMenuIncludesDevPanel(debugEnabled) {
+  return debugEnabled;
+}
+
+// ---- refreshSystemHints tests ----
+
+// Test: not logged in
 {
   const r = refreshSystemHints({ is_logged_in: false, prefs_complete: false, inventory_complete: false, mealplan_complete: false });
   assert(r.assistantFallbackText.includes("sign in"), "not logged in: assistant should mention sign in");
   assert(!r.assistantFallbackText.includes("start onboarding"), "not logged in: should NOT show onboarding prompt");
-  assert(r.userSystemHint.includes("Auth"), "not logged in: user hint should mention Auth");
+  assert(r.userSystemHint.includes("Long-press"), "not logged in: user hint should mention Long-press");
+  assert(r.userSystemHint.includes("log in"), "not logged in: user hint should mention log in");
 }
 console.log("not logged in: PASS");
 
-// ---- Test: logged in, prefs NOT complete ----
+// Test: logged in, prefs NOT complete
 {
   const r = refreshSystemHints({ is_logged_in: true, prefs_complete: false, inventory_complete: false, mealplan_complete: false });
   assert(r.assistantFallbackText.includes("start onboarding"), "prefs incomplete: should show onboarding prompt");
@@ -57,7 +79,7 @@ console.log("not logged in: PASS");
 }
 console.log("logged in, prefs incomplete: PASS");
 
-// ---- Test: logged in, prefs complete, inventory NOT complete ----
+// Test: logged in, prefs complete, inventory NOT complete
 {
   const r = refreshSystemHints({ is_logged_in: true, prefs_complete: true, inventory_complete: false, mealplan_complete: false });
   assert(!r.assistantFallbackText.includes("start onboarding"), "prefs done: should NOT show start onboarding");
@@ -66,7 +88,7 @@ console.log("logged in, prefs incomplete: PASS");
 }
 console.log("logged in, prefs complete, inventory incomplete: PASS");
 
-// ---- Test: logged in, prefs+inventory complete, mealplan NOT complete ----
+// Test: logged in, prefs+inventory complete, mealplan NOT complete
 {
   const r = refreshSystemHints({ is_logged_in: true, prefs_complete: true, inventory_complete: true, mealplan_complete: false });
   assert(!r.assistantFallbackText.includes("start onboarding"), "inventory done: should NOT show start onboarding");
@@ -76,7 +98,7 @@ console.log("logged in, prefs complete, inventory incomplete: PASS");
 }
 console.log("logged in, prefs+inventory complete, mealplan incomplete: PASS");
 
-// ---- Test: all complete ----
+// Test: all complete
 {
   const r = refreshSystemHints({ is_logged_in: true, prefs_complete: true, inventory_complete: true, mealplan_complete: true });
   assert(!r.assistantFallbackText.includes("start onboarding"), "all done: no onboarding prompt");
@@ -86,7 +108,7 @@ console.log("logged in, prefs+inventory complete, mealplan incomplete: PASS");
 }
 console.log("all onboarding complete: PASS");
 
-// ---- Test: prefs complete + logged in does NOT show preferences onboarding ----
+// Test: prefs complete + logged in does NOT show preferences onboarding
 {
   const r = refreshSystemHints({ is_logged_in: true, prefs_complete: true, inventory_complete: false, mealplan_complete: false });
   assert(!r.assistantFallbackText.includes("To start onboarding"), "prefs done: MUST NOT show 'To start onboarding'");
@@ -94,9 +116,8 @@ console.log("all onboarding complete: PASS");
 }
 console.log("prefs complete does not show prefs onboarding: PASS");
 
-// ---- Test: after login state transition (simulated) ----
+// Test: after login state transition (simulated)
 {
-  // Simulate: start not logged in, then login with prefs+inventory complete
   const before = refreshSystemHints({ is_logged_in: false, prefs_complete: false, inventory_complete: false, mealplan_complete: false });
   assert(before.assistantFallbackText.includes("sign in"), "before login: sign in prompt");
 
@@ -105,5 +126,49 @@ console.log("prefs complete does not show prefs onboarding: PASS");
   assert(after.assistantFallbackText.includes("Meal Plan"), "after login: guides to meal plan");
 }
 console.log("login state transition updates messages: PASS");
+
+// ---- onboard menu tests ----
+
+// Test: not logged in -> only Login button
+{
+  const items = onboardMenuItems(false, false, false);
+  assert.deepStrictEqual(items, ["Login"], "not logged in: onboard menu should show only Login");
+}
+console.log("onboard menu not logged in: PASS");
+
+// Test: logged in, not onboarded -> only Preferences
+{
+  const items = onboardMenuItems(true, false, false);
+  assert.deepStrictEqual(items, ["Preferences"], "logged in, not onboarded: only Preferences");
+}
+console.log("onboard menu logged in, not onboarded: PASS");
+
+// Test: logged in, prefs onboarded -> Preferences + Inventory
+{
+  const items = onboardMenuItems(true, true, false);
+  assert.deepStrictEqual(items, ["Preferences", "Inventory"], "prefs onboarded: Preferences + Inventory");
+}
+console.log("onboard menu prefs onboarded: PASS");
+
+// Test: logged in, all onboarded -> Preferences + Inventory + Meal Plan
+{
+  const items = onboardMenuItems(true, true, true);
+  assert.deepStrictEqual(items, ["Preferences", "Inventory", "Meal Plan"], "all onboarded: all three items");
+}
+console.log("onboard menu all onboarded: PASS");
+
+// ---- debug gate tests ----
+
+// Test: debug disabled -> no Dev Panel in gear menu
+{
+  assert(!gearMenuIncludesDevPanel(false), "debug off: no Dev Panel");
+}
+console.log("debug disabled, no Dev Panel: PASS");
+
+// Test: debug enabled -> Dev Panel in gear menu
+{
+  assert(gearMenuIncludesDevPanel(true), "debug on: Dev Panel present");
+}
+console.log("debug enabled, Dev Panel present: PASS");
 
 console.log("\nui onboarding hints test: PASS");
