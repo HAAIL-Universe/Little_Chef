@@ -99,7 +99,7 @@ const flowOptions = [
     { key: "general", label: "General", placeholder: "Ask or fill..." },
     { key: "inventory", label: "Inventory", placeholder: "Ask about inventory, stock, or adjustments..." },
     { key: "mealplan", label: "Meal Plan", placeholder: "Plan meals or ask for ideas..." },
-    { key: "prefs", label: "Preferences", placeholder: "Update dislikes, allergies, or servings..." },
+    { key: "prefs", label: "Preferences", placeholder: "Update allergies, dislikes, and likes." },
 ];
 const duetState = {
     threadId: null,
@@ -234,6 +234,9 @@ let composeActive = false;
 let composeDblTapTimer = null;
 let composeDblTapCount = 0;
 const COMPOSE_DBL_TAP_WINDOW_MS = 350;
+let composeNextHintTimer = null;
+let composeNextHintShown = false;
+let composeNextHintTriggered = false;
 let dictationActive = false;
 let speechRecognition = null;
 function headers() {
@@ -2118,6 +2121,25 @@ function wireDuetComposer() {
     input.addEventListener("input", () => {
         syncButtons();
         autoExpandTextarea(input);
+        // Delayed "next info" ghost hint for Preferences compose
+        if (composeActive && currentFlowKey === "prefs") {
+            const hasText = input.value.trim().length > 0;
+            if (hasText && !composeNextHintTriggered) {
+                composeNextHintTriggered = true;
+                composeNextHintTimer = window.setTimeout(() => {
+                    composeNextHintTimer = null;
+                    showComposeNextHint();
+                }, 1500);
+            }
+            else if (!hasText && composeNextHintTriggered && !composeNextHintShown) {
+                // Cleared text before timer fired — cancel
+                if (composeNextHintTimer !== null) {
+                    window.clearTimeout(composeNextHintTimer);
+                    composeNextHintTimer = null;
+                }
+                composeNextHintTriggered = false;
+            }
+        }
     });
     sendBtn.addEventListener("click", send);
     input.addEventListener("keydown", (ev) => {
@@ -2262,6 +2284,7 @@ function showComposeOverlay() {
     overlay.classList.add("active");
     composeActive = true;
     composerVisible = true;
+    clearComposeNextHint();
     updatePrefsNarratorHint();
     // Hide the old composer bar (keep it in DOM for rollback)
     const composer = document.getElementById("duet-composer");
@@ -2309,6 +2332,7 @@ function hideComposeOverlay() {
         micBtn.style.top = "";
         micBtn.style.right = "";
     }
+    clearComposeNextHint();
     overlay.classList.remove("active");
     composeActive = false;
     composerVisible = false;
@@ -2409,6 +2433,32 @@ function updateMicButtonState() {
         return;
     micBtn.classList.toggle("recording", dictationActive);
     micBtn.setAttribute("aria-label", dictationActive ? "Stop voice dictation" : "Start voice dictation");
+}
+function showComposeNextHint() {
+    if (!composeActive || !composeOverlay)
+        return;
+    const narrator = composeOverlay.querySelector(".compose-narrator");
+    if (!narrator)
+        return;
+    if (document.getElementById("compose-next-hint"))
+        return;
+    const hint = document.createElement("div");
+    hint.id = "compose-next-hint";
+    hint.className = "compose-next-hint";
+    hint.textContent = "Also tell me how many days you want to plan, how many meals per day, and how many servings.";
+    narrator.insertBefore(hint, narrator.firstChild);
+    composeNextHintShown = true;
+}
+function clearComposeNextHint() {
+    if (composeNextHintTimer !== null) {
+        window.clearTimeout(composeNextHintTimer);
+        composeNextHintTimer = null;
+    }
+    const el = document.getElementById("compose-next-hint");
+    if (el)
+        el.remove();
+    composeNextHintShown = false;
+    composeNextHintTriggered = false;
 }
 function wireComposeOverlayKeyboard() {
     // Use VisualViewport to keep compose overlay centered above keyboard on iOS

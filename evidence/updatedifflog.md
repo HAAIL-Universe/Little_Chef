@@ -1,93 +1,93 @@
 # Diff Log (overwrite each cycle)
 
 ## Cycle Metadata
-- Timestamp: 2026-02-11T21:58:45+00:00
+- Timestamp: 2026-02-11T23:15:00+00:00
 - Branch: claude/romantic-jones
-- HEAD: 0589f5c8d4092bde3ae428f3821e6d4076331bd2
-- BASE_HEAD: 33cf566b25aef9043ec7d5bdecc32e00d4d9cc89
-- Diff basis: staged
+- HEAD: 0863a404afaa5f12e8f72e327629bfc23e1797d4
+- BASE_HEAD: 0863a404afaa5f12e8f72e327629bfc23e1797d4
+- Diff basis: unstaged
 
 ## Cycle Status
 - Status: COMPLETE
 
 ## Summary
-- Login modal now opens as default landing view when unauthenticated (no token, no Auth0 callback).
-- Added `isSkipAuth()` helper: `?skipauth=1` URL param suppresses login modal for e2e tests / local dev.
-- Auth0 callback failure and token validation failure paths also open the login modal.
-- Long-press threshold reduced from 500ms to 300ms in `_bindLongPressToElement()`.
-- Added centered "narrator-style" hint on Preferences flow when not onboarded: "Triple‑tap to chat." + "I'll help you fill this in."
-- Hint hides when compose mode opens, onboarding completes, or user leaves Preferences flow.
-- All 6 e2e test files updated to navigate with `?skipauth=1`.
+- Preferences compose prompt reordered from "Update dislikes, allergies, or servings..." to "Update allergies, dislikes, and likes."
+- Added delayed ghost "next info" hint that appears ~1.5s after user starts typing in Preferences compose: "Also tell me how many days you want to plan, how many meals per day, and how many servings."
+- Hint lifecycle: cleared on compose open, cleared on compose close/send, timer cancelled if text emptied before firing.
+- Hint is non-blocking: pointer-events disabled, no focus steal, overlay-only.
 
 ## Verification
 ### Static
-- `tsc --noEmit`: 1 pre-existing TS2339 at L1185 (`item.location`); 0 new errors.
+- `tsc --noEmit`: 1 pre-existing TS2339 at L1188 (`item.location`); 0 new errors.
 - `tsc -p tsconfig.json --noCheck`: build successful.
 
 ### Runtime
-- pytest: 183 passed in 112.29s.
+- pytest: 183 passed in 118.49s.
 - UI tests: 17/17 onboarding + 3/3 proposal renderer = PASS.
 
 ### Behavioral
-- No token + no callback → `openLoginModal()` fires at startup.
-- `?skipauth=1` → modal suppressed.
-- Token present → `performPostLogin()` runs; no modal.
-- Token invalid → `.catch()` clears + opens modal.
-- Prefs flow + not onboarded → narrator hint visible.
-- Compose opens → hint hides; compose closes → hint reappears.
-- Onboarding completes → hint permanently hidden.
-- Flow switches away from Prefs → hint hidden.
+- Prefs flow → triple tap → prompt shows "Update allergies, dislikes, and likes."
+- Begin typing → after ~1.5s the "Also tell me…" hint appears above input.
+- Typing continues uninterrupted (pointer-events: none; no focus steal).
+- Close compose (X) → hint removed, timer cleared.
+- Reopen compose → hint does not appear until typing begins again.
+- Delete text to empty before timer → hint cancelled, does not appear.
+- Double-tap send → hint cleared via hideComposeOverlay.
 
 ### Contract
 - physics.yaml unchanged; minimal diff; no refactors.
 
 ## Notes
-- None.
+- No unit test added for delayed hint: no timer-based DOM test harness exists in the project. The timer/hint logic is 3 state variables + 2 short functions; behavior verified manually.
+- theexecutor.md: NOT PRESENT (both locations checked).
 
 ## Next Steps
-- Physical iPhone Safari test of login modal + prefs narrator hint.
+- Physical iPhone Safari test of delayed ghost hint positioning with keyboard open.
 
-## Files Changed (staged)
-- evidence/test_runs.md
-- evidence/test_runs_latest.md
-- evidence/updatedifflog.md
-- web/dist/main.js
-- web/dist/style.css
-- web/e2e/dev-panel.spec.ts
-- web/e2e/flow-chip.spec.ts
-- web/e2e/history-badge.spec.ts
-- web/e2e/inventory-overlay.spec.ts
-- web/e2e/onboard-longpress.spec.ts
-- web/e2e/proposal-actions.spec.ts
+## Files Changed (unstaged)
 - web/src/main.ts
 - web/src/style.css
+- web/dist/main.js
+- web/dist/style.css
+- evidence/updatedifflog.md
 
 ## git status -sb
     ## claude/romantic-jones...origin/claude/romantic-jones
      M .claude/settings.local.json
-    M  evidence/test_runs.md
-    M  evidence/test_runs_latest.md
-    M  evidence/updatedifflog.md
-    M  web/dist/main.js
-    M  web/dist/style.css
-    M  web/e2e/dev-panel.spec.ts
-    M  web/e2e/flow-chip.spec.ts
-    M  web/e2e/history-badge.spec.ts
-    M  web/e2e/inventory-overlay.spec.ts
-    M  web/e2e/onboard-longpress.spec.ts
-    M  web/e2e/proposal-actions.spec.ts
-    M  web/src/main.ts
-    M  web/src/style.css
-     M web/test-results/.last-run.json
-    ?? web/test-results/dev-panel-Dev-Panel-rememb-e7c66-ckbox-near-the-JWT-controls/
-    ?? web/test-results/flow-chip-Flow-chip-indica-c1fff-when-prefs-flow-is-selected/
-    ?? web/test-results/flow-chip-Flow-chip-indica-ffb3a--inventory-flow-is-selected/
-    ?? web/test-results/history-badge-History-badg-1d660--track-normal-chat-activity/
-    ?? web/test-results/inventory-overlay-inventor-f4887-nfirming-inventory-proposal/
-    ?? web/test-results/onboard-longpress-Onboard--821b3-he-bubble-and-stays-topmost/
-    ?? web/test-results/proposal-actions-proposal--14197--confirmation-required-flow/
+     M web/dist/main.js
+     M web/dist/style.css
+     M web/src/main.ts
+     M web/src/style.css
 
 ## Minimal Diff Hunks
+    diff --git a/web/src/main.ts b/web/src/main.ts
+    --- a/web/src/main.ts
+    +++ b/web/src/main.ts
+    @@ -104,7 +104,7 @@
+    -  { key: "prefs", label: "Preferences", placeholder: "Update dislikes, allergies, or servings..." },
+    +  { key: "prefs", label: "Preferences", placeholder: "Update allergies, dislikes, and likes." },
+    @@ -246,6 +246,9 @@
+    +let composeNextHintTimer: number | null = null;
+    +let composeNextHintShown = false;
+    +let composeNextHintTriggered = false;
+    @@ -2214,6 +2217,24 @@
+    +    // Delayed "next info" ghost hint for Preferences compose
+    +    if (composeActive && currentFlowKey === "prefs") {
+    +      const hasText = input.value.trim().length > 0;
+    +      if (hasText && !composeNextHintTriggered) { ... start 1500ms timer ... }
+    +      else if (!hasText && composeNextHintTriggered && !composeNextHintShown) { ... cancel timer ... }
+    +    }
+    @@ -2372,6 +2393,7 @@ showComposeOverlay()
+    +  clearComposeNextHint();
+    @@ -2423,6 +2445,7 @@ hideComposeOverlay()
+    +  clearComposeNextHint();
+    @@ +2553,25 @@
+    +function showComposeNextHint() { ... }
+    +function clearComposeNextHint() { ... }
+
+    diff --git a/web/src/style.css b/web/src/style.css
+    @@ -916,6 +916,16 @@
+    +.compose-next-hint { font-size: 13px; color: rgba(230,238,248,0.35); text-align: center; pointer-events: none; user-select: none; margin-bottom: 12px; }
     diff --git a/evidence/test_runs.md b/evidence/test_runs.md
     index daf12f0..5751618 100644
     --- a/evidence/test_runs.md

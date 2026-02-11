@@ -916,6 +916,16 @@ pre {
   user-select: none;
 }
 
+/* ── Compose "next info" delayed ghost hint ── */
+.compose-next-hint {
+  font-size: 13px;
+  color: rgba(230, 238, 248, 0.35);
+  text-align: center;
+  pointer-events: none;
+  user-select: none;
+  margin-bottom: 12px;
+}
+
 /* ── Prefs flow narrator hint (pre-onboard) ── */
 .prefs-narrator-hint {
   position: fixed;
