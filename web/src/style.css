@@ -760,7 +760,7 @@ pre {
   transform: translate(-50%, 0);
 }
 
-.duet-composer input {
+.duet-composer textarea {
   margin: 0;
   background: rgba(255, 255, 255, 0.04);
   border: 1px solid rgba(255, 255, 255, 0.12);
@@ -769,6 +769,81 @@ pre {
 /* Prevent iOS Safari auto-zoom on input focus (requires >= 16px) */
 #duet-input {
   font-size: 16px;
+  resize: none;
+  overflow-y: auto;
+  max-height: 120px;
+  min-height: 36px;
+  line-height: 1.4;
+  field-sizing: content;
+  font-family: inherit;
+  color: inherit;
+  padding: 8px 10px;
+  border-radius: 10px;
+}
+
+/* ── Compose overlay (centered narrator input) ─────────────── */
+.compose-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 160ms ease;
+}
+
+.compose-overlay.active {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.compose-overlay-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(5, 12, 20, 0.45);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+}
+
+.compose-narrator {
+  position: relative;
+  z-index: 1;
+  width: min(520px, calc(100% - 48px));
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.compose-narrator #duet-input {
+  width: 100%;
+  background: transparent;
+  border: none;
+  outline: none;
+  color: var(--text);
+  font-size: 20px;
+  text-align: center;
+  caret-color: var(--accent);
+  min-height: 48px;
+  max-height: 40vh;
+  padding: 12px 8px;
+  line-height: 1.5;
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+.compose-narrator #duet-input::placeholder {
+  color: rgba(230, 238, 248, 0.35);
+  text-align: center;
+}
+
+.compose-narrator .compose-hint {
+  font-size: 12px;
+  color: rgba(230, 238, 248, 0.4);
+  margin-top: 8px;
+  pointer-events: none;
+  user-select: none;
 }
 
 .icon-btn {

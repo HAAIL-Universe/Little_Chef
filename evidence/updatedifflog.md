@@ -1,153 +1,87 @@
 ﻿# Diff Log (overwrite each cycle)
 
 ## Cycle Metadata
-- Timestamp: 2026-02-11T18:03:46+00:00
+- Timestamp: 2026-02-11T18:45:00+00:00
 - Branch: claude/romantic-jones
-- HEAD: 1aa92530dc7bbd74d8a034ee01e343739867b215
-- BASE_HEAD: f895242b359e48581f4abb54afd40a44b2178cf3
-- Diff basis: staged
+- HEAD: fec47d63bf18224e8f5622bb7e080119ef7c9dcb
+- Diff basis: unstaged
 
 ## Cycle Status
 - Status: COMPLETE
 
 ## Summary
-- Fixed iOS Safari auto-zoom on composer input focus: set `#duet-input` font-size to 16px (iOS requires >= 16px to suppress zoom).
-- Eliminated white strip behind iPhone status bar: added `viewport-fit=cover` to viewport meta tag, `background-color: #0b1724` fallback on body, and safe-area padding on `main.container` via `env(safe-area-inset-*)`.
-- Both `web/index.html` and `web/dist/index.html` updated for viewport-fit; CSS changes in `web/src/style.css` copied to `web/dist/style.css`.
-- No layout repositioning; background-only + font-size changes.
+- Replaced composer UX with centered "ghost narrator" input overlay.
+- Changed `#duet-input` from `<input type="text">` to `<textarea rows="1">` for multi-line wrapping and native iOS long-press editing.
+- Added compose overlay (`#compose-overlay`) with backdrop blur: triple-tap opens centered input, double-tap outside sends.
+- Textarea auto-expands vertically as user types (up to max-height).
+- Added VisualViewport handler to keep narrator centered above iOS keyboard without pushing the shell.
+- Composer bar (`#duet-composer`) kept intact but hidden while compose overlay is active (rollback safety).
+- No borders/box/chrome on the centered input — ghost narrator styling.
+- `showFloatingComposer()` now redirects to `showComposeOverlay()`.
+- All `HTMLInputElement` casts for `#duet-input` updated to `HTMLTextAreaElement`.
 
-## Files Changed (staged)
-- web/dist/index.html
-- web/dist/style.css
-- web/index.html
-- web/src/style.css
+## Files Changed (unstaged)
+- web/index.html — `<input>` → `<textarea>` in composer
+- web/src/main.ts — compose overlay logic, type updates, auto-expand, VisualViewport handler
+- web/src/style.css — textarea styles, compose overlay CSS, narrator styling
+- web/dist/index.html — `<input>` → `<textarea>` (built)
+- web/dist/main.js — compiled output
+- web/dist/style.css — compiled CSS
+- evidence/updatedifflog.md — this file
 
 ## git status -sb
     ## claude/romantic-jones
      M .claude/settings.local.json
-    M  web/dist/index.html
-    M  web/dist/style.css
-    M  web/index.html
-    M  web/src/style.css
+     M web/dist/index.html
+     M web/dist/main.js
+     M web/dist/style.css
+     M web/index.html
+     M web/src/main.ts
+     M web/src/style.css
 
-## Minimal Diff Hunks
-    diff --git a/web/dist/index.html b/web/dist/index.html
-    index 0e3f10e..01f5acd 100644
-    --- a/web/dist/index.html
-    +++ b/web/dist/index.html
-    @@ -2,7 +2,7 @@
-     <html lang="en">
-     <head>
-       <meta charset="UTF-8">
-    -  <meta name="viewport" content="width=device-width, initial-scale=1">
-    +  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-       <title>Little Chef</title>
-       <link rel="stylesheet" href="/static/style.css">
-     </head>
-    diff --git a/web/dist/style.css b/web/dist/style.css
-    index 60d312c..f630382 100644
-    --- a/web/dist/style.css
-    +++ b/web/dist/style.css
-    @@ -26,6 +26,8 @@ body {
-       background: radial-gradient(circle at 15% 20%, rgba(127, 164, 255, 0.12), transparent 25%),
-         radial-gradient(circle at 80% 0%, rgba(127, 228, 194, 0.14), transparent 30%),
-         linear-gradient(145deg, #0b1724, #102a3f 50%, #0c1f31);
-    +  /* Extend gradient into iOS safe area (status bar region) */
-    +  background-color: #0b1724;
-       color: var(--text);
-       max-width: 100vw;
-       overflow: auto;
-    @@ -42,6 +44,11 @@ main.container {
-       min-height: 100dvh;
-       margin: 0 auto;
-       padding: 10px;
-    +  /* Safe-area insets so content clears the iOS notch/status bar */
-    +  padding-top: max(10px, env(safe-area-inset-top));
-    +  padding-left: max(10px, env(safe-area-inset-left));
-    +  padding-right: max(10px, env(safe-area-inset-right));
-    +  padding-bottom: max(10px, env(safe-area-inset-bottom));
-       display: flex;
-       flex-direction: column;
-       gap: 4px;
-    @@ -759,6 +766,11 @@ pre {
-       border: 1px solid rgba(255, 255, 255, 0.12);
-     }
-     
-    +/* Prevent iOS Safari auto-zoom on input focus (requires >= 16px) */
-    +#duet-input {
-    +  font-size: 16px;
-    +}
-    +
-     .icon-btn {
-       width: 46px;
-       height: 46px;
-    diff --git a/web/index.html b/web/index.html
-    index 72bf0e7..1673fdd 100644
-    --- a/web/index.html
-    +++ b/web/index.html
-    @@ -2,7 +2,7 @@
-     <html lang="en">
-     <head>
-       <meta charset="UTF-8">
-    -  <meta name="viewport" content="width=device-width, initial-scale=1">
-    +  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-       <title>Little Chef</title>
-       <link rel="stylesheet" href="/static/style.css">
-     </head>
-    diff --git a/web/src/style.css b/web/src/style.css
-    index 60d312c..f630382 100644
-    --- a/web/src/style.css
-    +++ b/web/src/style.css
-    @@ -26,6 +26,8 @@ body {
-       background: radial-gradient(circle at 15% 20%, rgba(127, 164, 255, 0.12), transparent 25%),
-         radial-gradient(circle at 80% 0%, rgba(127, 228, 194, 0.14), transparent 30%),
-         linear-gradient(145deg, #0b1724, #102a3f 50%, #0c1f31);
-    +  /* Extend gradient into iOS safe area (status bar region) */
-    +  background-color: #0b1724;
-       color: var(--text);
-       max-width: 100vw;
-       overflow: auto;
-    @@ -42,6 +44,11 @@ main.container {
-       min-height: 100dvh;
-       margin: 0 auto;
-       padding: 10px;
-    +  /* Safe-area insets so content clears the iOS notch/status bar */
-    +  padding-top: max(10px, env(safe-area-inset-top));
-    +  padding-left: max(10px, env(safe-area-inset-left));
-    +  padding-right: max(10px, env(safe-area-inset-right));
-    +  padding-bottom: max(10px, env(safe-area-inset-bottom));
-       display: flex;
-       flex-direction: column;
-       gap: 4px;
-    @@ -759,6 +766,11 @@ pre {
-       border: 1px solid rgba(255, 255, 255, 0.12);
-     }
-     
-    +/* Prevent iOS Safari auto-zoom on input focus (requires >= 16px) */
-    +#duet-input {
-    +  font-size: 16px;
-    +}
-    +
-     .icon-btn {
-       width: 46px;
-       height: 46px;
+## Minimal Diff Hunks (source files only)
+
+### web/index.html
+- `<input id="duet-input" type="text" .../>` → `<textarea id="duet-input" rows="1" ...></textarea>`
+
+### web/src/style.css
+- `.duet-composer input` → `.duet-composer textarea`
+- `#duet-input` gains: `resize: none; overflow-y: auto; max-height: 120px; min-height: 36px; line-height: 1.4; field-sizing: content; font-family: inherit; color: inherit; padding: 8px 10px; border-radius: 10px`
+- New `.compose-overlay` (fixed inset, z-index 100, opacity transition)
+- New `.compose-overlay.active` (visible)
+- New `.compose-overlay-backdrop` (translucent + blur)
+- New `.compose-narrator` (centered flex column, 520px max width)
+- New `.compose-narrator #duet-input` (transparent bg, no border, 20px centered text, max-height 40vh)
+- New `.compose-narrator .compose-hint` (subtle label "Double-tap outside to send")
+
+### web/src/main.ts
+- Added state: `composeOverlay`, `composeActive`, `composeDblTapTimer/Count`, `COMPOSE_DBL_TAP_WINDOW_MS`
+- 6× `HTMLInputElement` → `HTMLTextAreaElement` for `#duet-input`
+- `wireDuetComposer()`: textarea auto-expand on input, `wireComposeOverlayKeyboard()` call
+- `showFloatingComposer()`: redirects to `showComposeOverlay()`
+- `hideFloatingComposer()`: routes through `hideComposeOverlay()` when active
+- New functions: `ensureComposeOverlay()`, `handleComposeBackdropTap()`, `composeOverlaySend()`, `showComposeOverlay()`, `hideComposeOverlay()`, `autoExpandTextarea()`, `wireComposeOverlayKeyboard()`
+- `wireFloatingComposerTrigger()`: now calls `showComposeOverlay()` on triple-tap
 
 ## Verification
-- Static: `python -m compileall app` — pass
-- Static: `tsc --noEmit` — 1 pre-existing TS2339 (no new errors)
-- Runtime: pytest 183 passed, 1 warning in 115.42s
-- Runtime: node ui_onboarding_hints_test.mjs: 17/17 PASS
-- Behavioral: `#duet-input` now has `font-size: 16px` (prevents iOS auto-zoom on focus)
-- Behavioral: viewport-fit=cover + safe-area padding extends gradient into status bar region
-- Contract: physics.yaml unchanged, minimal diff (4 files: 2 HTML + 2 CSS), no refactors, no layout changes
+- Static: `tsc --noEmit` — 1 pre-existing TS2339 (`item.location` on line 1174), no new errors
+- Static: `tsc -p tsconfig.json --noCheck` — build emits successfully
+- Runtime: pytest 183 passed, 1 warning in 114.43s
+- Runtime: node ui_onboarding_hints_test.mjs — 17/17 PASS
+- Runtime: node ui_proposal_renderer_test.mjs — 3/3 PASS
+- Contract: physics.yaml unchanged; minimal diff; no refactors
 
-## Notes (optional)
-- `background-color: #0b1724` is a fallback that matches the darkest stop of the existing gradient — ensures no white flash even if gradient hasn't painted yet.
-- Safe-area padding uses `max(10px, env(...))` to preserve the existing 10px minimum on non-notched devices.
-- `viewport-fit=cover` is a no-op on non-iOS browsers; safe-area env vars resolve to 0 when not applicable.
+## Behavioral Design Notes
+- Triple-tap on `.duet-stage` → `showComposeOverlay()` creates/shows overlay, moves `#duet-input` textarea into `.compose-narrator`, focuses it
+- Typing wraps naturally in textarea; auto-expand adjusts height up to 200px (40vh in overlay)
+- Double-tap on `.compose-overlay-backdrop` triggers `composeOverlaySend()` → sends, clears, hides overlay
+- Double-tap uses `pointerdown` on backdrop only — cannot fire during text selection inside input
+- VisualViewport resize/scroll repositions narrator at 35% of visible height (keeps it above iOS keyboard)
+- Shell (`#duet-shell`) is never repositioned — only the narrator overlay adjusts
+- After send: overlay hides, input returns to `#duet-composer`, keyboard dismisses via blur
 
 ## Next Steps
-- Test on physical iPhone to confirm no white strip and no zoom on input focus.
-- Phase 6C: Render deployment + smoke tests.
-- Phase 7.5: Inventory ghost overlay with location grouping.
+- Physical iPhone Safari testing: confirm no shell push, confirm double-tap send, confirm text selection works
+- Phase 6C: Render deployment + smoke tests
+- Future cycle: mic button / STT live transcription
 

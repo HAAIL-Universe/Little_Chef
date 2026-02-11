@@ -219,6 +219,11 @@ const COMPOSER_TRIPLE_TAP_WINDOW_MS = 450;
 let composerVisible = false;
 let stageTripleTapCount = 0;
 let stageTripleTapResetTimer = null;
+let composeOverlay = null;
+let composeActive = false;
+let composeDblTapTimer = null;
+let composeDblTapCount = 0;
+const COMPOSE_DBL_TAP_WINDOW_MS = 350;
 function headers() {
     var _a;
     const h = { "Content-Type": "application/json" };
@@ -2056,10 +2061,14 @@ function wireDuetComposer() {
         }
         sendAsk(text, { flowLabel: flow.label });
         input.value = "";
+        autoExpandTextarea(input);
         syncButtons();
         hideFloatingComposer();
     };
-    input.addEventListener("input", syncButtons);
+    input.addEventListener("input", () => {
+        syncButtons();
+        autoExpandTextarea(input);
+    });
     sendBtn.addEventListener("click", send);
     input.addEventListener("keydown", (ev) => {
         if (ev.key === "Enter" && !ev.shiftKey) {
@@ -2072,21 +2081,17 @@ function wireDuetComposer() {
         input.focus();
     });
     setComposerPlaceholder();
+    wireComposeOverlayKeyboard();
 }
 function showFloatingComposer() {
-    const composer = document.getElementById("duet-composer");
-    if (!composer || composerVisible)
-        return;
-    composer.classList.add("visible");
-    composer.setAttribute("aria-hidden", "false");
-    composerVisible = true;
-    syncFlowMenuVisibility();
-    setFlowMenuOpen(false);
-    const input = document.getElementById("duet-input");
-    setComposerPlaceholder();
-    window.requestAnimationFrame(() => input === null || input === void 0 ? void 0 : input.focus());
+    // Redirect to compose overlay instead of the bottom composer bar
+    showComposeOverlay();
 }
 function hideFloatingComposer() {
+    if (composeActive) {
+        hideComposeOverlay();
+        return;
+    }
     const composer = document.getElementById("duet-composer");
     if (!composer)
         return;
@@ -2096,6 +2101,166 @@ function hideFloatingComposer() {
     syncFlowMenuVisibility();
     const input = document.getElementById("duet-input");
     input === null || input === void 0 ? void 0 : input.blur();
+}
+/* ── Compose overlay (centered narrator input) ───────────── */
+function ensureComposeOverlay() {
+    if (composeOverlay)
+        return composeOverlay;
+    const overlay = document.createElement("div");
+    overlay.className = "compose-overlay";
+    overlay.id = "compose-overlay";
+    const backdrop = document.createElement("div");
+    backdrop.className = "compose-overlay-backdrop";
+    overlay.appendChild(backdrop);
+    const narrator = document.createElement("div");
+    narrator.className = "compose-narrator";
+    overlay.appendChild(narrator);
+    const hint = document.createElement("div");
+    hint.className = "compose-hint";
+    hint.textContent = "Double-tap outside to send";
+    narrator.appendChild(hint);
+    document.body.appendChild(overlay);
+    composeOverlay = overlay;
+    // Double-tap on backdrop to send
+    backdrop.addEventListener("pointerdown", handleComposeBackdropTap);
+    return overlay;
+}
+function handleComposeBackdropTap() {
+    composeDblTapCount += 1;
+    if (composeDblTapTimer !== null) {
+        window.clearTimeout(composeDblTapTimer);
+    }
+    composeDblTapTimer = window.setTimeout(() => {
+        composeDblTapCount = 0;
+        composeDblTapTimer = null;
+    }, COMPOSE_DBL_TAP_WINDOW_MS);
+    if (composeDblTapCount < 2)
+        return;
+    composeDblTapCount = 0;
+    if (composeDblTapTimer !== null) {
+        window.clearTimeout(composeDblTapTimer);
+        composeDblTapTimer = null;
+    }
+    composeOverlaySend();
+}
+function composeOverlaySend() {
+    var _a, _b;
+    const input = document.getElementById("duet-input");
+    const text = (_a = input === null || input === void 0 ? void 0 : input.value.trim()) !== null && _a !== void 0 ? _a : "";
+    if (!text || composerBusy)
+        return;
+    setChatError("");
+    const flow = (_b = flowOptions.find((f) => f.key === currentFlowKey)) !== null && _b !== void 0 ? _b : flowOptions[0];
+    setDuetStatus("Sending to backend...");
+    const pendingCommand = state.proposalId ? detectProposalCommand(text) : null;
+    if (!pendingCommand) {
+        clearProposal();
+    }
+    sendAsk(text, { flowLabel: flow.label });
+    if (input) {
+        input.value = "";
+        autoExpandTextarea(input);
+    }
+    hideComposeOverlay();
+}
+function showComposeOverlay() {
+    if (composeActive)
+        return;
+    const overlay = ensureComposeOverlay();
+    const input = document.getElementById("duet-input");
+    if (!input)
+        return;
+    // Move input into narrator container
+    const narrator = overlay.querySelector(".compose-narrator");
+    narrator.insertBefore(input, narrator.firstChild);
+    overlay.classList.add("active");
+    composeActive = true;
+    composerVisible = true;
+    // Hide the old composer bar (keep it in DOM for rollback)
+    const composer = document.getElementById("duet-composer");
+    if (composer) {
+        composer.classList.remove("visible");
+        composer.setAttribute("aria-hidden", "true");
+    }
+    setComposerPlaceholder();
+    syncFlowMenuVisibility();
+    setFlowMenuOpen(false);
+    window.requestAnimationFrame(() => {
+        input.focus();
+        autoExpandTextarea(input);
+    });
+}
+function hideComposeOverlay() {
+    if (!composeActive)
+        return;
+    const overlay = composeOverlay;
+    if (!overlay)
+        return;
+    const input = document.getElementById("duet-input");
+    // Return input to composer container
+    const composer = document.getElementById("duet-composer");
+    if (input && composer) {
+        const micBtn = document.getElementById("duet-mic");
+        if (micBtn && micBtn.nextSibling) {
+            composer.insertBefore(input, micBtn.nextSibling);
+        }
+        else {
+            composer.appendChild(input);
+        }
+    }
+    overlay.classList.remove("active");
+    composeActive = false;
+    composerVisible = false;
+    syncFlowMenuVisibility();
+    input === null || input === void 0 ? void 0 : input.blur();
+}
+function autoExpandTextarea(el) {
+    el.style.height = "auto";
+    el.style.height = Math.min(el.scrollHeight, 200) + "px";
+}
+function wireComposeOverlayKeyboard() {
+    // Use VisualViewport to keep compose overlay centered above keyboard on iOS
+    if (typeof window === "undefined")
+        return;
+    const vv = window.visualViewport;
+    if (!vv)
+        return;
+    const adjust = () => {
+        if (!composeActive || !composeOverlay)
+            return;
+        const narrator = composeOverlay.querySelector(".compose-narrator");
+        if (!narrator)
+            return;
+        // offsetTop from viewport tells us where the visible area starts
+        const offsetTop = vv.offsetTop;
+        const visibleHeight = vv.height;
+        // Center narrator in the visible viewport area
+        narrator.style.position = "fixed";
+        narrator.style.top = `${offsetTop + visibleHeight * 0.35}px`;
+        narrator.style.left = "50%";
+        narrator.style.transform = "translateX(-50%)";
+    };
+    const reset = () => {
+        if (!composeOverlay)
+            return;
+        const narrator = composeOverlay.querySelector(".compose-narrator");
+        if (!narrator)
+            return;
+        narrator.style.position = "";
+        narrator.style.top = "";
+        narrator.style.left = "";
+        narrator.style.transform = "";
+    };
+    vv.addEventListener("resize", () => {
+        if (composeActive)
+            adjust();
+        else
+            reset();
+    });
+    vv.addEventListener("scroll", () => {
+        if (composeActive)
+            adjust();
+    });
 }
 function wireFloatingComposerTrigger(stage) {
     if (!stage)
@@ -2117,7 +2282,7 @@ function wireFloatingComposerTrigger(stage) {
             window.clearTimeout(stageTripleTapResetTimer);
             stageTripleTapResetTimer = null;
         }
-        showFloatingComposer();
+        showComposeOverlay();
     });
 }
 function syncFlowMenuVisibility() {

@@ -232,6 +232,11 @@ const COMPOSER_TRIPLE_TAP_WINDOW_MS = 450;
 let composerVisible = false;
 let stageTripleTapCount = 0;
 let stageTripleTapResetTimer: number | null = null;
+let composeOverlay: HTMLDivElement | null = null;
+let composeActive = false;
+let composeDblTapTimer: number | null = null;
+let composeDblTapCount = 0;
+const COMPOSE_DBL_TAP_WINDOW_MS = 350;
 
 function headers() {
   const h: Record<string, string> = { "Content-Type": "application/json" };
@@ -549,7 +554,7 @@ function handleProposalConfirm() {
 
 function handleProposalEdit() {
   showFloatingComposer();
-  const input = document.getElementById("duet-input") as HTMLInputElement | null;
+  const input = document.getElementById("duet-input") as HTMLTextAreaElement | null;
   if (input) {
     input.placeholder = "Type your changes (e.g. 'add milk allergy')…";
     input.addEventListener("blur", () => { input.placeholder = ""; }, { once: true });
@@ -669,7 +674,7 @@ function updateFlowStatusText() {
 }
 
 function setComposerPlaceholder() {
-  const input = document.getElementById("duet-input") as HTMLInputElement | null;
+  const input = document.getElementById("duet-input") as HTMLTextAreaElement | null;
   if (!input) return;
   const flow = flowOptions.find((f) => f.key === currentFlowKey) ?? flowOptions[0];
   input.placeholder = flow.placeholder;
@@ -1599,7 +1604,7 @@ async function sendAsk(message: string, opts?: { flowLabel?: string; updateChatP
 
 function setComposerBusy(busy: boolean) {
   composerBusy = busy;
-  const input = document.getElementById("duet-input") as HTMLInputElement | null;
+  const input = document.getElementById("duet-input") as HTMLTextAreaElement | null;
   const sendBtn = document.getElementById("duet-send") as HTMLButtonElement | null;
   if (sendBtn) sendBtn.disabled = busy || !!(input && input.value.trim().length === 0);
   if (input) input.readOnly = busy;
@@ -2130,7 +2135,7 @@ function wire() {
 document.addEventListener("DOMContentLoaded", wire);
 
 function wireDuetComposer() {
-  const input = document.getElementById("duet-input") as HTMLInputElement | null;
+  const input = document.getElementById("duet-input") as HTMLTextAreaElement | null;
   const sendBtn = document.getElementById("duet-send") as HTMLButtonElement | null;
   const micBtn = document.getElementById("duet-mic");
   if (!input || !sendBtn) return;
@@ -2154,11 +2159,15 @@ function wireDuetComposer() {
     }
     sendAsk(text, { flowLabel: flow.label });
     input.value = "";
+    autoExpandTextarea(input);
     syncButtons();
     hideFloatingComposer();
   };
 
-  input.addEventListener("input", syncButtons);
+  input.addEventListener("input", () => {
+    syncButtons();
+    autoExpandTextarea(input);
+  });
   sendBtn.addEventListener("click", send);
   input.addEventListener("keydown", (ev) => {
     if (ev.key === "Enter" && !ev.shiftKey) {
@@ -2173,30 +2182,192 @@ function wireDuetComposer() {
   });
 
   setComposerPlaceholder();
+  wireComposeOverlayKeyboard();
 }
 
 function showFloatingComposer() {
-  const composer = document.getElementById("duet-composer") as HTMLElement | null;
-  if (!composer || composerVisible) return;
-  composer.classList.add("visible");
-  composer.setAttribute("aria-hidden", "false");
-  composerVisible = true;
-  syncFlowMenuVisibility();
-  setFlowMenuOpen(false);
-  const input = document.getElementById("duet-input") as HTMLInputElement | null;
-  setComposerPlaceholder();
-  window.requestAnimationFrame(() => input?.focus());
+  // Redirect to compose overlay instead of the bottom composer bar
+  showComposeOverlay();
 }
 
 function hideFloatingComposer() {
+  if (composeActive) {
+    hideComposeOverlay();
+    return;
+  }
   const composer = document.getElementById("duet-composer") as HTMLElement | null;
   if (!composer) return;
   composer.classList.remove("visible");
   composer.setAttribute("aria-hidden", "true");
   composerVisible = false;
   syncFlowMenuVisibility();
-  const input = document.getElementById("duet-input") as HTMLInputElement | null;
+  const input = document.getElementById("duet-input") as HTMLTextAreaElement | null;
   input?.blur();
+}
+
+/* ── Compose overlay (centered narrator input) ───────────── */
+
+function ensureComposeOverlay(): HTMLDivElement {
+  if (composeOverlay) return composeOverlay;
+
+  const overlay = document.createElement("div");
+  overlay.className = "compose-overlay";
+  overlay.id = "compose-overlay";
+
+  const backdrop = document.createElement("div");
+  backdrop.className = "compose-overlay-backdrop";
+  overlay.appendChild(backdrop);
+
+  const narrator = document.createElement("div");
+  narrator.className = "compose-narrator";
+  overlay.appendChild(narrator);
+
+  const hint = document.createElement("div");
+  hint.className = "compose-hint";
+  hint.textContent = "Double-tap outside to send";
+  narrator.appendChild(hint);
+
+  document.body.appendChild(overlay);
+  composeOverlay = overlay;
+
+  // Double-tap on backdrop to send
+  backdrop.addEventListener("pointerdown", handleComposeBackdropTap);
+
+  return overlay;
+}
+
+function handleComposeBackdropTap() {
+  composeDblTapCount += 1;
+  if (composeDblTapTimer !== null) {
+    window.clearTimeout(composeDblTapTimer);
+  }
+  composeDblTapTimer = window.setTimeout(() => {
+    composeDblTapCount = 0;
+    composeDblTapTimer = null;
+  }, COMPOSE_DBL_TAP_WINDOW_MS);
+  if (composeDblTapCount < 2) return;
+  composeDblTapCount = 0;
+  if (composeDblTapTimer !== null) {
+    window.clearTimeout(composeDblTapTimer);
+    composeDblTapTimer = null;
+  }
+  composeOverlaySend();
+}
+
+function composeOverlaySend() {
+  const input = document.getElementById("duet-input") as HTMLTextAreaElement | null;
+  const text = input?.value.trim() ?? "";
+  if (!text || composerBusy) return;
+  setChatError("");
+  const flow = flowOptions.find((f) => f.key === currentFlowKey) ?? flowOptions[0];
+  setDuetStatus("Sending to backend...");
+  const pendingCommand = state.proposalId ? detectProposalCommand(text) : null;
+  if (!pendingCommand) {
+    clearProposal();
+  }
+  sendAsk(text, { flowLabel: flow.label });
+  if (input) {
+    input.value = "";
+    autoExpandTextarea(input);
+  }
+  hideComposeOverlay();
+}
+
+function showComposeOverlay() {
+  if (composeActive) return;
+  const overlay = ensureComposeOverlay();
+  const input = document.getElementById("duet-input") as HTMLTextAreaElement | null;
+  if (!input) return;
+
+  // Move input into narrator container
+  const narrator = overlay.querySelector(".compose-narrator") as HTMLElement;
+  narrator.insertBefore(input, narrator.firstChild);
+
+  overlay.classList.add("active");
+  composeActive = true;
+  composerVisible = true;
+
+  // Hide the old composer bar (keep it in DOM for rollback)
+  const composer = document.getElementById("duet-composer") as HTMLElement | null;
+  if (composer) {
+    composer.classList.remove("visible");
+    composer.setAttribute("aria-hidden", "true");
+  }
+
+  setComposerPlaceholder();
+  syncFlowMenuVisibility();
+  setFlowMenuOpen(false);
+  window.requestAnimationFrame(() => {
+    input.focus();
+    autoExpandTextarea(input);
+  });
+}
+
+function hideComposeOverlay() {
+  if (!composeActive) return;
+  const overlay = composeOverlay;
+  if (!overlay) return;
+
+  const input = document.getElementById("duet-input") as HTMLTextAreaElement | null;
+  // Return input to composer container
+  const composer = document.getElementById("duet-composer") as HTMLElement | null;
+  if (input && composer) {
+    const micBtn = document.getElementById("duet-mic");
+    if (micBtn && micBtn.nextSibling) {
+      composer.insertBefore(input, micBtn.nextSibling);
+    } else {
+      composer.appendChild(input);
+    }
+  }
+
+  overlay.classList.remove("active");
+  composeActive = false;
+  composerVisible = false;
+  syncFlowMenuVisibility();
+  input?.blur();
+}
+
+function autoExpandTextarea(el: HTMLTextAreaElement) {
+  el.style.height = "auto";
+  el.style.height = Math.min(el.scrollHeight, 200) + "px";
+}
+
+function wireComposeOverlayKeyboard() {
+  // Use VisualViewport to keep compose overlay centered above keyboard on iOS
+  if (typeof window === "undefined") return;
+  const vv = (window as any).visualViewport;
+  if (!vv) return;
+
+  const adjust = () => {
+    if (!composeActive || !composeOverlay) return;
+    const narrator = composeOverlay.querySelector(".compose-narrator") as HTMLElement | null;
+    if (!narrator) return;
+    // offsetTop from viewport tells us where the visible area starts
+    const offsetTop = vv.offsetTop;
+    const visibleHeight = vv.height;
+    // Center narrator in the visible viewport area
+    narrator.style.position = "fixed";
+    narrator.style.top = `${offsetTop + visibleHeight * 0.35}px`;
+    narrator.style.left = "50%";
+    narrator.style.transform = "translateX(-50%)";
+  };
+
+  const reset = () => {
+    if (!composeOverlay) return;
+    const narrator = composeOverlay.querySelector(".compose-narrator") as HTMLElement | null;
+    if (!narrator) return;
+    narrator.style.position = "";
+    narrator.style.top = "";
+    narrator.style.left = "";
+    narrator.style.transform = "";
+  };
+
+  vv.addEventListener("resize", () => {
+    if (composeActive) adjust(); else reset();
+  });
+  vv.addEventListener("scroll", () => {
+    if (composeActive) adjust();
+  });
 }
 
 function wireFloatingComposerTrigger(stage: HTMLElement | null) {
@@ -2218,7 +2389,7 @@ function wireFloatingComposerTrigger(stage: HTMLElement | null) {
       window.clearTimeout(stageTripleTapResetTimer);
       stageTripleTapResetTimer = null;
     }
-    showFloatingComposer();
+    showComposeOverlay();
   });
 }
 
