@@ -2218,6 +2218,15 @@ function ensureComposeOverlay(): HTMLDivElement {
   backdrop.className = "compose-overlay-backdrop";
   overlay.appendChild(backdrop);
 
+  // Close button inside overlay (above backdrop, always clickable)
+  const closeBtn = document.createElement("button");
+  closeBtn.type = "button";
+  closeBtn.className = "compose-close-btn";
+  closeBtn.textContent = "\u2715";
+  closeBtn.setAttribute("aria-label", "Close composer");
+  closeBtn.addEventListener("click", () => hideComposeOverlay());
+  overlay.appendChild(closeBtn);
+
   const narrator = document.createElement("div");
   narrator.className = "compose-narrator";
   overlay.appendChild(narrator);
@@ -2283,6 +2292,15 @@ function showComposeOverlay() {
   const narrator = overlay.querySelector(".compose-narrator") as HTMLElement;
   narrator.insertBefore(input, narrator.firstChild);
 
+  // Position close button to match original flow-menu-trigger location
+  const fmTrigger = document.getElementById("flow-menu-trigger");
+  const closeBtn = overlay.querySelector(".compose-close-btn") as HTMLElement | null;
+  if (fmTrigger && closeBtn) {
+    const rect = fmTrigger.getBoundingClientRect();
+    closeBtn.style.top = rect.top + "px";
+    closeBtn.style.right = (window.innerWidth - rect.right) + "px";
+  }
+
   overlay.classList.add("active");
   composeActive = true;
   composerVisible = true;
@@ -2318,6 +2336,13 @@ function hideComposeOverlay() {
     } else {
       composer.appendChild(input);
     }
+  }
+
+  // Clear inline positioning from compose-close-btn
+  const closeBtn = overlay.querySelector(".compose-close-btn") as HTMLElement | null;
+  if (closeBtn) {
+    closeBtn.style.top = "";
+    closeBtn.style.right = "";
   }
 
   overlay.classList.remove("active");
@@ -2397,19 +2422,15 @@ function syncFlowMenuVisibility() {
   if (!flowMenuContainer) return;
   const trigger = document.getElementById("flow-menu-trigger");
   if (composerVisible) {
-    // Show trigger as a red ✕ close button instead of hiding it
-    flowMenuContainer.classList.remove("hidden");
-    if (trigger) {
-      trigger.classList.add("close-mode");
-      trigger.textContent = "✕";
-      trigger.setAttribute("aria-label", "Close composer");
-    }
-    // Hide the dropdown while in close mode
+    // Hide the flow-menu trigger (compose overlay has its own close button)
+    flowMenuContainer.classList.add("hidden");
+    // Hide the dropdown while in compose mode
     if (flowMenuDropdown) {
       flowMenuDropdown.style.display = "none";
       flowMenuDropdown.classList.remove("open");
     }
   } else {
+    flowMenuContainer.classList.remove("hidden");
     if (trigger) {
       trigger.classList.remove("close-mode");
       trigger.textContent = "⚙";
