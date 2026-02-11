@@ -278,7 +278,7 @@ pre {
 /* Close button inside compose overlay */
 .compose-close-btn {
   position: absolute;
-  top: max(90px, calc(env(safe-area-inset-top) + 80px));
+  top: max(32px, calc(env(safe-area-inset-top) + 22px));
   right: 22px;
   z-index: 2;
   margin: 0;
@@ -300,6 +300,49 @@ pre {
 
 .compose-close-btn:hover {
   background: rgba(239, 68, 68, 1);
+}
+
+/* Mic button inside compose overlay (at gear/options position) */
+.compose-mic-btn {
+  position: absolute;
+  top: max(90px, calc(env(safe-area-inset-top) + 80px));
+  right: 22px;
+  z-index: 2;
+  margin: 0;
+  width: 46px;
+  height: 46px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--text);
+  font-size: 20px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  box-shadow: var(--shadow);
+  transition: background 120ms ease, border-color 120ms ease;
+}
+
+.compose-mic-btn:hover {
+  background: rgba(255, 255, 255, 0.14);
+}
+
+.compose-mic-btn.recording {
+  background: rgba(220, 38, 38, 0.85);
+  border-color: rgba(248, 113, 113, 0.5);
+  color: #fff;
+  animation: mic-pulse 1.2s ease-in-out infinite;
+}
+
+.compose-mic-btn.disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+@keyframes mic-pulse {
+  0%, 100% { box-shadow: var(--shadow); }
+  50% { box-shadow: 0 0 16px 4px rgba(239, 68, 68, 0.4); }
 }
 
 .flow-menu-dropdown {

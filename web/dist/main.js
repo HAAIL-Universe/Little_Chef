@@ -224,6 +224,8 @@ let composeActive = false;
 let composeDblTapTimer = null;
 let composeDblTapCount = 0;
 const COMPOSE_DBL_TAP_WINDOW_MS = 350;
+let dictationActive = false;
+let speechRecognition = null;
 function headers() {
     var _a;
     const h = { "Content-Type": "application/json" };
@@ -2120,6 +2122,14 @@ function ensureComposeOverlay() {
     closeBtn.setAttribute("aria-label", "Close composer");
     closeBtn.addEventListener("click", () => hideComposeOverlay());
     overlay.appendChild(closeBtn);
+    // Mic button inside overlay (below close btn, same style)
+    const micBtn = document.createElement("button");
+    micBtn.type = "button";
+    micBtn.className = "compose-mic-btn";
+    micBtn.textContent = "\uD83C\uDFA4";
+    micBtn.setAttribute("aria-label", "Toggle voice dictation");
+    micBtn.addEventListener("click", () => toggleComposeDictation());
+    overlay.appendChild(micBtn);
     const narrator = document.createElement("div");
     narrator.className = "compose-narrator";
     overlay.appendChild(narrator);
@@ -2134,6 +2144,10 @@ function ensureComposeOverlay() {
     return overlay;
 }
 function handleComposeBackdropTap() {
+    // Single tap on backdrop stops dictation (if running) without sending
+    if (dictationActive) {
+        stopComposeDictation();
+    }
     composeDblTapCount += 1;
     if (composeDblTapTimer !== null) {
         window.clearTimeout(composeDblTapTimer);
@@ -2153,6 +2167,7 @@ function handleComposeBackdropTap() {
 }
 function composeOverlaySend() {
     var _a, _b;
+    stopComposeDictation();
     const input = document.getElementById("duet-input");
     const text = (_a = input === null || input === void 0 ? void 0 : input.value.trim()) !== null && _a !== void 0 ? _a : "";
     if (!text || composerBusy)
@@ -2181,13 +2196,20 @@ function showComposeOverlay() {
     // Move input into narrator container
     const narrator = overlay.querySelector(".compose-narrator");
     narrator.insertBefore(input, narrator.firstChild);
-    // Position close button to match original flow-menu-trigger location
+    // Position mic button where flow-menu-trigger (gear) is, close button where history-toggle is
     const fmTrigger = document.getElementById("flow-menu-trigger");
+    const htToggle = document.getElementById("duet-history-toggle");
     const closeBtn = overlay.querySelector(".compose-close-btn");
-    if (fmTrigger && closeBtn) {
-        const rect = fmTrigger.getBoundingClientRect();
-        closeBtn.style.top = rect.top + "px";
-        closeBtn.style.right = (window.innerWidth - rect.right) + "px";
+    const micBtn = overlay.querySelector(".compose-mic-btn");
+    if (fmTrigger && micBtn) {
+        const fmRect = fmTrigger.getBoundingClientRect();
+        micBtn.style.top = fmRect.top + "px";
+        micBtn.style.right = (window.innerWidth - fmRect.right) + "px";
+    }
+    if (htToggle && closeBtn) {
+        const htRect = htToggle.getBoundingClientRect();
+        closeBtn.style.top = htRect.top + "px";
+        closeBtn.style.right = (window.innerWidth - htRect.right) + "px";
     }
     overlay.classList.add("active");
     composeActive = true;
@@ -2203,6 +2225,7 @@ function showComposeOverlay() {
     setFlowMenuOpen(false);
     window.requestAnimationFrame(() => {
         input.focus();
+        input.setSelectionRange(input.value.length, input.value.length);
         autoExpandTextarea(input);
     });
 }
@@ -2224,11 +2247,18 @@ function hideComposeOverlay() {
             composer.appendChild(input);
         }
     }
-    // Clear inline positioning from compose-close-btn
+    // Stop dictation if running
+    stopComposeDictation();
+    // Clear inline positioning from compose-close-btn and compose-mic-btn
     const closeBtn = overlay.querySelector(".compose-close-btn");
     if (closeBtn) {
         closeBtn.style.top = "";
         closeBtn.style.right = "";
+    }
+    const micBtn = overlay.querySelector(".compose-mic-btn");
+    if (micBtn) {
+        micBtn.style.top = "";
+        micBtn.style.right = "";
     }
     overlay.classList.remove("active");
     composeActive = false;
@@ -2239,6 +2269,96 @@ function hideComposeOverlay() {
 function autoExpandTextarea(el) {
     el.style.height = "auto";
     el.style.height = Math.min(el.scrollHeight, 200) + "px";
+}
+// ── Compose dictation (Web Speech API) ──────────────────────
+function getSpeechRecognitionCtor() {
+    return window.SpeechRecognition || window.webkitSpeechRecognition || null;
+}
+function toggleComposeDictation() {
+    if (dictationActive) {
+        stopComposeDictation();
+    }
+    else {
+        startComposeDictation();
+    }
+}
+function startComposeDictation() {
+    const SRCtor = getSpeechRecognitionCtor();
+    if (!SRCtor) {
+        setDuetStatus("Voice dictation is not supported on this browser.", false);
+        const micBtn = composeOverlay === null || composeOverlay === void 0 ? void 0 : composeOverlay.querySelector(".compose-mic-btn");
+        if (micBtn)
+            micBtn.classList.add("disabled");
+        return;
+    }
+    const input = document.getElementById("duet-input");
+    if (!input)
+        return;
+    const sr = new SRCtor();
+    sr.continuous = true;
+    sr.interimResults = true;
+    sr.lang = "en-US";
+    // Track the text that existed before dictation started
+    const baseText = input.value;
+    sr.onresult = (event) => {
+        let interim = "";
+        let final = "";
+        for (let i = 0; i < event.results.length; i++) {
+            const transcript = event.results[i][0].transcript;
+            if (event.results[i].isFinal) {
+                final += transcript;
+            }
+            else {
+                interim += transcript;
+            }
+        }
+        const separator = baseText.length > 0 && !baseText.endsWith(" ") ? " " : "";
+        input.value = baseText + separator + final + interim;
+        autoExpandTextarea(input);
+        input.setSelectionRange(input.value.length, input.value.length);
+    };
+    sr.onerror = (event) => {
+        if (event.error !== "aborted" && event.error !== "no-speech") {
+            setDuetStatus("Dictation error: " + event.error, false);
+        }
+        stopComposeDictation();
+    };
+    sr.onend = () => {
+        // If still marked active, recognition stopped unexpectedly — update UI
+        if (dictationActive) {
+            dictationActive = false;
+            updateMicButtonState();
+        }
+    };
+    try {
+        sr.start();
+        speechRecognition = sr;
+        dictationActive = true;
+        updateMicButtonState();
+    }
+    catch (e) {
+        setDuetStatus("Could not start dictation.", false);
+    }
+}
+function stopComposeDictation() {
+    if (!dictationActive && !speechRecognition)
+        return;
+    dictationActive = false;
+    if (speechRecognition) {
+        try {
+            speechRecognition.stop();
+        }
+        catch (_) { /* ignore */ }
+        speechRecognition = null;
+    }
+    updateMicButtonState();
+}
+function updateMicButtonState() {
+    const micBtn = composeOverlay === null || composeOverlay === void 0 ? void 0 : composeOverlay.querySelector(".compose-mic-btn");
+    if (!micBtn)
+        return;
+    micBtn.classList.toggle("recording", dictationActive);
+    micBtn.setAttribute("aria-label", dictationActive ? "Stop voice dictation" : "Start voice dictation");
 }
 function wireComposeOverlayKeyboard() {
     // Use VisualViewport to keep compose overlay centered above keyboard on iOS
