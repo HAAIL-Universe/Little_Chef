@@ -1,3 +1,4 @@
+import random
 from functools import lru_cache
 from uuid import uuid4
 from datetime import datetime, timezone
@@ -31,29 +32,42 @@ _INGREDIENTS_BY_RECIPE = {
 
 
 class MealPlanService:
-    def generate(self, request: MealPlanGenerateRequest, *, excluded_recipe_ids: list | None = None) -> MealPlanResponse:
+    def generate(self, request: MealPlanGenerateRequest, *, excluded_recipe_ids: list | None = None, pack_recipes: list[dict] | None = None) -> MealPlanResponse:
         days = request.days
         meals_per_day = request.meals_per_day or 3
         created_at = datetime.now(timezone.utc).isoformat()
         plan_id = f"plan-{uuid4()}"
 
-        meals_catalog: List[dict] = BUILT_IN_RECIPES
+        # Build catalog: pack recipes first (primary), built-ins as fallback
+        if request.include_user_library and pack_recipes:
+            meals_catalog: List[dict] = list(pack_recipes) + list(BUILT_IN_RECIPES)
+        else:
+            meals_catalog = list(BUILT_IN_RECIPES)
+
         if excluded_recipe_ids:
             meals_catalog = [r for r in meals_catalog if r["id"] not in excluded_recipe_ids]
         if not meals_catalog:
             return MealPlanResponse(plan_id=plan_id, created_at=created_at, days=[], notes=request.notes or "")
+
+        # Deterministic non-static selection: shuffle seeded by plan_id
+        rng = random.Random(plan_id)
+        shuffled = list(meals_catalog)
+        rng.shuffle(shuffled)
+
         meals: List[MealPlanDay] = []
         for day_index in range(1, days + 1):
             day_meals: List[PlannedMeal] = []
             for meal_idx in range(meals_per_day):
-                recipe = meals_catalog[meal_idx % len(meals_catalog)]
+                recipe = shuffled[meal_idx % len(shuffled)]
                 recipe_id = recipe["id"]
-                ingredients = _INGREDIENTS_BY_RECIPE.get(recipe_id, [])
+                # Inline ingredients (pack recipes) take priority over built-in lookup
+                ingredients = recipe.get("ingredients") or _INGREDIENTS_BY_RECIPE.get(recipe_id, [])
+                source_type = recipe.get("source_type", "built_in")
                 src = RecipeSource(
-                    source_type="built_in",
-                    built_in_recipe_id=recipe_id,
+                    source_type=source_type,
+                    built_in_recipe_id=recipe_id if source_type == "built_in" else None,
                     file_id=None,
-                    book_id=None,
+                    book_id=recipe_id if source_type == "user_library" else None,
                     excerpt=None,
                 )
                 day_meals.append(

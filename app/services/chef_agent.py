@@ -27,12 +27,14 @@ class ChefAgent:
         llm_client: Optional[LlmClient] = None,
         prefs_service: Optional[PrefsService] = None,
         inventory_service=None,
+        recipe_service=None,
     ) -> None:
         self.mealplan_service = mealplan_service
         self.proposal_store = proposal_store
         self.llm_client = llm_client
         self.prefs_service = prefs_service
         self.inventory_service = inventory_service
+        self.recipe_service = recipe_service
         self._pending: Dict[Tuple[str, str], str] = {}  # (user_id, thread_id) -> proposal_id
         self._proposal_threads: Dict[str, Tuple[str, str]] = {}  # proposal_id -> (user_id, thread_id)
 
@@ -74,7 +76,8 @@ class ChefAgent:
         days = 1
 
         # Prefs-first filtering: exclude recipes matching allergies/dislikes
-        excluded_ids = self._excluded_recipe_ids(prefs)
+        pack_recipes = self._build_pack_catalog(user.user_id)
+        excluded_ids = self._excluded_recipe_ids(prefs, pack_recipes)
 
         gen_request = MealPlanGenerateRequest(
             days=days,
@@ -82,7 +85,7 @@ class ChefAgent:
             include_user_library=request.include_user_library,
             notes="",
         )
-        plan = self.mealplan_service.generate(gen_request, excluded_recipe_ids=excluded_ids)
+        plan = self.mealplan_service.generate(gen_request, excluded_recipe_ids=excluded_ids, pack_recipes=pack_recipes)
 
         # If all recipes were excluded, return a helpful message
         total_meals = sum(len(d.meals) for d in plan.days)
@@ -180,8 +183,8 @@ class ChefAgent:
         self._proposal_threads.pop(proposal_id, None)
 
     @staticmethod
-    def _excluded_recipe_ids(prefs) -> list:
-        """Return built-in recipe IDs that conflict with user allergies/dislikes."""
+    def _excluded_recipe_ids(prefs, pack_recipes: list | None = None) -> list:
+        """Return recipe IDs (built-in + pack) that conflict with user allergies/dislikes."""
         if not prefs:
             return []
         keywords: set[str] = set()
@@ -192,6 +195,7 @@ class ChefAgent:
         if not keywords:
             return []
         excluded: list[str] = []
+        # Built-in recipes
         for recipe in BUILT_IN_RECIPES:
             rid = recipe["id"]
             title = recipe.get("title", "").lower()
@@ -201,7 +205,42 @@ class ChefAgent:
             ingredients = _INGREDIENTS_BY_RECIPE.get(rid, [])
             if any(any(kw in ing.item_name.lower() for kw in keywords) for ing in ingredients):
                 excluded.append(rid)
+        # Pack recipes
+        if pack_recipes:
+            for recipe in pack_recipes:
+                rid = recipe["id"]
+                title = recipe.get("title", "").lower()
+                if any(kw in title for kw in keywords):
+                    excluded.append(rid)
+                    continue
+                ingredients = recipe.get("ingredients", [])
+                if any(any(kw in ing.item_name.lower() for kw in keywords) for ing in ingredients):
+                    excluded.append(rid)
         return excluded
+
+    def _build_pack_catalog(self, user_id: str) -> list[dict]:
+        """Query installed pack books and extract ingredients for meal planning."""
+        if not self.recipe_service:
+            return []
+        from app.services.recipe_service import extract_ingredients_from_markdown
+        try:
+            resp = self.recipe_service.list_books(user_id)
+        except Exception:
+            return []
+        catalog: list[dict] = []
+        for book in resp.books:
+            if not book.pack_id or not book.text_content:
+                continue
+            ingredients = extract_ingredients_from_markdown(book.text_content)
+            if not ingredients:  # Hardness #2: skip ingredientless recipes
+                continue
+            catalog.append({
+                "id": book.book_id,
+                "title": book.title or book.filename,
+                "ingredients": ingredients,
+                "source_type": "user_library",
+            })
+        return catalog
 
     def _annotate_inventory_notes(self, plan, user_id: str):
         """Add informational notes about ingredient stock to the plan."""

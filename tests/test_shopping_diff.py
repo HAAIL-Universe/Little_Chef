@@ -99,16 +99,27 @@ def test_shopping_diff_works_with_generated_plan(authed_client):
     assert resp.status_code == 200
     plan = resp.json()
 
-    # Seed inventory with some items from built-in ingredients
+    # Collect all ingredient names from the generated plan
+    ingredient_names = [
+        ing["item_name"]
+        for day in plan["days"]
+        for meal in day["meals"]
+        for ing in meal["ingredients"]
+    ]
+    assert ingredient_names, "Plan should have at least one ingredient"
+
+    # Seed inventory with ONE of the plan's ingredients
+    seed_name = ingredient_names[0]
     authed_client.post(
         "/inventory/events",
-        json={"event_type": "add", "item_name": "tomato", "quantity": 1, "unit": "count", "note": "", "source": "ui"},
+        json={"event_type": "add", "item_name": seed_name, "quantity": 1, "unit": "count", "note": "", "source": "ui"},
     )
 
     resp = authed_client.post("/shopping/diff", json={"plan": plan})
     assert resp.status_code == 200
     missing = resp.json()["missing_items"]
-    assert any(item["item_name"] == "tomato" for item in missing)  # still missing some tomatoes
+    # With 2 meals × 2 ingredients each and only 1 unit seeded, at least some should be missing
+    assert len(missing) > 0, "Should have missing items when inventory only has a small quantity"
     assert all("unit" in item for item in missing)
     for item in missing:
         assert item["reason"]

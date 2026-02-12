@@ -1,23 +1,62 @@
 ﻿# Diff Log (overwrite each cycle)
 
 ## Cycle Metadata
-- Timestamp: 2026-02-12T12:17:49+00:00
+- Phase: 10.1 — Recipe Corpus Integration
 - Branch: claude/romantic-jones
-- HEAD: bd74222e35c67fdd6ef1cbd907ee317e8bd35d48
-- BASE_HEAD: 57a3c7e9cb2ab32353ba9e91ba7ec3da492904be
-- Diff basis: staged
-
-## Cycle Status
+- HEAD (pre): 6652083bbe73e8e19052c61d3e7c0ea985284554
 - Status: COMPLETE
+- Commit: 5160215
 
 ## Summary
-- Fix 1: Added `location?: "pantry" | "fridge" | "freezer"` to frontend `InventorySummaryItem` type (`web/src/main.ts` L110), aligning with backend schema. Resolves TS2339 at L1199. No runtime change.
-- Fix 2: Rewrote `web/e2e/history-badge.spec.ts` — assertions now target `#duet-sent-indicator` (where "👍" actually renders) instead of `#duet-user-bubble .bubble-text`. Added `/chat` route mock for deterministic sends.
-- Fix 3: Made `?skipauth=1` set `state.token = "skipauth"` + call `refreshSystemHints()`, `renderOnboardMenuButtons()`, `updateDuetBubbles()` so onboard menu renders all applicable buttons instead of only Login. Strictly gated: only fires when `isSkipAuth()` is true.
-- Result: `tsc --noEmit` 0 errors (was 1). Playwright 8/8 passed (was 6/8). pytest 183 passed. Node unit tests all PASS.
-- Scope: 3 files changed (src/main.ts, dist/main.js, e2e/history-badge.spec.ts), plus prior-cycle files already staged.
+Phase 10.1 wires installed pack recipe books into meal planning. ChefAgent now queries RecipeService for installed packs, extracts ingredients from their markdown `## Ingredients` sections, builds a catalog, and passes it to MealPlanService. Pack recipes are primary; built-in recipes serve as fallback when no packs are installed. Selection uses deterministic random shuffle (seeded by plan_id) replacing the old static round-robin. Ingredientless pack recipes are filtered out. Allergy/dislike filtering applies to both pack and built-in recipes.
 
-## Files Changed (staged)
+## Hardness Rule Compliance
+1. **No new endpoints** — zero router changes. All changes in service/agent layer.
+2. **No ingredientless meals** — `_build_pack_catalog` skips books where `extract_ingredients_from_markdown` returns `[]`. Test: `test_ingredientless_pack_recipe_skipped`.
+3. **No fixed round-robin** — `random.Random(plan_id).shuffle(catalog)` replaces `meal_idx % len`. Deterministic per-plan but varying across plans.
+4. **Built-in fallback preserved** — when `pack_recipes` is empty/None or `include_user_library=False`, only `BUILT_IN_RECIPES` used. Test: `test_fallback_to_builtins_when_no_packs`.
+
+## Files Changed
+
+### app/services/recipe_service.py
+- Added `import re`, `from __future__ import annotations`, `IngredientLine` import
+- Added `extract_ingredients_from_markdown()` function (~50 lines): parses `## Ingredients` sections from pack markdown, extracts item_name/quantity/unit via regex, falls back to `quantity=1, unit="count"` for unparseable lines
+- Added `_VALID_UNITS`, `_QTY_UNIT_RE`, `_UNIT_ALIAS` module constants
+
+### app/services/mealplan_service.py
+- Added `import random`
+- `generate()`: new `pack_recipes: list[dict] | None = None` parameter
+- Catalog construction: `pack_recipes + BUILT_IN_RECIPES` when `include_user_library and pack_recipes`, else `BUILT_IN_RECIPES` only
+- Recipe selection: `random.Random(plan_id).shuffle(catalog)` replaces static `meal_idx % len`
+- Source construction: reads `source_type` from recipe dict, sets `book_id` for pack recipes
+
+### app/services/chef_agent.py
+- `__init__`: added `recipe_service=None` parameter
+- `handle_fill()`: calls `self._build_pack_catalog(user_id)`, passes result to `generate()`
+- `_excluded_recipe_ids()`: now accepts `pack_recipes` parameter, filters both built-in and pack recipes by allergy/dislike keywords
+- Added `_build_pack_catalog()` method: queries `recipe_service.list_books()`, filters to pack books, extracts ingredients, skips ingredientless recipes
+
+### app/services/chat_service.py
+- `ChefAgent` construction: added `recipe_service=self._get_recipe_service()`
+- Added `_get_recipe_service()` static method (lazy import)
+
+### tests/test_pack_mealplan_integration.py (NEW)
+- 8 tests: 3 unit (ingredient extraction), 5 integration (pack in plan, source fields, fallback, ingredientless skip, allergy filter)
+
+### tests/test_shopping_diff.py
+- `test_shopping_diff_works_with_generated_plan`: made order-agnostic — seeds inventory with first ingredient from generated plan instead of hardcoded "tomato"
+
+## Test Results
+- Full suite: 191 passed, 0 failed
+- New tests: 8 (3 unit + 5 integration)
+- Regressions: 0
+
+## Verification Hierarchy
+- Static (Pylance/errors): 0 errors across all changed files
+- Runtime: all imports resolve, no circular deps
+- Behaviour: ingredient extraction produces valid IngredientLine, pack catalog builds correctly
+- Tests: 191/191 pass
+- Contract: 4 Hardness Rules verified ✓
 - evidence/test_runs_latest.md
 - evidence/updatedifflog.md
 - web/dist/main.js
