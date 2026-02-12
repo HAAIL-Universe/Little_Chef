@@ -95,7 +95,9 @@ class MealPlanService:
         for day_index in range(1, days + 1):
             day_meals: List[PlannedMeal] = []
             for meal_idx in range(meals_per_day):
-                recipe = shuffled[meal_idx % len(shuffled)]
+                # Offset by day_index so each day gets different recipes
+                catalog_idx = ((day_index - 1) * meals_per_day + meal_idx) % len(shuffled)
+                recipe = shuffled[catalog_idx]
                 recipe_id = recipe["id"]
                 # Inline ingredients (pack recipes) take priority over built-in lookup
                 ingredients = recipe.get("ingredients") or _INGREDIENTS_BY_RECIPE.get(recipe_id, [])

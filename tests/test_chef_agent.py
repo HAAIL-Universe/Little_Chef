@@ -37,12 +37,10 @@ def test_chef_agent_propose_and_confirm(authed_client):
     action = body["proposed_actions"][0]
     assert action["action_type"] == "generate_mealplan"
     plan = action["mealplan"]
-    # MVP: always 1 day regardless of requested days
-    assert len(plan["days"]) == 1
+    # Multi-day: 5 days as requested
+    assert len(plan["days"]) == 5
     for day in plan["days"]:
         assert len(day["meals"]) == 3
-    # Multi-day request triggers MVP note
-    assert "MVP supports 1-day" in body["reply_text"]
 
     # Confirm
     resp = authed_client.post(
@@ -65,8 +63,8 @@ def test_chef_agent_propose_and_decline(authed_client):
     assert resp.status_code == 200
     body = resp.json()
     assert body["confirmation_required"] is True
-    # MVP: 1-day plan even when 2 requested
-    assert len(body["proposed_actions"][0]["mealplan"]["days"]) == 1
+    # Multi-day: 2 days as requested
+    assert len(body["proposed_actions"][0]["mealplan"]["days"]) == 2
     proposal_id = body["proposal_id"]
 
     # Decline
@@ -90,12 +88,10 @@ def test_chef_agent_defaults_when_no_params(authed_client):
     assert body["confirmation_required"] is True
     action = body["proposed_actions"][0]
     plan = action["mealplan"]
-    # MVP: always 1 day, meals_per_day=3 from prefs
-    assert len(plan["days"]) == 1
+    # Default plan_days=7 from prefs, meals_per_day=3 from prefs
+    assert len(plan["days"]) == 7
     for day in plan["days"]:
         assert len(day["meals"]) == 3
-    # No multi-day request, so no MVP note
-    assert "MVP supports 1-day" not in body["reply_text"]
 
 
 def test_chef_agent_thread_isolation(authed_client):
@@ -113,9 +109,9 @@ def test_chef_agent_thread_isolation(authed_client):
     )
     assert resp_a.status_code == 200
     assert resp_b.status_code == 200
-    # Both capped to 1 day
-    assert len(resp_a.json()["proposed_actions"][0]["mealplan"]["days"]) == 1
-    assert len(resp_b.json()["proposed_actions"][0]["mealplan"]["days"]) == 1
+    # Multi-day: 2 and 4 days as requested
+    assert len(resp_a.json()["proposed_actions"][0]["mealplan"]["days"]) == 2
+    assert len(resp_b.json()["proposed_actions"][0]["mealplan"]["days"]) == 4
 
     pid_a = resp_a.json()["proposal_id"]
     pid_b = resp_b.json()["proposal_id"]
@@ -137,17 +133,17 @@ def test_chef_agent_thread_isolation(authed_client):
     assert resp.json()["applied"] is True
 
 
-def test_chef_agent_mvp_one_day_cap(authed_client):
-    """Explicitly requesting multi-day always returns 1-day plan + MVP note."""
+def test_chef_agent_multiday_cap_at_7(authed_client):
+    """Requesting more than 7 days is capped at 7."""
     resp = authed_client.post(
         "/chat/mealplan",
-        json={"mode": "fill", "message": "plan for 5 days", "thread_id": "t-cap"},
+        json={"mode": "fill", "message": "plan for 14 days", "thread_id": "t-cap"},
     )
     assert resp.status_code == 200
     body = resp.json()
     plan = body["proposed_actions"][0]["mealplan"]
-    assert len(plan["days"]) == 1
-    assert "MVP supports 1-day" in body["reply_text"]
+    assert len(plan["days"]) == 7
+    assert "7-day" in body["reply_text"]
 
 
 def test_chef_agent_prefs_allergy_filter(authed_client):

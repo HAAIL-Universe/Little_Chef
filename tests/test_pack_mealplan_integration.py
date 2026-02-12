@@ -174,7 +174,7 @@ def test_pack_recipes_in_mealplan(authed_client):
     body = resp.json()
     assert body["confirmation_required"] is True
     plan = body["proposed_actions"][0]["mealplan"]
-    assert len(plan["days"]) == 1
+    assert len(plan["days"]) >= 1  # defaults to prefs.plan_days
 
     # Collect all meal names across the plan
     meal_names = [m["name"] for d in plan["days"] for m in d["meals"]]

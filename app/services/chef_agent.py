@@ -321,9 +321,6 @@ class ChefAgent:
         days = self._parse_days(message)
         meals_per_day = self._parse_meals_per_day(message)
 
-        # MVP: detect multi-day request before capping
-        requested_multi = days is not None and days > 1
-
         # Fall back to user prefs if available
         prefs = None
         if self.prefs_service:
@@ -332,15 +329,19 @@ class ChefAgent:
                 if prefs:
                     if meals_per_day is None and hasattr(prefs, "meals_per_day") and prefs.meals_per_day:
                         meals_per_day = prefs.meals_per_day
+                    if days is None and hasattr(prefs, "plan_days") and prefs.plan_days:
+                        days = prefs.plan_days
             except Exception:
                 pass
 
         # Final defaults
         if meals_per_day is None:
             meals_per_day = 3
+        if days is None:
+            days = 1
 
-        # MVP: always 1-day plan
-        days = 1
+        # Cap at 7 days maximum
+        days = min(days, 7)
 
         # Prefs-first filtering: exclude recipes matching allergies/dislikes
         pack_recipes = self._build_pack_catalog(user.user_id)
@@ -401,11 +402,6 @@ class ChefAgent:
             f"I've prepared a {day_count}-day meal plan with {meal_count} meals. "
             f"Please confirm to apply."
         )
-        if requested_multi:
-            reply = (
-                "MVP supports 1-day plans. Here's your plan for today "
-                "— multi-day planning is coming soon!\n\n" + reply
-            )
 
         return ChatResponse(
             reply_text=reply,
