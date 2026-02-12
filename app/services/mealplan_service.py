@@ -51,7 +51,7 @@ _INSTRUCTIONS_BY_RECIPE = {
 
 
 class MealPlanService:
-    def generate(self, request: MealPlanGenerateRequest, *, excluded_recipe_ids: list | None = None, pack_recipes: list[dict] | None = None) -> MealPlanResponse:
+    def generate(self, request: MealPlanGenerateRequest, *, excluded_recipe_ids: list | None = None, pack_recipes: list[dict] | None = None, stock_names: set[str] | None = None) -> MealPlanResponse:
         days = request.days
         meals_per_day = request.meals_per_day or 3
         created_at = datetime.now(timezone.utc).isoformat()
@@ -68,10 +68,28 @@ class MealPlanService:
         if not meals_catalog:
             return MealPlanResponse(plan_id=plan_id, created_at=created_at, days=[], notes=request.notes or "")
 
-        # Deterministic non-static selection: shuffle seeded by plan_id
-        rng = random.Random(plan_id)
-        shuffled = list(meals_catalog)
-        rng.shuffle(shuffled)
+        # Inventory-aware scoring: sort by completion % descending
+        if stock_names is not None:
+            scored = []
+            for r in meals_catalog:
+                ingredients = r.get("ingredients") or _INGREDIENTS_BY_RECIPE.get(r["id"], [])
+                total = len(ingredients) if ingredients else 0
+                have = 0
+                if total > 0:
+                    for ing in ingredients:
+                        name = ing.item_name.lower() if hasattr(ing, "item_name") else str(ing).lower()
+                        if name in stock_names:
+                            have += 1
+                pct = have / total if total else 0.0
+                scored.append((pct, r))
+            # Sort by completion % descending, then by title for determinism
+            scored.sort(key=lambda x: (-x[0], x[1]["title"].lower()))
+            shuffled = [r for _, r in scored]
+        else:
+            # Deterministic non-static selection: shuffle seeded by plan_id
+            rng = random.Random(plan_id)
+            shuffled = list(meals_catalog)
+            rng.shuffle(shuffled)
 
         meals: List[MealPlanDay] = []
         for day_index in range(1, days + 1):

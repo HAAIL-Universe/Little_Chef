@@ -338,7 +338,18 @@ class ChefAgent:
             include_user_library=request.include_user_library,
             notes="",
         )
-        plan = self.mealplan_service.generate(gen_request, excluded_recipe_ids=excluded_ids, pack_recipes=pack_recipes)
+
+        # Inventory-aware ranking: pass stock names so generate() prefers
+        # recipes with higher ingredient completion %
+        stock_names: set[str] = set()
+        if self.inventory_service:
+            try:
+                inv = self.inventory_service.summary(user.user_id)
+                stock_names = {item.item_name.lower() for item in inv.items}
+            except Exception:
+                pass
+
+        plan = self.mealplan_service.generate(gen_request, excluded_recipe_ids=excluded_ids, pack_recipes=pack_recipes, stock_names=stock_names)
 
         # If all recipes were excluded, return a helpful message
         total_meals = sum(len(d.meals) for d in plan.days)
