@@ -5,8 +5,10 @@ from typing import Dict, List, Optional, Tuple
 from app.schemas import (
     ChatRequest,
     ChatResponse,
+    InventoryEventCreateRequest,
     MealPlanGenerateRequest,
     ProposedGenerateMealPlanAction,
+    ProposedInventoryEventAction,
     UserMe,
 )
 from app.services.mealplan_service import MealPlanService, _INGREDIENTS_BY_RECIPE
@@ -31,6 +33,11 @@ _CHECK_RE = re.compile(
 )
 _MAX_MATCH_SUGGESTIONS = 5
 _MAX_CHECK_ALTERNATIVES = 3
+_CONSUME_RE = re.compile(
+    r"\b(?:(?:i|we)\s+(?:cooked|made|prepared|ate|had)\s+(?:the\s+)?(.+?)(?:\s+today|\s+tonight|\s+yesterday)?(?:\s*[.!]?\s*$)"
+    r"|cooked\s+(?:the\s+)?(.+?)(?:\s*[.!]?\s*$))",
+    re.IGNORECASE,
+)
 
 
 class ChefAgent:
@@ -271,6 +278,110 @@ class ChefAgent:
             mode="ask",
         )
 
+    def handle_consume(self, user: UserMe, request: ChatRequest) -> ChatResponse:
+        """Handle 'I cooked X' — propose consume_cooked events for recipe ingredients."""
+        thread_id = request.thread_id
+        if not thread_id:
+            return ChatResponse(
+                reply_text="Thread id is required for consumption tracking. Please include a thread_id.",
+                confirmation_required=False,
+                proposal_id=None,
+                proposed_actions=[],
+                suggested_next_questions=[],
+                mode="ask",
+            )
+
+        m = _CONSUME_RE.search(request.message)
+        if not m:
+            return ChatResponse(
+                reply_text="I couldn't understand which meal you cooked. Try: 'I cooked Tomato Pasta'.",
+                confirmation_required=False,
+                proposal_id=None,
+                proposed_actions=[],
+                suggested_next_questions=[],
+                mode="ask",
+            )
+
+        recipe_query = (m.group(1) or m.group(2) or "").strip().rstrip(".")
+
+        # Search corpus for matching recipe
+        pack_recipes = self._build_pack_catalog(user.user_id)
+        catalog = list(pack_recipes) + list(BUILT_IN_RECIPES)
+
+        recipe = None
+        query_lower = recipe_query.lower()
+        for r in catalog:
+            if query_lower in r["title"].lower() or r["title"].lower() in query_lower:
+                recipe = r
+                break
+
+        if not recipe:
+            return ChatResponse(
+                reply_text=f"I couldn't find a recipe matching '{recipe_query}'. Check the recipe name and try again.",
+                confirmation_required=False,
+                proposal_id=None,
+                proposed_actions=[],
+                suggested_next_questions=["What can I make?"],
+                mode="ask",
+            )
+
+        # Get recipe ingredients
+        from app.services.mealplan_service import _INGREDIENTS_BY_RECIPE
+        ingredients = recipe.get("ingredients") or _INGREDIENTS_BY_RECIPE.get(recipe["id"], [])
+        if not ingredients:
+            return ChatResponse(
+                reply_text=f"'{recipe['title']}' has no parsed ingredients — cannot track consumption.",
+                confirmation_required=False,
+                proposal_id=None,
+                proposed_actions=[],
+                suggested_next_questions=[],
+                mode="ask",
+            )
+
+        # Build consume_cooked actions for each ingredient
+        actions: list[ProposedInventoryEventAction] = []
+        ingredient_lines: list[str] = []
+        for ing in ingredients:
+            name = ing.item_name if hasattr(ing, "item_name") else str(ing)
+            qty = ing.quantity if hasattr(ing, "quantity") else None
+            unit = ing.unit if hasattr(ing, "unit") else None
+            actions.append(ProposedInventoryEventAction(
+                event=InventoryEventCreateRequest(
+                    event_type="consume_cooked",
+                    item_name=name,
+                    quantity=qty,
+                    unit=unit,
+                    note=f"Cooked: {recipe['title']}",
+                    source="chef",
+                ),
+            ))
+            if qty and unit:
+                ingredient_lines.append(f"  - {name}: {qty}{unit}")
+            else:
+                ingredient_lines.append(f"  - {name}")
+
+        proposal_id = str(uuid.uuid4())
+        self._bind_proposal(user.user_id, thread_id, proposal_id)
+        key = (user.user_id, thread_id)
+        self._pending[key] = proposal_id
+        self.proposal_store.save(user.user_id, proposal_id, actions)
+
+        ing_summary = "\n".join(ingredient_lines)
+        reply = (
+            f"You cooked **{recipe['title']}**! I'll deduct these ingredients from inventory:\n"
+            f"{ing_summary}\n\n"
+            f"Confirm to update your inventory."
+        )
+
+        return ChatResponse(
+            reply_text=reply,
+            confirmation_required=True,
+            proposal_id=proposal_id,
+            proposed_actions=actions,
+            suggested_next_questions=[],
+            mode="ask",
+        )
+
     @staticmethod
     def _format_time_note(prefs) -> str:
         """Return an informational cook-time note when time prefs are set."""
@@ -439,6 +550,12 @@ class ChefAgent:
         for act in action_list:
             if isinstance(act, ProposedGenerateMealPlanAction):
                 applied_ids.append(act.mealplan.plan_id)
+            elif isinstance(act, ProposedInventoryEventAction):
+                if self.inventory_service:
+                    ev = self.inventory_service.create_event(
+                        user.user_id, user.provider_subject, user.email, act.event
+                    )
+                    applied_ids.append(ev.event_id)
 
         self._clear_proposal(user.user_id, proposal_id, key)
         return True, applied_ids, None

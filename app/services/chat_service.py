@@ -252,7 +252,7 @@ class ChatService:
             )
 
         if effective_mode == "ask":
-            ask_reply = self._handle_ask(user_id, message, effective_mode)
+            ask_reply = self._handle_ask(user_id, message, effective_mode, thread_id=request.thread_id)
             if ask_reply:
                 self._append_messages(request.thread_id, user_id, request.message, ask_reply.reply_text)
                 return ask_reply
@@ -1026,7 +1026,7 @@ class ChatService:
             f"Cuisine likes: {', '.join(prefs.cuisine_likes) or 'none'}."
         )
 
-    def _handle_ask(self, user_id: str, message: str, effective_mode: str) -> Optional[ChatResponse]:
+    def _handle_ask(self, user_id: str, message: str, effective_mode: str, *, thread_id: str | None = None) -> Optional[ChatResponse]:
         if "pref" in message or "preference" in message:
             prefs = self.prefs_service.get_prefs(user_id)
             reply = self._format_prefs(prefs)
@@ -1069,7 +1069,12 @@ class ChatService:
                 mode=effective_mode,
             )
         # MATCH decision mode: "what can I make?"
-        from app.services.chef_agent import _MATCH_RE, _CHECK_RE
+        from app.services.chef_agent import _MATCH_RE, _CHECK_RE, _CONSUME_RE
+        # Consume detection: "I cooked X" — must come before MATCH/CHECK
+        if _CONSUME_RE.search(message):
+            user_obj = UserMe(user_id=user_id)
+            request_obj = ChatRequest(mode="ask", message=message, thread_id=thread_id)
+            return self.chef_agent.handle_consume(user_obj, request_obj)
         if _CHECK_RE.search(message):
             user_obj = UserMe(user_id=user_id)
             request_obj = ChatRequest(mode="ask", message=message)
