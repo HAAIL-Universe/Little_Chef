@@ -11,8 +11,9 @@ from app.schemas import (
     ProposedInventoryEventAction,
     UserMe,
 )
-from app.services.mealplan_service import MealPlanService, _INGREDIENTS_BY_RECIPE
+from app.services.mealplan_service import MealPlanService, _INGREDIENTS_BY_RECIPE, _INSTRUCTIONS_BY_RECIPE
 from app.services.proposal_store import ProposalStore
+from app.services.recipe_service import detect_equipment
 from app.services.llm_client import LlmClient
 from app.services.prefs_service import PrefsService
 from app.services.recipe_service import BUILT_IN_RECIPES
@@ -87,10 +88,12 @@ class ChefAgent:
                 catalog.append(r)
         for r in BUILT_IN_RECIPES:
             if r["id"] not in excluded_ids:
+                instructions = _INSTRUCTIONS_BY_RECIPE.get(r["id"], [])
                 catalog.append({
                     "id": r["id"],
                     "title": r["title"],
                     "ingredients": _INGREDIENTS_BY_RECIPE.get(r["id"], []),
+                    "instructions_text": " ".join(instructions),
                     "source_type": "built_in",
                 })
 
@@ -115,9 +118,24 @@ class ChefAgent:
 
         # Score and rank
         scored: list[tuple[dict, float, list[str]]] = []
+        user_equipment = set(e.lower() for e in (prefs.equipment if prefs else []))
         for recipe in catalog:
             ingredients = recipe.get("ingredients", [])
             pct, missing = self._score_recipe(ingredients, stock_names)
+
+            # Equipment-aware boost/penalty (Phase 14.3)
+            if user_equipment:
+                recipe_text = recipe.get("instructions_text", "") or recipe["title"]
+                recipe_equip = set(detect_equipment(recipe_text))
+                if recipe_equip:
+                    # Boost if user has matching equipment
+                    matching = recipe_equip & user_equipment
+                    missing_equip = recipe_equip - user_equipment
+                    if matching and not missing_equip:
+                        pct = min(1.0, pct + 0.10)  # +10% boost
+                    elif missing_equip:
+                        pct = max(0.0, pct - 0.05)  # -5% penalty
+
             scored.append((recipe, pct, missing))
 
         # Sort by completion % descending, then title ascending for determinism
@@ -141,6 +159,9 @@ class ChefAgent:
         reply = "\n".join(lines)
         if time_note:
             reply += time_note
+        if user_equipment:
+            equip_list = ", ".join(sorted(user_equipment))
+            reply += f"\n\n🔧 Ranked considering your equipment: {equip_list}"
 
         return ChatResponse(
             reply_text=reply,
@@ -187,10 +208,12 @@ class ChefAgent:
         for r in pack_recipes:
             catalog.append(r)
         for r in BUILT_IN_RECIPES:
+            instructions = _INSTRUCTIONS_BY_RECIPE.get(r["id"], [])
             catalog.append({
                 "id": r["id"],
                 "title": r["title"],
                 "ingredients": _INGREDIENTS_BY_RECIPE.get(r["id"], []),
+                "instructions_text": " ".join(instructions),
                 "source_type": "built_in",
             })
 
@@ -269,6 +292,18 @@ class ChefAgent:
         reply = "\n".join(lines)
         if time_note:
             reply += time_note
+
+        # Equipment note (Phase 14.3)
+        recipe_text = recipe.get("instructions_text", "") or recipe["title"]
+        recipe_equip = detect_equipment(recipe_text)
+        if recipe_equip:
+            user_equipment = set(e.lower() for e in (prefs.equipment if prefs else []))
+            has = [e for e in recipe_equip if e in user_equipment]
+            needs = [e for e in recipe_equip if e not in user_equipment]
+            if has:
+                reply += f"\n✅ You have: {', '.join(has)}"
+            if needs and user_equipment:
+                reply += f"\n⚠️ May need: {', '.join(needs)}"
 
         return ChatResponse(
             reply_text=reply,
@@ -478,7 +513,7 @@ class ChefAgent:
             except Exception:
                 pass
 
-        plan = self.mealplan_service.generate(gen_request, excluded_recipe_ids=excluded_ids, pack_recipes=pack_recipes, stock_names=stock_names)
+        plan = self.mealplan_service.generate(gen_request, excluded_recipe_ids=excluded_ids, pack_recipes=pack_recipes, stock_names=stock_names, target_servings=prefs.servings if prefs else 0)
 
         # If all recipes were excluded, return a helpful message
         total_meals = sum(len(d.meals) for d in plan.days)
@@ -646,6 +681,7 @@ class ChefAgent:
                 "title": book.title or book.filename,
                 "ingredients": ingredients,
                 "instructions": instructions,
+                "instructions_text": " ".join(instructions),
                 "source_type": "user_library",
             })
         return catalog

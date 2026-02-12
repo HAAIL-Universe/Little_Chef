@@ -12,7 +12,7 @@ from app.schemas import (
     IngredientLine,
     RecipeSource,
 )
-from app.services.recipe_service import BUILT_IN_RECIPES
+from app.services.recipe_service import BUILT_IN_RECIPES, scale_ingredients
 
 
 _INGREDIENTS_BY_RECIPE = {
@@ -51,7 +51,7 @@ _INSTRUCTIONS_BY_RECIPE = {
 
 
 class MealPlanService:
-    def generate(self, request: MealPlanGenerateRequest, *, excluded_recipe_ids: list | None = None, pack_recipes: list[dict] | None = None, stock_names: set[str] | None = None) -> MealPlanResponse:
+    def generate(self, request: MealPlanGenerateRequest, *, excluded_recipe_ids: list | None = None, pack_recipes: list[dict] | None = None, stock_names: set[str] | None = None, target_servings: int = 0) -> MealPlanResponse:
         days = request.days
         meals_per_day = request.meals_per_day or 3
         created_at = datetime.now(timezone.utc).isoformat()
@@ -102,6 +102,11 @@ class MealPlanService:
                 # Inline ingredients (pack recipes) take priority over built-in lookup
                 ingredients = recipe.get("ingredients") or _INGREDIENTS_BY_RECIPE.get(recipe_id, [])
                 instructions = recipe.get("instructions") or _INSTRUCTIONS_BY_RECIPE.get(recipe_id, [])
+                # Scale ingredients if target_servings differs from recipe default (assumed 2)
+                if target_servings > 0 and ingredients:
+                    original = recipe.get("servings", 2)
+                    if original != target_servings:
+                        ingredients = scale_ingredients(ingredients, original, target_servings)
                 source_type = recipe.get("source_type", "built_in")
                 src = RecipeSource(
                     source_type=source_type,

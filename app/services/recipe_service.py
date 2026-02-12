@@ -165,6 +165,108 @@ def extract_instructions_from_markdown(text_content: str) -> list[str]:
     return [fallback] if fallback else []
 
 
+# ── PDF text extraction (best-effort) ──────────────────────────────────
+
+def _extract_pdf_text(data: bytes) -> str:
+    """Best-effort PDF text extraction.
+
+    Tries PyMuPDF (fitz) first, then pdfminer.six, then falls back to
+    a crude binary-string scan.  Returns empty string on failure.
+    """
+    # Strategy 1: PyMuPDF (fast, accurate)
+    try:
+        import fitz  # type: ignore[import-untyped]
+        doc = fitz.open(stream=data, filetype="pdf")
+        pages = [page.get_text() for page in doc]
+        doc.close()
+        text = "\n\n".join(pages).strip()
+        if text:
+            return text
+    except Exception:
+        pass
+
+    # Strategy 2: pdfminer.six
+    try:
+        import io
+        from pdfminer.high_level import extract_text  # type: ignore[import-untyped]
+        text = extract_text(io.BytesIO(data)).strip()
+        if text:
+            return text
+    except Exception:
+        pass
+
+    # Strategy 3: crude binary scan for text fragments
+    try:
+        raw = data.decode("latin-1", errors="ignore")
+        # Extract text between parentheses in PDF content streams (Tj operator)
+        fragments = re.findall(r"\(([^)]{2,})\)", raw)
+        text = " ".join(fragments).strip()
+        if len(text) > 20:
+            return text
+    except Exception:
+        pass
+
+    return ""
+
+
+# ── Serving scaling ────────────────────────────────────────────────────
+
+def scale_ingredients(
+    ingredients: list[IngredientLine],
+    original_servings: int,
+    target_servings: int,
+) -> list[IngredientLine]:
+    """Scale ingredient quantities from original to target servings.
+
+    Returns a new list with adjusted quantities.  If original_servings is
+    zero or negative, returns ingredients unchanged.
+    """
+    if original_servings <= 0 or original_servings == target_servings:
+        return ingredients
+    factor = target_servings / original_servings
+    scaled: list[IngredientLine] = []
+    for ing in ingredients:
+        new_qty = round(ing.quantity * factor, 2)
+        # Avoid silly tiny quantities — floor at 0.25
+        if new_qty < 0.25 and ing.quantity > 0:
+            new_qty = 0.25
+        scaled.append(IngredientLine(
+            item_name=ing.item_name,
+            quantity=new_qty,
+            unit=ing.unit,
+            optional=ing.optional,
+        ))
+    return scaled
+
+
+# ── Equipment detection from recipe text ───────────────────────────────
+
+_EQUIPMENT_KEYWORDS: dict[str, list[str]] = {
+    "air fryer": ["air fryer", "air-fryer", "airfryer"],
+    "slow cooker": ["slow cooker", "crockpot", "crock pot", "crock-pot"],
+    "instant pot": ["instant pot", "pressure cooker", "instapot"],
+    "blender": ["blender", "food processor"],
+    "stand mixer": ["stand mixer", "kitchenaid"],
+    "grill": ["grill", "bbq", "barbecue"],
+    "oven": ["oven", "bake at", "preheat to", "roast at"],
+    "stovetop": ["stovetop", "stove top", "skillet", "frying pan", "saucepan", "sauté"],
+    "microwave": ["microwave"],
+    "wok": ["wok"],
+    "dutch oven": ["dutch oven"],
+    "sous vide": ["sous vide", "immersion circulator"],
+}
+
+
+def detect_equipment(text: str) -> list[str]:
+    """Detect kitchen equipment mentioned in recipe text."""
+    lower = text.lower()
+    found: list[str] = []
+    for equip, patterns in _EQUIPMENT_KEYWORDS.items():
+        if any(p in lower for p in patterns):
+            found.append(equip)
+    return found
+
+
 class RecipeService:
     def __init__(self, repo: RecipeRepo) -> None:
         self.repo = repo
@@ -174,6 +276,29 @@ class RecipeService:
         return isinstance(self.repo, DbRecipeRepo)
 
     def upload_book(self, title: str, filename: str, content_type: str, data: bytes, user_id: str | None = None) -> RecipeBook:
+        if self._is_db:
+            return self.repo.create_book(user_id, title, filename, content_type, data)
+        # For PDFs, attempt text extraction before storing
+        if content_type == "application/pdf":
+            extracted = _extract_pdf_text(data)
+            if extracted:
+                book = self.repo.create_book(title, filename, content_type, data)
+                # Inject extracted text so the book is searchable/parseable
+                self.repo._text_by_book[book.book_id] = extracted
+                book = book.model_copy()
+                book.status = RecipeBookStatus.ready
+                # Update the in-memory status
+                for b in self.repo._books:
+                    if b.book_id == book.book_id:
+                        b.status = RecipeBookStatus.ready
+                return book
+        return self.repo.create_book(title, filename, content_type, data)
+
+    def paste_text(self, title: str, text_content: str, user_id: str | None = None) -> RecipeBook:
+        """Create a recipe book from pasted text content."""
+        filename = (title or "pasted_recipe").replace(" ", "_") + ".md"
+        data = text_content.encode("utf-8")
+        content_type = "text/markdown"
         if self._is_db:
             return self.repo.create_book(user_id, title, filename, content_type, data)
         return self.repo.create_book(title, filename, content_type, data)

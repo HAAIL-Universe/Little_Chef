@@ -5,6 +5,8 @@ from app.schemas import (
     ErrorResponse,
     RecipeBook,
     RecipeBookListResponse,
+    RecipePasteRequest,
+    RecipePhotoResponse,
     RecipeSearchRequest,
     RecipeSearchResponse,
     BuiltInPackListResponse,
@@ -14,6 +16,7 @@ from app.schemas import (
     UninstallPackRequest,
     UninstallPackResponse,
     UserMe,
+    RecipeBookStatus,
 )
 from app.services.recipe_service import get_recipe_service
 from app.errors import BadRequestError, NotFoundError
@@ -47,6 +50,58 @@ async def upload_book(
         raise BadRequestError("empty file")
     service = get_recipe_service()
     return service.upload_book(title=title, filename=file.filename, content_type=file.content_type or "", data=content, user_id=current_user.user_id)
+
+
+@router.post(
+    "/recipes/paste",
+    status_code=status.HTTP_201_CREATED,
+    response_model=RecipeBook,
+    responses={"400": {"model": ErrorResponse}, "401": {"model": ErrorResponse}},
+)
+def paste_recipe(
+    request: RecipePasteRequest,
+    current_user: UserMe = Depends(get_current_user),
+) -> RecipeBook:
+    """Create a recipe book from pasted text content."""
+    service = get_recipe_service()
+    return service.paste_text(
+        title=request.title,
+        text_content=request.text_content,
+        user_id=current_user.user_id,
+    )
+
+
+@router.post(
+    "/recipes/photo",
+    status_code=status.HTTP_201_CREATED,
+    response_model=RecipePhotoResponse,
+    responses={"400": {"model": ErrorResponse}, "401": {"model": ErrorResponse}},
+)
+async def upload_recipe_photo(
+    file: UploadFile = File(...),
+    current_user: UserMe = Depends(get_current_user),
+) -> RecipePhotoResponse:
+    """Upload a photo of a recipe for OCR processing (placeholder).
+
+    OCR extraction is not yet implemented — the photo is stored and
+    the recipe is marked as 'processing' for future expansion.
+    """
+    content = await file.read()
+    if len(content) == 0:
+        raise BadRequestError("empty file")
+    service = get_recipe_service()
+    book = service.upload_book(
+        title="",
+        filename=file.filename or "photo.jpg",
+        content_type=file.content_type or "image/jpeg",
+        data=content,
+        user_id=current_user.user_id,
+    )
+    return RecipePhotoResponse(
+        book_id=book.book_id,
+        status=RecipeBookStatus.processing,
+        message="Photo received. OCR processing is not yet available — recipe will remain in 'processing' status.",
+    )
 
 
 @router.get(

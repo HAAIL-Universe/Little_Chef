@@ -33,6 +33,7 @@ class UserPrefs(BaseModel):
     cook_time_weekday_mins: Optional[int] = Field(default=None, description="Preferred max cook time on weekdays (minutes)")
     cook_time_weekend_mins: Optional[int] = Field(default=None, description="Preferred max cook time on weekends (minutes)")
     diet_goals: List[str] = Field(default_factory=list, description="Dietary goals e.g. high protein, low sugar")
+    equipment: List[str] = Field(default_factory=list, description="Available kitchen equipment e.g. air fryer, slow cooker, instant pot")
     notes: str = ""
 
 
@@ -176,6 +177,17 @@ class RecipeBook(BaseModel):
 
 class RecipeBookListResponse(BaseModel):
     books: List[RecipeBook]
+
+
+class RecipePasteRequest(BaseModel):
+    title: str = Field("", description="Optional title for the pasted recipe")
+    text_content: str = Field(..., min_length=1, description="Recipe text (markdown or plain text)")
+
+
+class RecipePhotoResponse(BaseModel):
+    book_id: str
+    status: RecipeBookStatus
+    message: str
 
 
 class BuiltInPack(BaseModel):
