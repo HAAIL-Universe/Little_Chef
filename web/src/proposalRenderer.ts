@@ -126,6 +126,10 @@ const formatMealplanAction = (action: ChatAction): string => {
     const names = (day.meals ?? []).map((m) => m.name).join(", ");
     lines.push(`  Day ${day.day_index}: ${names || "(empty)"}`);
   });
+  if (mp.notes) {
+    lines.push("");
+    mp.notes.split("\n").forEach((n) => lines.push(`  ${n}`));
+  }
   return lines.join("\n");
 };
 
