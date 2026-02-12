@@ -424,3 +424,26 @@ Prioritize **Phase 7.5 (Flow Dashboards + Dev Panel cleanup)** as the next deliv
 
 ## Next recommended slice
 - Phase 7.5 (Flow Dashboards + Dev Panel cleanup) remains the single highest-leverage slice: complete the inventory ghost overlay grouping, low-stock preview, and Dev Panel proof to unblock Phase 5/7 evidence closure, then capture the required mobile screenshots and JSON snippets in `evidence/updatedifflog.md`.
+---
+
+## Phase 13–14 Addendum (added post-build)
+
+### Phase 13 — Voice Layer Hardening
+**Commit:** `a21129f` | **Tests:** 61 new (24 + 18 + 19) | **Total:** 378
+
+| Slice | Status | Tests | Key Deliverables |
+|-------|--------|-------|-----------------|
+| 13.1 Voice flow stabilization | ✅ Complete | 24 | stt_normalize.py, voice_input/voice_hint schema fields |
+| 13.2 Alexa integration | ✅ Complete | 18 | AlexaService, POST /alexa/webhook, 4 intents |
+| 13.3 Household sync concept | ✅ Complete | 19 | HouseholdService, 5 REST endpoints, multi-user tests |
+
+### Phase 14 — Recipe Ingestion + Advanced Constraints
+**Commit:** `5f00521` | **Tests:** 26 new | **Total:** 404
+
+| Slice | Status | Tests | Key Deliverables |
+|-------|--------|-------|-----------------|
+| 14.1 Recipe ingestion | ✅ Complete | 8 | POST /recipes/paste, POST /recipes/photo, PDF extraction |
+| 14.2 Serving scaling | ✅ Complete | 7 | scale_ingredients(), target_servings in mealplan generate |
+| 14.3 Constraint-aware | ✅ Complete | 11 | equipment prefs field, detect_equipment(), MATCH/CHECK scoring |
+
+**STOPPED BEFORE PHASE 15.**

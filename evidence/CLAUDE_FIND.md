@@ -1,126 +1,126 @@
-# CLAUDE_FIND — Phase 12 Build Commentary
+# CLAUDE_FIND — Phase 14 Build Commentary
 
-## Phase 12 Overview
-**Goal:** Close the cooking-to-restocking loop with staples intelligence.
+## Phase 13–14 Overview
+**Goal:** Voice hardening (13) + Recipe ingestion & advanced constraints (14).
 
 | Slice | Commit | Description | New Tests | Total |
 |-------|--------|-------------|-----------|-------|
-| 12.1–12.3 | `a3d9ff1` | Staple toggle + explainable low-stock + shopping refinement | 16 | 317 |
+| 13.1–13.3 | `a21129f` | Voice stabilization + Alexa + Household sync | 61 | 378 |
+| 14.1–14.3 | `5f00521` | Recipe ingestion + Serving scaling + Constraints | 26 | 404 |
 
 **Branch:** `claude/romantic-jones`
-**Baseline:** Phase 11.3 @ `cb0c5fd` (301 tests)
-**DB changes:** None. In-memory staples storage.
-**New endpoints:** GET/POST/DELETE `/inventory/staples`
-
-**Branch:** `claude/romantic-jones`
-**Baseline:** Phase 10.9 @ `57f8ee5` (275 tests)
-**DB changes:** None. No new migrations.
-**New endpoints:** None. All changes use existing routing.
+**Baseline:** Phase 12 @ `08ab376` (317 tests)
+**DB changes:** None. All in-memory.
 
 ---
 
-## 12.1 — Always-Keep-Stocked Toggle
+## Phase 13 — Voice Layer Hardening
 
-### What changed
+### 13.1 — Voice Flow Stabilization (24 tests)
 
-**inventory_service.py:**
-- Added `_staples: Dict[str, Set[Tuple[str, str]]]` keyed by user_id → set of (normalized_name, unit).
-- Added `set_staple()`, `remove_staple()`, `list_staples()`, `is_staple()` methods.
+**stt_normalize.py (new):**
+- `normalize_stt(text)`: removes filler words (um/uh/er/like), restores contractions (whats→what's, cant→can't via 20+ entry map), collapses multi-spaces.
+- `voice_hint_for(reply_text, max_chars=200)`: extracts first sentence or truncates at word boundary for TTS output.
 
 **schemas.py:**
-- Added `StapleItem(item_name, unit)`, `StapleToggleRequest`, `StapleToggleResponse`, `StaplesListResponse`.
+- Added `voice_input: bool = False` to `ChatRequest` — flags dictation messages
+- Added `voice_hint: Optional[str]` to `ChatResponse` — TTS-friendly truncation
 
-**inventory.py router:**
-- Added 3 endpoints: GET/POST/DELETE `/inventory/staples`.
+**chat_service.py / chef_agent.py:**
+- Apply `normalize_stt()` when `voice_input=True` before regex routing
+- Attach `voice_hint_for()` to ask-mode and fill-mode responses when voice
 
-### Design decisions
+### 13.2 — Alexa Integration (18 tests)
 
-1. **In-memory storage:** Consistent with existing architecture (ProposalStore, PrefsService, RecipeBookService all use in-memory dicts). No DB table needed for MVP.
+**alexa_service.py (new):**
+- `AlexaService.handle_request()` routes Alexa intents to ChefAgent/InventoryService
+- 4 intents: `WhatCanIMakeIntent` → handle_match, `CanICookIntent` → handle_check, `AddToListIntent` → set_staple, `CookedRecipeIntent` → handle_consume + auto-confirm
+- Session types: launch/ended/help/stop/cancel
 
-2. **Normalized key:** Staples are stored as `(name.strip().lower(), unit)` tuples — same normalization as inventory summary. This ensures "Milk" and "milk" are treated as the same staple.
+**api/routers/alexa.py (new):**
+- POST `/alexa/webhook` with lazy service init via `_get_alexa_service()`
 
-3. **DELETE with JSON body:** FastAPI supports DELETE with request body. TestClient needs `client.request("DELETE", url, json=...)` since `.delete()` doesn't accept `json=` keyword.
+### 13.3 — Household Sync Concept (19 tests)
 
-### Tests (7 tests)
-- Empty initial list, set+list, remove, idempotent set, auth required, multiple items
+**household_service.py (new):**
+- In-memory `HouseholdService`: create/join (invite code)/leave/broadcast_event/get_events/get_member_ids
+- Keeps last 100 events per household
+- Schemas: HouseholdMember, Household, HouseholdEvent, request/response models
 
----
-
-## 12.2 — Explainable Low-Stock Detection
-
-### What changed
-
-**inventory_service.py — low_stock() rewrite:**
-- Uses `summary_keys` set to track ALL items in summary (not just low ones).
-- For each low item: reason = "staple: low/out of stock" if staple, else "below threshold".
-- Added is_staple flag to LowStockItem responses.
-- After processing summary, iterates user staples to add zero-inventory staples that were never added to inventory.
-
-### Design decisions
-
-1. **summary_keys vs seen_keys:** Original bug used a `seen_keys` set that only tracked items below threshold. A fully-stocked staple like "Milk at 500ml" wouldn't be in `seen_keys`, so it would fall through to the "never added" branch and appear as "staple: out of stock." Fixed by tracking all summary items in `summary_keys`.
-
-2. **Explainable by default:** Every LowStockItem now has a non-empty `reason` string. The contract says "keep it explainable" — this satisfies it at the API level.
-
-### Tests (5 tests)
-- Below threshold → "below threshold" reason
-- Staple below threshold → "staple: low/out of stock"
-- Never-added staple → "staple: out of stock"
-- Fully stocked staple → excluded from list
-- All items have non-empty reasons
+**api/routers/household.py (new):**
+- 5 endpoints: POST/GET/DELETE `/household`, POST `/household/join`, GET `/household/events`
 
 ---
 
-## 12.3 — Shopping List Refinement
+## Phase 14 — Recipe Ingestion + Advanced Constraints
 
-### What changed
+### 14.1 — Recipe Ingestion (8 tests)
+
+**recipe_service.py:**
+- `paste_text()`: creates recipe book from raw text, saved as text/markdown
+- `_extract_pdf_text()`: 3-strategy PDF extraction (PyMuPDF → pdfminer → binary scan fallback)
+- `upload_book()` enhanced: attempts PDF extraction for application/pdf uploads
+
+**api/routers/recipes.py:**
+- POST `/recipes/paste`: accepts `RecipePasteRequest{title, text_content}`, returns 201 with `RecipeBook`
+- POST `/recipes/photo`: accepts file upload, returns 201 with `RecipePhotoResponse{book_id, status=processing, message}`
+- New schemas: `RecipePasteRequest`, `RecipePhotoResponse`
+
+### 14.2 — Serving Scaling (7 tests)
+
+**recipe_service.py:**
+- `scale_ingredients(ingredients, original_servings, target_servings)`: proportional scaling with 0.25 minimum floor, preserves optional flags
+- Edge cases: zero/negative original, same servings = no-op
+
+**mealplan_service.py:**
+- `generate()` now accepts `target_servings` param
+- When target differs from recipe default (2), scales all meal ingredients
+
+**chef_agent.py:**
+- `handle_fill()` passes `prefs.servings` (or 0 if no prefs) to mealplan generation
+
+### 14.3 — Equipment/Constraint-Aware Suggestions (11 tests)
 
 **schemas.py:**
-- Added `staple_items: List[ShoppingListItem]` to ShoppingDiffResponse.
-- Changed ShoppingListItem.reason default: "missing for meal plan" → "needed for plan".
+- Added `equipment: List[str]` to `UserPrefs` (default empty list)
 
-**shopping_service.py:**
-- Added `_staple_shortfall()` method: checks staples against inventory/thresholds, returns items with reason "auto-added: staple low/out of stock".
-- `diff()` returns both `missing_items` (plan-based) and `staple_items` (restock-based).
-- Staples already in plan's `required` dict are skipped to prevent duplication.
+**recipe_service.py:**
+- `_EQUIPMENT_KEYWORDS`: 12 equipment types with keyword aliases (air fryer, slow cooker, instant pot, blender, stand mixer, grill, oven, stovetop, microwave, wok, dutch oven, sous vide)
+- `detect_equipment(text)`: scans recipe text for equipment mentions
 
-### Design decisions
-
-1. **Two lists, not one:** The contract says "distinguish needed for plan vs added as staple." Separate `missing_items` and `staple_items` fields make this unambiguous at the API level. UI can render them differently.
-
-2. **Deduplication:** If "Tomato" is both a staple and a plan ingredient, it appears ONLY in `missing_items` with reason "needed for plan." This avoids double-counting.
-
-3. **Reason string change:** "missing for meal plan" → "needed for plan" — shorter, clearer. Existing tests only checked `assert item["reason"]` (truthy), not exact strings, so this was safe.
-
-4. **Restock quantity:** `max(threshold - have, 1)` — suggests restocking to threshold level, minimum 1 unit.
-
-### Tests (4 tests)
-- Plan items get "needed for plan" reason
-- Staple items appear in separate list with "auto-added" reason
-- No duplication between plan and staple lists
-- Fully stocked staples excluded, multiple staples work
+**chef_agent.py:**
+- MATCH flow: +10% score boost for recipes matching user equipment, -5% penalty for missing equipment
+- CHECK flow: reports which equipment user has vs. may need
+- Both flows include `instructions_text` in catalog for equipment detection
+- Explainable: 🔧 note appended to MATCH response when equipment prefs set
 
 ---
 
-## Files Modified (Phase 12 total)
+## Files Modified (Phase 13–14)
 
 | File | Change |
 |------|--------|
-| app/schemas.py | ✏️ StapleItem, StapleToggle*, StaplesListResponse, is_staple, staple_items, reason text |
-| app/services/inventory_service.py | ✏️ _staples dict, set/remove/list/is_staple, low_stock() rewrite |
-| app/api/routers/inventory.py | ✏️ 3 staple endpoints |
-| app/services/shopping_service.py | ✏️ _staple_shortfall(), reason text, staple_items in diff() |
-| tests/test_staples_restock.py | ✨ new (16 tests) |
-
-**Legend:** ✨ = new file, ✏️ = modified
+| `app/schemas.py` | voice_input, voice_hint, equipment, RecipePasteRequest, RecipePhotoResponse |
+| `app/services/stt_normalize.py` | NEW — STT normalization + TTS hints |
+| `app/services/alexa_service.py` | NEW — Alexa intent routing |
+| `app/services/household_service.py` | NEW — household CRUD + event broadcasting |
+| `app/services/recipe_service.py` | paste_text, _extract_pdf_text, scale_ingredients, detect_equipment |
+| `app/services/chat_service.py` | STT normalization + voice_hint injection |
+| `app/services/chef_agent.py` | STT in fill, equipment scoring, instructions_text, target_servings |
+| `app/services/mealplan_service.py` | target_servings param + scale_ingredients call |
+| `app/api/routers/alexa.py` | NEW — POST /alexa/webhook |
+| `app/api/routers/household.py` | NEW — 5 household endpoints |
+| `app/api/routers/recipes.py` | paste + photo endpoints |
+| `app/main.py` | register alexa + household routers |
+| `tests/conftest.py` | alexa + household resets |
+| `tests/test_voice_flows.py` | NEW — 24 tests |
+| `tests/test_alexa_integration.py` | NEW — 18 tests |
+| `tests/test_household_sync.py` | NEW — 19 tests |
+| `tests/test_phase14.py` | NEW — 26 tests |
 
 ---
 
-## What Phase 13 would need (not implemented)
+## Phase 15 Boundary
 
-Per the contract, Phase 13 covers "Voice layer hardening":
-- 13.1 In-app voice flows stabilized (dictation for MATCH/CHECK/PLAN/consume)
-- 13.2 Alexa integration (optional)
-- 13.3 Household sync concept (optional)
+STOPPED BEFORE PHASE 15. Phases 13.1–13.3 and 14.1–14.3 are complete.
 
-None of this was started. STOPPED BEFORE PHASE 13.

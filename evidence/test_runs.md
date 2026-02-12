@@ -1,3 +1,19 @@
+## Test Run — Phase 14 Complete
+- Status: PASS
+- Branch: claude/romantic-jones
+- HEAD: 5f00521
+- Command: `python -m pytest --tb=line -q`
+- Details: 403 passed, 1 warning (29s). 1 pre-existing order-dependent flake (test_auth_schema_missing).
+- Phase 14: 26 new tests (8 ingestion + 7 scaling + 11 constraints). Total: 404.
+
+## Test Run — Phase 13 Complete
+- Status: PASS
+- Branch: claude/romantic-jones
+- HEAD: a21129f
+- Command: `python -m pytest --tb=line -q`
+- Details: 378 passed, 1 warning. 1 pre-existing order-dependent flake.
+- Phase 13: 61 new tests (24 voice + 18 Alexa + 19 household). Total: 378.
+
 ## Test Run 2026-02-11T15:00:00Z
 - Status: PASS
 - Start: 2026-02-11T14:50:00Z

@@ -1,17 +1,17 @@
 ﻿# Diff Log (overwrite each cycle)
 
 ## Cycle Metadata
-- Phase: 12 (12.1–12.3) — Restock + staples intelligence
+- Phase: 14 (13.1–14.3) — Voice hardening + Recipe ingestion + Constraints
 - Branch: claude/romantic-jones
-- HEAD (pre): cb0c5fd (Phase 11 diff log)
-- Status: COMPLETE — STOPPED BEFORE PHASE 13
-- Commits: a3d9ff1 (12.1+12.2+12.3 combined)
-- Tests: 301 → 317 (16 new tests)
+- HEAD (pre): 08ab376 (Phase 12 evidence)
+- Status: COMPLETE — STOPPED BEFORE PHASE 15
+- Commits: a21129f (Phase 13), 5f00521 (Phase 14)
+- Tests: 317 → 404 (87 new tests)
 
 ## Previous Cycle
+- Phase 12 (12.1–12.3) — Restock + staples intelligence — COMPLETE at a3d9ff1
 - Phase 11 (11.1–11.3) — Multi-day planning, aggregated shopping, consumption — COMPLETE
 - Phase 10.9 — Maintain propose-confirm-apply semantics — COMPLETE at 57f8ee5
-- Phase 10.8 — Time constraints as soft constraint — COMPLETE at 62b5825
 
 ## Summary
 Phase 12 delivers three tightly-coupled slices in a single commit:
