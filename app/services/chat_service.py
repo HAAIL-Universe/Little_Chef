@@ -280,6 +280,27 @@ class ChatService:
             return resp
 
         if effective_mode == "fill":
+            # Intercept MATCH/CHECK/CONSUME even in fill mode so the prefs
+            # wizard doesn't hijack queries that are clearly recipe-related.
+            from app.services.chef_agent import _MATCH_RE, _CHECK_RE, _CONSUME_RE
+            if _CONSUME_RE.search(message):
+                user_obj = UserMe(user_id=user_id)
+                req_obj = ChatRequest(mode="ask", message=message, thread_id=request.thread_id)
+                resp = self.chef_agent.handle_consume(user_obj, req_obj)
+                self._append_messages(request.thread_id, user.user_id, request.message, resp.reply_text)
+                return resp
+            if _CHECK_RE.search(message):
+                user_obj = UserMe(user_id=user_id)
+                req_obj = ChatRequest(mode="ask", message=message)
+                resp = self.chef_agent.handle_check(user_obj, req_obj)
+                self._append_messages(request.thread_id, user.user_id, request.message, resp.reply_text)
+                return resp
+            if _MATCH_RE.search(message):
+                user_obj = UserMe(user_id=user_id)
+                req_obj = ChatRequest(mode="ask", message=message)
+                resp = self.chef_agent.handle_match(user_obj, req_obj)
+                self._append_messages(request.thread_id, user.user_id, request.message, resp.reply_text)
+                return resp
             response = self._handle_prefs_flow_threaded(user, request, effective_mode)
             self._append_messages(request.thread_id, user.user_id, request.message, response.reply_text)
             return response

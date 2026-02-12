@@ -2874,6 +2874,12 @@ function selectFlow(key: string) {
     lastServerMode = "FILL";
     updateThreadLabel();
     refreshPrefsOverlay(true);
+  } else {
+    // Reset mode when leaving prefs flow so stale FILL doesn't leak
+    if (lastServerMode === "FILL") {
+      lastServerMode = "ASK";
+      updateThreadLabel();
+    }
   }
   if (currentFlowKey === "mealplan") {
     if (state.inventoryOnboarded && !mealplanReached) {

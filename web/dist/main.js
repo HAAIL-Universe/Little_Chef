@@ -2442,7 +2442,11 @@ function toggleComposeDictation() {
     }
 }
 function startComposeDictation() {
-    // Guard: abort any lingering instance (Chrome allows only one active session)
+    // Guard: abort any lingering instance before creating a new one.
+    // Chrome allows only one active SpeechRecognition session; if the
+    // previous session's stop() hasn't fully completed (common in the
+    // rapid back-and-forth prefs wizard flow), start() on a new
+    // instance fails with a "network" error.
     if (speechRecognition) {
         try {
             speechRecognition.abort();
@@ -2758,6 +2762,13 @@ function selectFlow(key) {
         lastServerMode = "FILL";
         updateThreadLabel();
         refreshPrefsOverlay(true);
+    }
+    else {
+        // Reset mode when leaving prefs flow so stale FILL doesn't leak
+        if (lastServerMode === "FILL") {
+            lastServerMode = "ASK";
+            updateThreadLabel();
+        }
     }
     if (currentFlowKey === "mealplan") {
         if (state.inventoryOnboarded && !mealplanReached) {
