@@ -150,6 +150,7 @@ class ChatService:
             prefs_service=prefs_service,
             inventory_service=inventory_service,
             recipe_service=self._get_recipe_service(),
+            shopping_service=self._get_shopping_service(),
         )
         self.prefs_drafts: dict[tuple[str, str], UserPrefs] = {}
         self._prefs_proposal_ids: dict[tuple[str, str], str] = {}
@@ -166,6 +167,11 @@ class ChatService:
     def _get_recipe_service():
         from app.services.recipe_service import get_recipe_service
         return get_recipe_service()
+
+    @staticmethod
+    def _get_shopping_service():
+        from app.services.shopping_service import get_shopping_service
+        return get_shopping_service()
 
     @property
     def _system_prompt(self) -> str:

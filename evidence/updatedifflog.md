@@ -1,13 +1,14 @@
 ﻿# Diff Log (overwrite each cycle)
 
 ## Cycle Metadata
-- Phase: 10.6 — Inventory-aware scoring and ranking
+- Phase: 10.7 — Wire shopping diff into Chef outputs
 - Branch: claude/romantic-jones
-- HEAD (pre): eeb2957 (Phase 10.5 commit)
+- HEAD (pre): 269ee5e (Phase 10.6 commit)
 - Status: COMPLETE
-- Commit: 023b4fe
+- Commit: (pending)
 
 ## Previous Cycle
+- Phase: 10.6 — Inventory-aware scoring and ranking
 - Phase 10.5 — Feasibility check (CHECK): "Can I cook X?"
 - Commit: eeb2957
 - Status: COMPLETE

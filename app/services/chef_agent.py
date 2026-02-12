@@ -42,6 +42,7 @@ class ChefAgent:
         prefs_service: Optional[PrefsService] = None,
         inventory_service=None,
         recipe_service=None,
+        shopping_service=None,
     ) -> None:
         self.mealplan_service = mealplan_service
         self.proposal_store = proposal_store
@@ -49,6 +50,7 @@ class ChefAgent:
         self.prefs_service = prefs_service
         self.inventory_service = inventory_service
         self.recipe_service = recipe_service
+        self.shopping_service = shopping_service
         self._pending: Dict[Tuple[str, str], str] = {}  # (user_id, thread_id) -> proposal_id
         self._proposal_threads: Dict[str, Tuple[str, str]] = {}  # proposal_id -> (user_id, thread_id)
 
@@ -509,7 +511,14 @@ class ChefAgent:
         return catalog
 
     def _annotate_inventory_notes(self, plan, user_id: str):
-        """Add informational notes about ingredient stock to the plan."""
+        """Add quantity-aware notes about ingredient stock to the plan.
+
+        Uses ShoppingService.diff() when available for accurate quantity
+        comparison; falls back to name-only matching otherwise.
+        """
+        if self.shopping_service:
+            return self._annotate_via_shopping_diff(plan, user_id)
+        # Fallback: name-only matching when no shopping_service
         if not self.inventory_service:
             return plan
         try:
@@ -531,6 +540,37 @@ class ChefAgent:
             parts.append(f"In stock: {', '.join(in_stock)}")
         if need_to_buy:
             parts.append(f"Need to buy: {', '.join(need_to_buy)}")
+        if parts:
+            plan.notes = ". ".join(parts) + "."
+        return plan
+
+    def _annotate_via_shopping_diff(self, plan, user_id: str):
+        """Use ShoppingService.diff() for quantity-aware stock annotations."""
+        try:
+            diff = self.shopping_service.diff(user_id, plan)
+        except Exception:
+            return plan
+
+        # Collect all required ingredient names
+        needed: set[str] = set()
+        for day in plan.days:
+            for meal in day.meals:
+                for ing in meal.ingredients:
+                    needed.add(ing.item_name.strip().lower())
+
+        # Missing items from diff (quantity-aware)
+        missing_names = {item.item_name for item in diff.missing_items}
+        have_names = sorted(needed - missing_names)
+        need_parts = sorted(
+            f"{item.item_name} ({item.quantity:.4g} {item.unit})"
+            for item in diff.missing_items
+        )
+
+        parts: list[str] = []
+        if have_names:
+            parts.append(f"You have: {', '.join(have_names)}")
+        if need_parts:
+            parts.append(f"You need: {', '.join(need_parts)}")
         if parts:
             plan.notes = ". ".join(parts) + "."
         return plan
