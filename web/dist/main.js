@@ -249,6 +249,7 @@ let composeNextHintTriggered = false;
 let suppressComposeBackdropUntil = 0;
 let dictationActive = false;
 let speechRecognition = null;
+let dictationAbortedIntentionally = false;
 function headers() {
     var _a;
     const h = { "Content-Type": "application/json" };
@@ -2464,6 +2465,7 @@ function startComposeDictation() {
         speechRecognition = null;
     }
     dictationActive = false;
+    dictationAbortedIntentionally = false;
     const SRCtor = getSpeechRecognitionCtor();
     if (!SRCtor) {
         setDuetStatus("Voice dictation is not supported on this browser.", false);
@@ -2475,11 +2477,19 @@ function startComposeDictation() {
     const input = document.getElementById("duet-input");
     if (!input)
         return;
+    // Short delay to let Chrome fully release the previous session.
+    // Without this, sr.start() can throw "network" if the old session's
+    // abort() hasn't fully propagated.
+    setTimeout(() => doStartRecognition(SRCtor, input), 120);
+}
+function doStartRecognition(SRCtor, input) {
+    // If user toggled off before the delay elapsed, bail out
+    if (dictationAbortedIntentionally)
+        return;
     const sr = new SRCtor();
     sr.continuous = true;
     sr.interimResults = true;
     sr.lang = "en-US";
-    // Track the text that existed before dictation started
     const baseText = input.value;
     sr.onresult = (event) => {
         let interim = "";
@@ -2500,6 +2510,12 @@ function startComposeDictation() {
         maybeTriggerPrefsComposeNextHint(input);
     };
     sr.onerror = (event) => {
+        if (dictationAbortedIntentionally) {
+            // Suppress errors that arrive asynchronously after intentional abort().
+            // Chrome sometimes delivers "network" instead of "aborted" on rapid
+            // session teardown.
+            return;
+        }
         if (event.error !== "aborted" && event.error !== "no-speech") {
             setDuetStatus("Dictation error: " + event.error, false);
         }
@@ -2516,6 +2532,7 @@ function startComposeDictation() {
         sr.start();
         speechRecognition = sr;
         dictationActive = true;
+        dictationAbortedIntentionally = false;
         updateMicButtonState();
     }
     catch (e) {
@@ -2526,6 +2543,7 @@ function stopComposeDictation() {
     if (!dictationActive && !speechRecognition)
         return;
     dictationActive = false;
+    dictationAbortedIntentionally = true;
     if (speechRecognition) {
         try {
             speechRecognition.abort();
