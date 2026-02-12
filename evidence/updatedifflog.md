@@ -1,73 +1,73 @@
 ﻿# Diff Log (overwrite each cycle)
 
 ## Cycle Metadata
-- Phase: 10.2 — Instructions / Step-by-step Display
+- Phase: 10.3 — Ingredient Extraction MVP Parser
 - Branch: claude/romantic-jones
-- HEAD (pre): 316383c (Phase 10.1 commit)
+- HEAD (pre): a06f24f (Phase 10.2 commit)
 - Status: COMPLETE
-- Commit: 45c2773
+- Commit: 90497cf
 
 ## Previous Cycle
-Phase 10.1 (Recipe Corpus Integration) — COMPLETE at 316383c/5160215. Wired installed pack recipe books into meal planning via ChefAgent→RecipeService→MealPlanService. 191 tests passed.
+Phase 10.2 (Instructions / Step-by-step Display) — COMPLETE at 45c2773. Populated PlannedMeal.instructions for every meal. 196 tests passed.
 
 ## Summary
-Phase 10.2 populates `PlannedMeal.instructions` for every meal in generated plans. Pack recipes get best-effort extraction of procedure/steps sections from their markdown text_content. Built-in recipes get minimal human-usable instructions. No meal is returned with empty instructions.
+Phase 10.3 improves `extract_ingredients_from_markdown()` to produce reliable, normalized IngredientLine entries from pack recipe markdown. Three enhancements:
+1. **Name normalization**: all item_name values lowercased, trailing punctuation stripped, whitespace collapsed — aligns with downstream `ShoppingService._normalize()` and `_annotate_inventory_notes()`.
+2. **Optional detection**: lines containing "optional" (case-insensitive) set `optional=True`; "(optional)" parenthetical stripped from name.
+3. **Safe fraction parsing**: replaced `eval()` with `_safe_parse_qty()` for deterministic, safe handling of "1/2", "3/4" etc.
+
+No changes to mealplan_service.py, chef_agent.py, or schemas.py. Built-in recipe handling untouched (Hardness #4).
+
+## Parsing Strategy
+- Regex `_QTY_UNIT_RE` matches `[qty] [unit] [name]` pattern (unchanged)
+- `_safe_parse_qty()`: splits on "/" for fractions, catches ValueError/ZeroDivisionError
+- `_normalize_name()`: strips "(optional)", lowercases, trims punctuation, collapses whitespace
+- `_OPTIONAL_RE`: compiled regex `\s*\(optional\)\s*` (case-insensitive)
+- Fallback: unrecognized lines → `item_name=normalized_name, quantity=1, unit="count"` (schema requires non-None)
+- No `## Ingredients` section → empty list (Hardness #1)
 
 ## Hardness Rule Compliance
-1. **No new endpoints** — zero router changes.
-2. **Instructions non-empty** — both pack and built-in meals have non-empty `instructions: List[str]`. Tests: `test_fallback_to_builtins_when_no_packs`, `test_pack_recipes_in_mealplan`.
-3. **Best-effort section extraction with fallback** — `extract_instructions_from_markdown()` recognises 7 heading variants (Procedure, Steps, Directions, Method, Instructions, Preparation, Cooking). Falls back to full text_content as a single block. Truncation at 4000 chars for response size safety.
-4. **Phase 10.1 selection semantics preserved** — no changes to catalog construction, shuffle, or source fields.
+1. **Parser limited to pack-style structured markdown** — only parses `## Ingredients` section; no freeform user upload parsing.
+2. **Deterministic and safe parsing** — no LLM, no randomness. Regex/line-based. `eval()` removed.
+3. **Name extraction priority** — every parseable line produces an item_name. Names normalized for downstream matching.
+4. **No regressions for built-ins** — `_INGREDIENTS_BY_RECIPE` dict untouched. Built-in names already lowercase.
+5. **No schema changes** — `IngredientLine` schema unchanged. `quantity: float` and `unit: Unit` remain non-optional.
 
 ## Files Changed
 
 ### app/services/recipe_service.py
-- Added `extract_instructions_from_markdown()` function (~45 lines)
-- Added `_INSTRUCTION_HEADINGS` frozenset (7 recognised headings)
-- Added `_MAX_INSTRUCTION_CHARS = 4000` truncation constant
-
-### app/services/mealplan_service.py
-- Added `_INSTRUCTIONS_BY_RECIPE` dict with minimal instructions for 3 built-in recipes
-- `generate()`: reads `instructions` from recipe dict; falls back to `_INSTRUCTIONS_BY_RECIPE` for built-ins
-- `PlannedMeal` construction: uses extracted/lookup instructions instead of hardcoded `[]`
-
-### app/services/chef_agent.py
-- `_build_pack_catalog()`: now calls `extract_instructions_from_markdown()` and includes `"instructions"` key in catalog dict
+- Added `_OPTIONAL_RE` compiled regex for optional detection
+- Added `_safe_parse_qty()` function — safe fraction parsing replacing `eval()`
+- Added `_normalize_name()` function — lowercase, strip "(optional)", trim punctuation, collapse whitespace
+- Updated `extract_ingredients_from_markdown()`:
+  - Detects optional flag before pattern matching
+  - Strips "(optional)" from text before parsing
+  - Uses `_safe_parse_qty()` instead of `eval()`
+  - Normalizes all item_name values via `_normalize_name()`
+  - Guards against empty names after normalization
 
 ### tests/test_pack_mealplan_integration.py
-- Added 5 instruction extraction unit tests (procedure, steps, method, fallback, empty)
-- Updated `test_pack_recipes_in_mealplan`: asserts `instructions` non-empty for every meal
-- Updated `test_fallback_to_builtins_when_no_packs`: asserts `instructions` non-empty
+- Updated `test_extract_ingredients_basic`: expected "Salt to taste" → "salt to taste" (lowercase normalization)
+- Added `test_extract_ingredients_optional_detection`: "(optional)" detection + name stripping
+- Added `test_extract_ingredients_fraction_parsing`: safe 1/2, 3/4 parsing
+- Added `test_extract_ingredients_name_normalization`: lowercase + punctuation stripping
+- Added `test_extract_ingredients_multiple_headings_only_ingredients`: only ## Ingredients parsed
+- Added `test_pack_ingredients_normalized_in_plan`: integration — normalized names flow through pipeline
 
 ## Test Results
-- Full suite: 196 passed, 0 failed (was 191 → +5 new instruction tests)
+- Targeted (test_pack_mealplan_integration.py): 18 passed, 0 failed
+- Full suite: 201 passed, 0 failed (was 196 → +5 new ingredient extraction tests)
 - Regressions: 0
 
 ## Verification Hierarchy
 - Static (Pylance/errors): 0 errors across all changed files
 - Runtime: imports resolve, no circular deps
-- Behaviour: instructions populated for both pack and built-in meals
-- Tests: 196/196 pass
-- Contract: delivered Phase 10.2 only; did not pull 10.3/10.6/10.7 forward
+- Behaviour: normalized names, optional detection, safe fractions all working
+- Tests: 201/201 pass
+- Contract: delivered Phase 10.3 only; did not pull 10.4/10.6/10.7 forward
 
 ## Next Step
-Phase 10.3 — Ingredient extraction improvements (MVP parser)
-- evidence/test_runs_latest.md
-- evidence/updatedifflog.md
-- web/dist/main.js
-- web/dist/style.css
-- web/e2e/history-badge.spec.ts
-- web/src/main.ts
-- web/src/style.css
-
-## git status -sb
-    ## claude/romantic-jones...origin/claude/romantic-jones
-     M evidence/CLAUDE_FIND.md
-     M evidence/test_runs.md
-    M  evidence/test_runs_latest.md
-    M  evidence/updatedifflog.md
-    M  web/dist/main.js
-    M  web/dist/style.css
+Phase 10.4 — Decision Mode (MATCH): "What can I make right now?"
     M  web/e2e/history-badge.spec.ts
     M  web/src/main.ts
     M  web/src/style.css

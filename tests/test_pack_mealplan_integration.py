@@ -37,8 +37,8 @@ def test_extract_ingredients_basic():
     assert result[1].item_name == "water"
     assert result[1].quantity == 500
     assert result[1].unit == "ml"
-    # "Salt to taste" — no parseable qty/unit → defaults
-    assert result[2].item_name == "Salt to taste"
+    # "Salt to taste" — no parseable qty/unit → defaults (name normalised to lowercase)
+    assert result[2].item_name == "salt to taste"
     assert result[2].quantity == 1
     assert result[2].unit == "count"
 
@@ -52,6 +52,54 @@ def test_extract_ingredients_no_section():
     """A recipe without ## Ingredients heading returns empty list."""
     md = "# Cake\n\n## Method\n\nMix flour.\n"
     assert extract_ingredients_from_markdown(md) == []
+
+
+# ── Unit: Phase 10.3 — optional detection, fractions, normalization ──────
+
+def test_extract_ingredients_optional_detection():
+    """'1 tsp chili flakes (optional)' → optional=True, name stripped."""
+    md = "## Ingredients\n\n- 1 tsp chili flakes (optional)\n- 2 count eggs\n"
+    result = extract_ingredients_from_markdown(md)
+    assert len(result) == 2
+    chili = result[0]
+    assert chili.item_name == "chili flakes"
+    assert chili.optional is True
+    assert chili.quantity == 1
+    assert result[1].item_name == "eggs"
+    assert result[1].optional is False
+
+
+def test_extract_ingredients_fraction_parsing():
+    """Fractions like 1/2 are parsed safely without eval()."""
+    md = "## Ingredients\n\n- 1/2 cup sugar\n- 3/4 tsp salt\n"
+    result = extract_ingredients_from_markdown(md)
+    assert len(result) == 2
+    assert result[0].quantity == 0.5
+    assert result[0].item_name == "sugar"
+    assert result[1].quantity == 0.75
+    assert result[1].item_name == "salt"
+
+
+def test_extract_ingredients_name_normalization():
+    """Names are normalised: lowercase, stripped of trailing punctuation."""
+    md = "## Ingredients\n\n- 1 count Fresh Basil Leaves,\n- 2 count Garlic Cloves;\n"
+    result = extract_ingredients_from_markdown(md)
+    assert result[0].item_name == "fresh basil leaves"
+    assert result[1].item_name == "garlic cloves"
+
+
+def test_extract_ingredients_multiple_headings_only_ingredients():
+    """Multiple headings → only ingredients section parsed."""
+    md = (
+        "# Recipe\n\n"
+        "## Introduction\n\nThis is great.\n\n"
+        "## Ingredients\n\n- 2 count eggs\n- 100 g flour\n\n"
+        "## Steps\n\nMix together.\n"
+    )
+    result = extract_ingredients_from_markdown(md)
+    assert len(result) == 2
+    assert result[0].item_name == "eggs"
+    assert result[1].item_name == "flour"
 
 
 # ── Unit: instruction extraction ─────────────────────────────────────────
@@ -245,3 +293,47 @@ def test_pack_allergy_filter(authed_client):
     plan = resp.json()["proposed_actions"][0]["mealplan"]
     meal_names = [m["name"] for d in plan["days"] for m in d["meals"]]
     assert "Peanut Curry" not in meal_names
+
+
+def test_pack_ingredients_normalized_in_plan(authed_client):
+    """Pack ingredients flow through with normalized (lowercase) names."""
+    svc = get_recipe_service()
+    svc.repo.create_pack_book(
+        "Garden Salad",
+        "garden_salad.md",
+        (
+            "# Garden Salad\n\n"
+            "## Ingredients\n\n"
+            "- 2 count Fresh Lettuce\n"
+            "- 1 tsp Olive Oil (optional)\n"
+            "- 100 g Cherry Tomatoes\n\n"
+            "## Steps\n\nToss everything together.\n"
+        ),
+        "salad",
+    )
+
+    resp = authed_client.post(
+        "/chat/mealplan",
+        json={"mode": "fill", "message": "plan meals", "thread_id": "t-norm-ingr"},
+    )
+    assert resp.status_code == 200
+    plan = resp.json()["proposed_actions"][0]["mealplan"]
+    # Find the pack meal (if it was selected by shuffle)
+    for day in plan["days"]:
+        for meal in day["meals"]:
+            if meal["name"] == "Garden Salad":
+                names = [i["item_name"] for i in meal["ingredients"]]
+                # All names normalized to lowercase
+                assert all(n == n.lower() for n in names), f"Names not lowercase: {names}"
+                assert "fresh lettuce" in names
+                assert "cherry tomatoes" in names
+                # Optional detection flowed through
+                oil = [i for i in meal["ingredients"] if i["item_name"] == "olive oil"]
+                if oil:
+                    assert oil[0]["optional"] is True
+                return
+    # If Garden Salad wasn't selected (shuffle), verify at least built-in names are lowercase
+    for day in plan["days"]:
+        for meal in day["meals"]:
+            for ing in meal["ingredients"]:
+                assert ing["item_name"] == ing["item_name"].lower()

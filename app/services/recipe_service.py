@@ -34,6 +34,31 @@ _QTY_UNIT_RE = re.compile(
     re.IGNORECASE,
 )
 _UNIT_ALIAS = {"cup": "count", "cups": "count", "tbsp": "count", "tsp": "count", "oz": "g", "lb": "g", "lbs": "g"}
+_OPTIONAL_RE = re.compile(r"\s*\(optional\)\s*", re.IGNORECASE)
+
+
+def _safe_parse_qty(s: str) -> float:
+    """Parse a quantity string safely, handling fractions like '1/2'."""
+    if "/" in s:
+        parts = s.split("/")
+        if len(parts) == 2:
+            try:
+                return float(parts[0]) / float(parts[1])
+            except (ValueError, ZeroDivisionError):
+                return 1.0
+    try:
+        return float(s)
+    except ValueError:
+        return 1.0
+
+
+def _normalize_name(raw_name: str) -> str:
+    """Normalize ingredient name: lowercase, strip '(optional)', trim punctuation."""
+    name = _OPTIONAL_RE.sub("", raw_name)
+    name = name.lower()
+    name = name.strip().rstrip(",;.")
+    name = re.sub(r"\s+", " ", name)
+    return name.strip()
 
 
 def extract_ingredients_from_markdown(text_content: str) -> list[IngredientLine]:
@@ -64,18 +89,26 @@ def extract_ingredients_from_markdown(text_content: str) -> list[IngredientLine]
         cleaned = cleaned.strip()
         if not cleaned:
             continue
+        # Detect optional flag before pattern matching
+        is_optional = bool(re.search(r"\boptional\b", cleaned, re.IGNORECASE))
+        # Strip "(optional)" from text for cleaner parsing
+        cleaned = _OPTIONAL_RE.sub("", cleaned).strip()
+        if not cleaned:
+            continue
         m = _QTY_UNIT_RE.match(cleaned)
         if m:
-            qty_str = m.group(1)
-            qty = float(eval(qty_str)) if "/" in qty_str else float(qty_str)  # handle fractions like 1/2
+            qty = _safe_parse_qty(m.group(1))
             raw_unit = m.group(2).lower()
             unit = _UNIT_ALIAS.get(raw_unit, raw_unit)
             if unit not in _VALID_UNITS:
                 unit = "count"
-            name = m.group(3).strip().rstrip(",;.")
-            results.append(IngredientLine(item_name=name, quantity=qty, unit=unit, optional=False))
+            name = _normalize_name(m.group(3))
+            if name:
+                results.append(IngredientLine(item_name=name, quantity=qty, unit=unit, optional=is_optional))
         else:
-            results.append(IngredientLine(item_name=cleaned.rstrip(",;."), quantity=1, unit="count", optional=False))
+            name = _normalize_name(cleaned)
+            if name:
+                results.append(IngredientLine(item_name=name, quantity=1, unit="count", optional=is_optional))
     return results
 
 
