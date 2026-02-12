@@ -14264,3 +14264,29 @@ Running 8 tests using 4 workers
   6 passed (10.9s)
 ```
 
+## Test Run 2026-02-12T11:25:56Z
+- Status: FAIL
+- Start: 2026-02-12T11:25:56Z
+- End: 2026-02-12T11:28:00Z
+- Python: Z:\LittleChef\.claude\worktrees\romantic-jones\.venv\\Scripts\\python.exe
+- Branch: git unavailable
+- HEAD: git unavailable
+- compileall exit: 0
+- import app.main exit: 0
+- pytest exit: 0
+- pytest summary: 183 passed, 1 warning in 111.88s (0:01:51)
+- playwright test:e2e exit: -1
+- playwright summary: (not run)
+- git status -sb:
+```
+git unavailable
+```
+- git diff --stat:
+```
+git unavailable
+```
+- Failure payload:
+```
+=== playwright test:e2e (exit -1) ===
+```
+

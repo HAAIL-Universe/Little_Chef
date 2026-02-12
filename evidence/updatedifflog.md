@@ -1,131 +1,76 @@
 ﻿# Diff Log (overwrite each cycle)
 
 ## Cycle Metadata
-- Phase: 11 (11.1–11.3) — Multi-day planning, aggregated shopping, consumption confirmation
+- Phase: 12 (12.1–12.3) — Restock + staples intelligence
 - Branch: claude/romantic-jones
-- HEAD (pre): 57f8ee5 (Phase 10.9 commit)
-- Status: COMPLETE — STOPPED BEFORE PHASE 12
-- Commits: a2e237e (11.1), 2fc18ee (11.2), 106bc38 (11.3)
-- Tests: 275 → 301 (26 new tests)
+- HEAD (pre): cb0c5fd (Phase 11 diff log)
+- Status: COMPLETE — STOPPED BEFORE PHASE 13
+- Commits: a3d9ff1 (12.1+12.2+12.3 combined)
+- Tests: 301 → 317 (16 new tests)
 
 ## Previous Cycle
+- Phase 11 (11.1–11.3) — Multi-day planning, aggregated shopping, consumption — COMPLETE
 - Phase 10.9 — Maintain propose-confirm-apply semantics — COMPLETE at 57f8ee5
 - Phase 10.8 — Time constraints as soft constraint — COMPLETE at 62b5825
-- Phase 10.7 — Wire shopping diff into Chef outputs — COMPLETE at 2659364
 
 ## Summary
-Phase 11 delivers three slices:
-1. **11.1** Multi-day planning (1–7 days): removed hard 1-day cap from ChefAgent,
-   added plan_days pref fallback capped at 7, fixed recipe selection to vary per day.
-2. **11.2** Aggregated shopping list: verified existing ShoppingService.diff() already
-   handles multi-day plans natively (iterates all days, aggregates quantities).
-   Added 6 tests to prove multi-day aggregation, partial inventory deduction, and
-   fully-stocked exclusion.
-3. **11.3** Cooked/consumed confirmation: added _CONSUME_RE regex, handle_consume()
-   to ChefAgent (recipe lookup → ingredient mapping → consume_cooked proposals),
-   updated confirm() for ProposedInventoryEventAction, wired routing in chat_service.
+Phase 12 delivers three tightly-coupled slices in a single commit:
+1. **12.1** Always-keep-stocked toggle: in-memory staples store keyed by user_id →
+   set of (normalized_name, unit). Three new endpoints: GET/POST/DELETE /inventory/staples.
+   New schemas: StapleItem, StapleToggleRequest, StapleToggleResponse, StaplesListResponse.
+2. **12.2** Explainable low-stock detection: low_stock() now returns reason strings
+   ("below threshold" for regular items, "staple: low/out of stock" for staples).
+   Added is_staple flag to LowStockItem. Staples with zero inventory (never added)
+   also surface in low-stock results.
+3. **12.3** Shopping list refinement: ShoppingDiffResponse gains staple_items list.
+   Plan items get reason "needed for plan", staples get "auto-added: staple low/out of stock".
+   Staples already in plan's required dict are deduplicated (appear only in missing_items).
 
-No DB schema changes. No new endpoints. All changes use existing schemas and services.
+No DB schema changes. Three new API endpoints. In-memory staples storage consistent
+with existing architecture (ProposalStore, etc.).
 
-## Phase 11.1 Changes (a2e237e)
+## Phase 12 Changes (a3d9ff1)
 
-### 1. app/services/chef_agent.py
-- Removed `days = 1` hard cap in handle_fill()
-- Added plan_days pref fallback: uses prefs.plan_days if no days parsed from message, cap at 7
-- Removed MVP disclaimer text
-- Updated reply text for multi-day context
+### 1. app/schemas.py
+- Added `is_staple: bool = False` to LowStockItem
+- Added StapleItem(item_name, unit), StapleToggleRequest(item_name, unit),
+  StapleToggleResponse(item_name, unit, is_staple), StaplesListResponse(staples)
+- Added `staple_items: List[ShoppingListItem] = Field(default_factory=list)` to ShoppingDiffResponse
+- Changed ShoppingListItem.reason default: "missing for meal plan" → "needed for plan"
 
-### 2. app/services/mealplan_service.py
-- Fixed recipe selection: `catalog_idx = ((day_index - 1) * meals_per_day + meal_idx) % len(shuffled)`
-- Ensures recipes vary by day instead of repeating
+### 2. app/services/inventory_service.py
+- Added `_staples: Dict[str, Set[Tuple[str, str]]]` to __init__
+- Rewrote low_stock(): uses summary_keys set (all items regardless of stock level),
+  distinguishes "below threshold" vs "staple: low/out of stock" reasons,
+  adds zero-inventory staples that were never added to inventory
+- Added set_staple(), remove_staple(), list_staples(), is_staple() methods
 
-### 3. tests/test_multiday_planning.py (NEW — 10 tests)
-- 3-day, 7-day, cap at 7, default uses plan_days, no-prefs defaults to 1
-- plan_days pref fallback, recipe variety, allergy filter multiday
-- Direct generate, reply text
+### 3. app/api/routers/inventory.py
+- Added 3 endpoints: GET /inventory/staples, POST /inventory/staples, DELETE /inventory/staples
+- Added imports for StapleToggleRequest, StapleToggleResponse, StaplesListResponse
 
-### 4. tests/test_chef_agent.py (UPDATED)
-- Changed all assertions from 1-day to multi-day expectations
-- Renamed test_chef_agent_mvp_one_day_cap → test_chef_agent_multiday_cap_at_7
+### 4. app/services/shopping_service.py
+- Changed reason from "missing for meal plan" to "needed for plan"
+- Added _staple_shortfall() method: checks staples against inventory/thresholds
+  Returns ShoppingListItem with "auto-added: staple low/out of stock" reason
+- diff() now returns ShoppingDiffResponse(missing_items=..., staple_items=...)
+- Staples already in plan's required dict are skipped to avoid duplication
 
-### 5. tests/test_pack_mealplan_integration.py (UPDATED)
-- Changed `== 1` to `>= 1` for day count assertion
+### 5. tests/test_staples_restock.py (NEW — 16 tests)
+- 12.1 Staples API (7): empty initial, set+list, remove, idempotent, auth, multiple
+- 12.2 Low-stock (5): below threshold reason, staple reason, never-added, fully stocked excluded, explainable
+- 12.3 Shopping refinement (4): plan reason, staple items separate, no duplication, fully stocked excluded, multiple staples
 
-## Phase 11.2 Changes (2fc18ee)
-
-### 1. No production code changes
-- ShoppingService.diff() already iterates plan.days and aggregates quantities
-- Existing logic handles multi-day natively
-
-### 2. tests/test_shopping_list_multiday.py (NEW — 6 tests)
-- test_shopping_list_aggregates_across_days: verifies quantity summation across 3 days
-- test_shopping_list_partial_inventory_deducts: partial stock deduction
-- test_shopping_list_fully_stocked_excluded: items fully in stock are excluded
-- test_shopping_list_multiday_annotations: day range annotation
-- test_shopping_api_with_multiday_plan: API endpoint integration
-- test_shopping_end_to_end_multiday: full flow via chat
-
-## Phase 11.3 Changes (106bc38)
-
-### 1. app/services/chef_agent.py
-- Added imports: InventoryEventCreateRequest, ProposedInventoryEventAction
-- Added _CONSUME_RE regex: detects "I cooked X", "we made X", "I prepared X", "we had X"
-- Added handle_consume() method (~110 lines):
-  - Requires thread_id for proposal tracking
-  - Regex extracts recipe name
-  - Searches pack catalog + BUILT_IN_RECIPES by substring match
-  - Maps recipe ingredients to ProposedInventoryEventAction with event_type="consume_cooked"
-  - Creates proposal via ProposalStore, returns confirmation_required=True
-- Updated confirm(): added elif isinstance(act, ProposedInventoryEventAction) branch
-  - Calls inventory_service.create_event() for each action
-  - Appends event_id to applied_ids
-
-### 2. app/services/chat_service.py
-- Added _CONSUME_RE import in _handle_ask()
-- Added consume detection before MATCH/CHECK routing
-- Passes thread_id through to _handle_ask() (signature + call site updated)
-- Constructs ChatRequest with thread_id for consume flow
-
-### 3. tests/test_consume_confirmation.py (NEW — 10 tests)
-- test_consume_proposal_created: "I cooked X" → confirmation_required + consume_cooked actions
-- test_consume_proposal_lists_ingredients: verifies tomato + pasta for builtin_1
-- test_consume_confirm_writes_events: confirm → applied=True, event IDs returned
-- test_consume_decline_no_events: decline → applied=False, no inventory change
-- test_consume_unknown_recipe_rejected: unrecognised recipe → no proposal
-- test_consume_requires_thread_id: missing thread_id → graceful rejection
-- test_consume_inventory_summary_reflects_events: events appear in /inventory/events
-- test_consume_regex_variations: tests multiple phrasings
-- test_consume_event_has_recipe_note: note contains "Cooked: {title}"
-- test_consume_event_quantities_from_recipe: preserves recipe quantities/units
-  - 8 integration tests via POST /chat:
-    - suggestions returned with "ingredients in stock"
-    - inventory-aware ranking (100% match ranks first)
-    - missing ingredients displayed
-    - pack recipe inclusion (with fixture alignment workaround)
-    - allergy exclusion
-    - cook time note
-    - no proposal created
-    - suggested next questions
-
-## Routing
-MATCH detection is in `_handle_ask()` dispatch chain:
-prefs → low stock → inventory → **MATCH** → mealplan nudge → None
-
-MATCH is placed before mealplan nudge because `_MEALPLAN_NUDGE_RE` catches "what should I cook/make/eat" which overlaps with MATCH queries. MATCH should win for these — it provides ranked suggestions with scoring vs a redirect to /chat/mealplan.
-
-## Hardness Rule Compliance
-1. No changes to DB schema or migrations
-2. Built-in recipe ingredients unchanged (hardcoded in `_INGREDIENTS_BY_RECIPE`)
-3. Pack recipes used via existing `_build_pack_catalog()` and `extract_ingredients_from_markdown()`
-4. No changes to proposal/confirm flow — MATCH is informational only
+## Bugs Fixed During Phase 12
+1. TestClient.delete() doesn't support json= → fixed with client.request("DELETE", ...)
+2. Fully-stocked staples appearing as "out of stock": summary_keys only tracked low items
+   → fixed by tracking ALL summary items in summary_keys set
+3. Butter appeared in both plan required and staples: built-in recipe ingredient
+   → tests updated to use flour/sugar/olive oil (not in any built-in recipe)
 
 ## Test Results
-- 226 passed, 0 failed, 1 warning
-- Pre-10.4: 201 tests → +25 new tests
-
-## Files Changed
-- `app/services/chef_agent.py` — added MATCH regex, handle_match(), _score_recipe()
-- `app/services/chat_service.py` — added MATCH routing in _handle_ask()
+- 317 passed, 0 failed, 1 warning
+- Pre-12: 301 tests → +16 new tests
 - `tests/test_match_decision_mode.py` — new test file (25 tests)
 2. **Deterministic and safe parsing** — no LLM, no randomness. Regex/line-based. `eval()` removed.
 3. **Name extraction priority** — every parseable line produces an item_name. Names normalized for downstream matching.
