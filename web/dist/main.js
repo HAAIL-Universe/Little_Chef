@@ -99,7 +99,7 @@ const flowOptions = [
     { key: "general", label: "General", placeholder: "Ask or fill..." },
     { key: "inventory", label: "Inventory", placeholder: "Ask about inventory, stock, or adjustments..." },
     { key: "mealplan", label: "Meal Plan", placeholder: "Plan meals or ask for ideas..." },
-    { key: "prefs", label: "Preferences", placeholder: "Update allergies, dislikes, and likes." },
+    { key: "prefs", label: "Preferences", placeholder: "Update dislikes, allergies, or servings..." },
 ];
 const duetState = {
     threadId: null,
@@ -209,6 +209,15 @@ const CHEF_BUSY_PHRASES = [
     "Double-checking quantities",
     "Cataloguing supplies",
 ];
+const CHEF_PREFS_PHRASES = [
+    "Updating preferences",
+    "Saving allergies, dislikes, and likes",
+    "Noting your tastes",
+    "Adjusting dietary needs",
+    "Almost done",
+    "Recording your choices",
+    "Fine-tuning the menu",
+];
 const CHEF_BUSY_INTERVAL_MS = 4500;
 let chefBusyTimer = null;
 let chefBusyIndex = -1;
@@ -237,6 +246,7 @@ const COMPOSE_DBL_TAP_WINDOW_MS = 350;
 let composeNextHintTimer = null;
 let composeNextHintShown = false;
 let composeNextHintTriggered = false;
+let suppressComposeBackdropUntil = 0;
 let dictationActive = false;
 let speechRecognition = null;
 function headers() {
@@ -1010,6 +1020,7 @@ function setupHistoryDrawerUi() {
         sentIndicatorBtn.className = "sent-indicator-btn";
         sentIndicatorBtn.setAttribute("aria-label", "Message sent");
         sentIndicatorBtn.textContent = USER_BUBBLE_SENT_TEXT;
+        sentIndicatorBtn.addEventListener("click", () => showSentTooltip());
         shell.appendChild(sentIndicatorBtn);
     }
     updateRecipePacksButtonVisibility();
@@ -1573,7 +1584,8 @@ function setComposerBusy(busy) {
         input.readOnly = busy;
 }
 function renderChefBusyPhrase() {
-    const phrase = CHEF_BUSY_PHRASES[chefBusyIndex % CHEF_BUSY_PHRASES.length];
+    const phrases = currentFlowKey === "prefs" ? CHEF_PREFS_PHRASES : CHEF_BUSY_PHRASES;
+    const phrase = phrases[chefBusyIndex % phrases.length];
     const dots = ".".repeat(chefBusyDotCount + 1);
     const text = `${phrase}${dots}`;
     duetState.history[chefBusyThinkingIndex] = {
@@ -1587,7 +1599,8 @@ function renderChefBusyPhrase() {
 function startChefBusyCycle(thinkingIndex) {
     stopChefBusyCycle();
     chefBusyThinkingIndex = thinkingIndex;
-    chefBusyIndex = Math.floor(Math.random() * CHEF_BUSY_PHRASES.length);
+    const phrases = currentFlowKey === "prefs" ? CHEF_PREFS_PHRASES : CHEF_BUSY_PHRASES;
+    chefBusyIndex = Math.floor(Math.random() * phrases.length);
     chefBusyDotCount = 0;
     renderChefBusyPhrase();
     chefBusyDotTimer = setInterval(() => {
@@ -1611,6 +1624,32 @@ function stopChefBusyCycle() {
     }
     chefBusyThinkingIndex = -1;
     cancelRecipePacksNudge();
+}
+// ── Sent-indicator tooltip ──────────────────────────────────
+let sentTooltipEl = null;
+let sentTooltipTimer = null;
+function showSentTooltip() {
+    if (!sentIndicatorBtn)
+        return;
+    if (sentTooltipTimer !== null) {
+        window.clearTimeout(sentTooltipTimer);
+        sentTooltipTimer = null;
+    }
+    if (!sentTooltipEl) {
+        sentTooltipEl = document.createElement("div");
+        sentTooltipEl.className = "sent-tooltip";
+        document.body.appendChild(sentTooltipEl);
+    }
+    sentTooltipEl.innerHTML = "Message sent.<br>Long-press to navigate.";
+    const rect = sentIndicatorBtn.getBoundingClientRect();
+    sentTooltipEl.style.top = `${rect.bottom + 8}px`;
+    sentTooltipEl.style.left = `${rect.left + rect.width / 2}px`;
+    sentTooltipEl.style.transform = "translateX(-50%)";
+    sentTooltipEl.classList.add("visible");
+    sentTooltipTimer = window.setTimeout(() => {
+        sentTooltipEl === null || sentTooltipEl === void 0 ? void 0 : sentTooltipEl.classList.remove("visible");
+        sentTooltipTimer = null;
+    }, 1800);
 }
 function scheduleRecipePacksNudge() {
     cancelRecipePacksNudge();
@@ -2214,6 +2253,14 @@ function ensureComposeOverlay() {
     return overlay;
 }
 function handleComposeBackdropTap() {
+    if (Date.now() < suppressComposeBackdropUntil) {
+        composeDblTapCount = 0;
+        if (composeDblTapTimer !== null) {
+            window.clearTimeout(composeDblTapTimer);
+            composeDblTapTimer = null;
+        }
+        return;
+    }
     // Single tap on backdrop stops dictation (if running) without sending
     if (dictationActive) {
         stopComposeDictation();
@@ -2340,6 +2387,36 @@ function hideComposeOverlay() {
     syncFlowMenuVisibility();
     input === null || input === void 0 ? void 0 : input.blur();
 }
+function showComposeNextHint() {
+    if (!composeActive || !composeOverlay)
+        return;
+    if (document.getElementById("compose-next-hint"))
+        return;
+    const hint = document.createElement("div");
+    hint.id = "compose-next-hint";
+    hint.className = "compose-next-hint";
+    hint.textContent = "Also tell me how many days you want to plan, how many meals per day, and how many servings.";
+    // Insert into overlay (not narrator) so it doesn't affect centering
+    const micBtn = composeOverlay.querySelector(".compose-mic-btn");
+    if (micBtn && micBtn.nextSibling) {
+        composeOverlay.insertBefore(hint, micBtn.nextSibling);
+    }
+    else {
+        composeOverlay.appendChild(hint);
+    }
+    composeNextHintShown = true;
+}
+function clearComposeNextHint() {
+    if (composeNextHintTimer !== null) {
+        window.clearTimeout(composeNextHintTimer);
+        composeNextHintTimer = null;
+    }
+    const el = document.getElementById("compose-next-hint");
+    if (el)
+        el.remove();
+    composeNextHintShown = false;
+    composeNextHintTriggered = false;
+}
 function autoExpandTextarea(el) {
     el.style.height = "auto";
     el.style.height = Math.min(el.scrollHeight, 200) + "px";
@@ -2434,32 +2511,6 @@ function updateMicButtonState() {
     micBtn.classList.toggle("recording", dictationActive);
     micBtn.setAttribute("aria-label", dictationActive ? "Stop voice dictation" : "Start voice dictation");
 }
-function showComposeNextHint() {
-    if (!composeActive || !composeOverlay)
-        return;
-    const narrator = composeOverlay.querySelector(".compose-narrator");
-    if (!narrator)
-        return;
-    if (document.getElementById("compose-next-hint"))
-        return;
-    const hint = document.createElement("div");
-    hint.id = "compose-next-hint";
-    hint.className = "compose-next-hint";
-    hint.textContent = "Also tell me how many days you want to plan, how many meals per day, and how many servings.";
-    narrator.insertBefore(hint, narrator.firstChild);
-    composeNextHintShown = true;
-}
-function clearComposeNextHint() {
-    if (composeNextHintTimer !== null) {
-        window.clearTimeout(composeNextHintTimer);
-        composeNextHintTimer = null;
-    }
-    const el = document.getElementById("compose-next-hint");
-    if (el)
-        el.remove();
-    composeNextHintShown = false;
-    composeNextHintTriggered = false;
-}
 function wireComposeOverlayKeyboard() {
     // Use VisualViewport to keep compose overlay centered above keyboard on iOS
     if (typeof window === "undefined")
@@ -2507,7 +2558,7 @@ function wireComposeOverlayKeyboard() {
 function wireFloatingComposerTrigger(stage) {
     if (!stage)
         return;
-    stage.addEventListener("pointerdown", () => {
+    stage.addEventListener("pointerdown", (e) => {
         stageTripleTapCount += 1;
         if (stageTripleTapResetTimer !== null) {
             window.clearTimeout(stageTripleTapResetTimer);
@@ -2524,7 +2575,14 @@ function wireFloatingComposerTrigger(stage) {
             window.clearTimeout(stageTripleTapResetTimer);
             stageTripleTapResetTimer = null;
         }
+        suppressComposeBackdropUntil = Date.now() + 250;
+        e.preventDefault();
+        e.stopPropagation();
         showComposeOverlay();
+        requestAnimationFrame(() => {
+            const inp = document.getElementById("duet-input");
+            inp === null || inp === void 0 ? void 0 : inp.focus({ preventScroll: true });
+        });
     });
 }
 function syncFlowMenuVisibility() {
