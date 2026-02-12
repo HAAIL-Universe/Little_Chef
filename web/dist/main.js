@@ -441,12 +441,19 @@ function renderProposal() {
         return;
     }
     const summaries = state.proposedActions.map((action) => {
+        var _a, _b, _c;
         if (action.action_type === "upsert_prefs" && action.prefs) {
             return `Update prefs: servings ${action.prefs.servings}, ${action.prefs.plan_days} days, meals/day ${action.prefs.meals_per_day}`;
         }
         if (action.action_type === "create_inventory_event" && action.event) {
             const e = action.event;
             return `Inventory: ${e.event_type} ${e.quantity} ${e.unit} ${e.item_name}`;
+        }
+        if (action.action_type === "generate_mealplan" && action.mealplan) {
+            const mp = action.mealplan;
+            const dayCount = (_b = (_a = mp.days) === null || _a === void 0 ? void 0 : _a.length) !== null && _b !== void 0 ? _b : 0;
+            const mealCount = ((_c = mp.days) !== null && _c !== void 0 ? _c : []).reduce((s, d) => { var _a, _b; return s + ((_b = (_a = d.meals) === null || _a === void 0 ? void 0 : _a.length) !== null && _b !== void 0 ? _b : 0); }, 0);
+            return `Meal plan: ${dayCount} day${dayCount !== 1 ? "s" : ""}, ${mealCount} meal${mealCount !== 1 ? "s" : ""}`;
         }
         return action.action_type || "proposal";
     });

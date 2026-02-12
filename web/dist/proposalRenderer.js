@@ -67,6 +67,21 @@ const formatUseByToken = (value) => {
     const monthText = String(month).padStart(2, "0");
     return `USE BY: ${dayText}/${monthText}`;
 };
+const formatMealplanAction = (action) => {
+    const mp = action.mealplan;
+    if (!mp || !mp.days) {
+        return "• Meal plan proposal";
+    }
+    const dayCount = mp.days.length;
+    const mealCount = mp.days.reduce((sum, d) => { var _a, _b; return sum + ((_b = (_a = d.meals) === null || _a === void 0 ? void 0 : _a.length) !== null && _b !== void 0 ? _b : 0); }, 0);
+    const lines = [`• Meal plan: ${dayCount} day${dayCount !== 1 ? "s" : ""}, ${mealCount} meal${mealCount !== 1 ? "s" : ""}`];
+    mp.days.forEach((day) => {
+        var _a;
+        const names = ((_a = day.meals) !== null && _a !== void 0 ? _a : []).map((m) => m.name).join(", ");
+        lines.push(`  Day ${day.day_index}: ${names || "(empty)"}`);
+    });
+    return lines.join("\n");
+};
 const formatInventoryAction = (action) => {
     const event = action.event;
     if (!event) {
@@ -127,15 +142,23 @@ export function formatProposalSummary(response) {
             // skip legacy describePrefs to avoid duplicate display.
             return;
         }
+        if (action.action_type === "generate_mealplan") {
+            details.push(formatMealplanAction(action));
+            return;
+        }
         details.push(formatInventoryAction(action));
     });
     if (!details.length) {
         return null;
     }
     const allInventory = actions.every((action) => action.action_type === "create_inventory_event");
+    const hasMealplan = actions.some((action) => action.action_type === "generate_mealplan");
     const hasPrefs = actions.some((action) => action.action_type === "upsert_prefs");
     let prefix = "Proposed update";
-    if (allInventory) {
+    if (hasMealplan) {
+        prefix = "Proposed meal plan";
+    }
+    else if (allInventory) {
         prefix = "Proposed inventory update";
     }
     else if (hasPrefs) {

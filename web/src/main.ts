@@ -466,6 +466,12 @@ function renderProposal() {
       const e = action.event;
       return `Inventory: ${e.event_type} ${e.quantity} ${e.unit} ${e.item_name}`;
     }
+    if (action.action_type === "generate_mealplan" && action.mealplan) {
+      const mp = action.mealplan;
+      const dayCount = mp.days?.length ?? 0;
+      const mealCount = (mp.days ?? []).reduce((s: number, d: any) => s + (d.meals?.length ?? 0), 0);
+      return `Meal plan: ${dayCount} day${dayCount !== 1 ? "s" : ""}, ${mealCount} meal${mealCount !== 1 ? "s" : ""}`;
+    }
     return action.action_type || "proposal";
   });
   textEl.textContent = summaries.join(" | ");
