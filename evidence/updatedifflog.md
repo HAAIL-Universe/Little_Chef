@@ -1,53 +1,102 @@
 ﻿# Diff Log (overwrite each cycle)
 
 ## Cycle Metadata
-- Phase: 10.9 — Maintain propose → confirm → apply semantics
+- Phase: 11 (11.1–11.3) — Multi-day planning, aggregated shopping, consumption confirmation
 - Branch: claude/romantic-jones
-- HEAD (pre): 62b5825 (Phase 10.8 commit)
-- Status: COMPLETE
-- Commit: (pending)
+- HEAD (pre): 57f8ee5 (Phase 10.9 commit)
+- Status: COMPLETE — STOPPED BEFORE PHASE 12
+- Commits: a2e237e (11.1), 2fc18ee (11.2), 106bc38 (11.3)
+- Tests: 275 → 301 (26 new tests)
 
 ## Previous Cycle
+- Phase 10.9 — Maintain propose-confirm-apply semantics — COMPLETE at 57f8ee5
 - Phase 10.8 — Time constraints as soft constraint — COMPLETE at 62b5825
 - Phase 10.7 — Wire shopping diff into Chef outputs — COMPLETE at 2659364
-- Phase 10.6 — Inventory-aware scoring — COMPLETE at 269ee5e
 
 ## Summary
-Phase 10.9 is a verification phase ensuring that the propose → confirm → apply
-semantics remain intact after all Phase 10 changes (10.1–10.8). No production code
-changed. New explicit tests validate: plan proposal returns confirmation_required,
-confirm returns plan_id deterministically, decline returns applied=False, cross-thread
-confirm is rejected (400), and double-confirm is rejected (400).
+Phase 11 delivers three slices:
+1. **11.1** Multi-day planning (1–7 days): removed hard 1-day cap from ChefAgent,
+   added plan_days pref fallback capped at 7, fixed recipe selection to vary per day.
+2. **11.2** Aggregated shopping list: verified existing ShoppingService.diff() already
+   handles multi-day plans natively (iterates all days, aggregates quantities).
+   Added 6 tests to prove multi-day aggregation, partial inventory deduction, and
+   fully-stocked exclusion.
+3. **11.3** Cooked/consumed confirmation: added _CONSUME_RE regex, handle_consume()
+   to ChefAgent (recipe lookup → ingredient mapping → consume_cooked proposals),
+   updated confirm() for ProposedInventoryEventAction, wired routing in chat_service.
 
-## Changes
+No DB schema changes. No new endpoints. All changes use existing schemas and services.
 
-### 1. tests/test_propose_confirm_apply.py (NEW — 4 tests)
-- `test_propose_confirm_returns_plan_id`: Full propose/confirm cycle — generates plan via `/chat/mealplan`, asserts `confirmation_required=True`, confirms → `applied=True`, `plan_id` in `applied_event_ids`
-- `test_decline_does_not_apply`: Decline → `applied=False`, empty `applied_event_ids`
-- `test_thread_isolation_cross_confirm_rejected`: Confirm on wrong thread_id → 400
-- `test_double_confirm_rejected`: Second confirm on same proposal_id → 400
+## Phase 11.1 Changes (a2e237e)
 
-### 2. No production code changes
-Phase 10.9 is verification-only. All existing propose/confirm/apply logic was already correct.
-  - Takes top 5, formats reply with numbered list, bold titles, percentage, missing items
-  - Appends cook time note if `cook_time_weekday_mins`/`cook_time_weekend_mins` prefs exist
-  - Returns `ChatResponse(confirmation_required=False, proposal_id=None)`
-- Added `_score_recipe(ingredients, stock_names) -> (float, list[str])` static method:
-  - Name-only matching (lowercased `item_name` vs stock set)
-  - Returns `(have_count / total_count, missing_names)`
-  - Empty ingredients → `(0.0, [])`
+### 1. app/services/chef_agent.py
+- Removed `days = 1` hard cap in handle_fill()
+- Added plan_days pref fallback: uses prefs.plan_days if no days parsed from message, cap at 7
+- Removed MVP disclaimer text
+- Updated reply text for multi-day context
+
+### 2. app/services/mealplan_service.py
+- Fixed recipe selection: `catalog_idx = ((day_index - 1) * meals_per_day + meal_idx) % len(shuffled)`
+- Ensures recipes vary by day instead of repeating
+
+### 3. tests/test_multiday_planning.py (NEW — 10 tests)
+- 3-day, 7-day, cap at 7, default uses plan_days, no-prefs defaults to 1
+- plan_days pref fallback, recipe variety, allergy filter multiday
+- Direct generate, reply text
+
+### 4. tests/test_chef_agent.py (UPDATED)
+- Changed all assertions from 1-day to multi-day expectations
+- Renamed test_chef_agent_mvp_one_day_cap → test_chef_agent_multiday_cap_at_7
+
+### 5. tests/test_pack_mealplan_integration.py (UPDATED)
+- Changed `== 1` to `>= 1` for day count assertion
+
+## Phase 11.2 Changes (2fc18ee)
+
+### 1. No production code changes
+- ShoppingService.diff() already iterates plan.days and aggregates quantities
+- Existing logic handles multi-day natively
+
+### 2. tests/test_shopping_list_multiday.py (NEW — 6 tests)
+- test_shopping_list_aggregates_across_days: verifies quantity summation across 3 days
+- test_shopping_list_partial_inventory_deducts: partial stock deduction
+- test_shopping_list_fully_stocked_excluded: items fully in stock are excluded
+- test_shopping_list_multiday_annotations: day range annotation
+- test_shopping_api_with_multiday_plan: API endpoint integration
+- test_shopping_end_to_end_multiday: full flow via chat
+
+## Phase 11.3 Changes (106bc38)
+
+### 1. app/services/chef_agent.py
+- Added imports: InventoryEventCreateRequest, ProposedInventoryEventAction
+- Added _CONSUME_RE regex: detects "I cooked X", "we made X", "I prepared X", "we had X"
+- Added handle_consume() method (~110 lines):
+  - Requires thread_id for proposal tracking
+  - Regex extracts recipe name
+  - Searches pack catalog + BUILT_IN_RECIPES by substring match
+  - Maps recipe ingredients to ProposedInventoryEventAction with event_type="consume_cooked"
+  - Creates proposal via ProposalStore, returns confirmation_required=True
+- Updated confirm(): added elif isinstance(act, ProposedInventoryEventAction) branch
+  - Calls inventory_service.create_event() for each action
+  - Appends event_id to applied_ids
 
 ### 2. app/services/chat_service.py
-- Added 6 lines in `_handle_ask()` method, placed BEFORE `_MEALPLAN_NUDGE_RE` check:
-  - Imports `_MATCH_RE` from chef_agent
-  - If `_MATCH_RE.search(message)`: constructs `UserMe` + `ChatRequest`, delegates to `self.chef_agent.handle_match()`
-- This ensures MATCH queries like "what can I make" are detected before the broader mealplan nudge regex catches them
+- Added _CONSUME_RE import in _handle_ask()
+- Added consume detection before MATCH/CHECK routing
+- Passes thread_id through to _handle_ask() (signature + call site updated)
+- Constructs ChatRequest with thread_id for consume flow
 
-### 3. tests/test_match_decision_mode.py (NEW)
-- 25 tests total:
-  - 9 parametrized MATCH regex positive detection tests
-  - 4 parametrized MATCH regex negative (non-match) tests
-  - 4 scoring unit tests (full match, partial, no match, empty ingredients)
+### 3. tests/test_consume_confirmation.py (NEW — 10 tests)
+- test_consume_proposal_created: "I cooked X" → confirmation_required + consume_cooked actions
+- test_consume_proposal_lists_ingredients: verifies tomato + pasta for builtin_1
+- test_consume_confirm_writes_events: confirm → applied=True, event IDs returned
+- test_consume_decline_no_events: decline → applied=False, no inventory change
+- test_consume_unknown_recipe_rejected: unrecognised recipe → no proposal
+- test_consume_requires_thread_id: missing thread_id → graceful rejection
+- test_consume_inventory_summary_reflects_events: events appear in /inventory/events
+- test_consume_regex_variations: tests multiple phrasings
+- test_consume_event_has_recipe_note: note contains "Cooked: {title}"
+- test_consume_event_quantities_from_recipe: preserves recipe quantities/units
   - 8 integration tests via POST /chat:
     - suggestions returned with "ingredients in stock"
     - inventory-aware ranking (100% match ranks first)
