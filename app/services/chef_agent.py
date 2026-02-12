@@ -16,6 +16,7 @@ from app.services.proposal_store import ProposalStore
 from app.services.llm_client import LlmClient
 from app.services.prefs_service import PrefsService
 from app.services.recipe_service import BUILT_IN_RECIPES
+from app.services.stt_normalize import normalize_stt, voice_hint_for
 
 _DAYS_RE = re.compile(r"(\d+)\s*days?", re.IGNORECASE)
 _MEALS_RE = re.compile(r"(\d+)\s*meals?\s*(?:per\s*day|a\s*day)?", re.IGNORECASE)
@@ -429,6 +430,8 @@ class ChefAgent:
             )
 
         message = request.message
+        if request.voice_input:
+            message = normalize_stt(message)
         days = self._parse_days(message)
         meals_per_day = self._parse_meals_per_day(message)
 
@@ -514,6 +517,10 @@ class ChefAgent:
             f"Please confirm to apply."
         )
 
+        voice_hint = None
+        if request.voice_input:
+            voice_hint = voice_hint_for(reply)
+
         return ChatResponse(
             reply_text=reply,
             confirmation_required=True,
@@ -521,6 +528,7 @@ class ChefAgent:
             proposed_actions=[action],
             suggested_next_questions=[],
             mode=request.mode or "fill",
+            voice_hint=voice_hint,
         )
 
     def confirm(

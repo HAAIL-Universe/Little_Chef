@@ -9,7 +9,7 @@ from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
 from pathlib import Path
 
 from app.config.env import load_env
-from app.api.routers import health, auth, prefs, chat, inventory, recipes, shopping, mealplan
+from app.api.routers import health, auth, prefs, chat, inventory, recipes, shopping, mealplan, alexa, household
 from app.errors import (
     UnauthorizedError,
     unauthorized_handler,
@@ -68,6 +68,8 @@ def create_app() -> FastAPI:
     app.include_router(recipes.router)
     app.include_router(shopping.router)
     app.include_router(mealplan.router)
+    app.include_router(alexa.router)
+    app.include_router(household.router)
 
     app.add_exception_handler(UnauthorizedError, unauthorized_handler)
     app.add_exception_handler(BadRequestError, bad_request_handler)

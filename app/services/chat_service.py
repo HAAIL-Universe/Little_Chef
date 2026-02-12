@@ -22,6 +22,7 @@ from app.services.llm_client import (
 from app.services.inventory_agent import InventoryAgent
 from app.services.chef_agent import ChefAgent
 from app.services.prefs_parse_service import extract_prefs_llm
+from app.services.stt_normalize import normalize_stt, voice_hint_for
 
 NUMBER_WORDS: dict[str, int] = {
     "zero": 0,
@@ -183,7 +184,11 @@ class ChatService:
 
     def handle_chat(self, user: UserMe, request: ChatRequest) -> ChatResponse:
         mode = request.mode
-        message = request.message.lower()
+        # Normalize STT artifacts before lowering for regex matching
+        raw_message = request.message
+        if request.voice_input:
+            raw_message = normalize_stt(raw_message)
+        message = raw_message.lower()
         user_id = user.user_id
         key = user_id
         effective_mode = self._effective_mode(user_id, request.thread_id, mode)
@@ -254,6 +259,8 @@ class ChatService:
         if effective_mode == "ask":
             ask_reply = self._handle_ask(user_id, message, effective_mode, thread_id=request.thread_id)
             if ask_reply:
+                if request.voice_input and ask_reply.voice_hint is None:
+                    ask_reply.voice_hint = voice_hint_for(ask_reply.reply_text)
                 self._append_messages(request.thread_id, user_id, request.message, ask_reply.reply_text)
                 return ask_reply
             reply_text = "I can help set preferences or inventory. Try FILL mode with details."

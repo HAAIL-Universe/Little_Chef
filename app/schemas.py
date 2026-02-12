@@ -305,6 +305,7 @@ class ChatRequest(BaseModel):
     include_user_library: bool = True
     location: Optional[Literal["pantry", "fridge", "freezer"]] = None
     thread_id: Optional[str] = None
+    voice_input: bool = Field(default=False, description="True when message originated from speech-to-text dictation")
 
 
 class ChatResponse(BaseModel):
@@ -314,6 +315,7 @@ class ChatResponse(BaseModel):
     proposed_actions: List[Union[ProposedUpsertPrefsAction, ProposedInventoryEventAction, ProposedGenerateMealPlanAction]] = Field(default_factory=list)
     suggested_next_questions: List[str] = Field(default_factory=list)
     mode: Literal["ask", "fill"] = "ask"
+    voice_hint: Optional[str] = Field(default=None, description="Short TTS-friendly summary when voice_input was True")
 
 
 class ConfirmProposalRequest(BaseModel):

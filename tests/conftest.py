@@ -17,6 +17,8 @@ import app.api.routers.chat as chat_router
 from app.services.chat_service import ChatService
 from app.services.inventory_service import get_inventory_service
 import app.api.routers.recipes as recipes_router
+import app.api.routers.alexa as alexa_router
+import app.api.routers.household as household_router
 from app.services.recipe_service import get_recipe_service, reset_recipe_service_cache
 from app.services.shopping_service import reset_shopping_service_cache
 from app.services.mealplan_service import reset_mealplan_service_cache
@@ -47,6 +49,8 @@ def app_instance(tmp_path, monkeypatch):
     reset_mealplan_service_cache()
     chat_router.reset_chat_state_for_tests()
     recipes_router.reset_recipes_for_tests()
+    alexa_router.reset_alexa_for_tests()
+    household_router.reset_household_for_tests()
     return create_app()
 
 
