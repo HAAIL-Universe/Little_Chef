@@ -1,33 +1,34 @@
 ﻿# Diff Log (overwrite each cycle)
 
 ## Cycle Metadata
-- Phase: 10.8 — Time constraints as soft constraint
+- Phase: 10.9 — Maintain propose → confirm → apply semantics
 - Branch: claude/romantic-jones
-- HEAD (pre): 2659364 (Phase 10.7 commit)
+- HEAD (pre): 62b5825 (Phase 10.8 commit)
 - Status: COMPLETE
 - Commit: (pending)
 
 ## Previous Cycle
-- Phase: 10.7 — Wire shopping diff into Chef outputs
-- Phase 10.5 — Feasibility check (CHECK): "Can I cook X?"
-- Commit: eeb2957
-- Status: COMPLETE
-Phase 10.3 (Ingredient Extraction MVP Parser) — COMPLETE at 1cbe2ca. Enhanced `extract_ingredients_from_markdown()` with name normalization, optional detection, safe fraction parsing. 201 tests passed.
+- Phase 10.8 — Time constraints as soft constraint — COMPLETE at 62b5825
+- Phase 10.7 — Wire shopping diff into Chef outputs — COMPLETE at 2659364
+- Phase 10.6 — Inventory-aware scoring — COMPLETE at 269ee5e
 
 ## Summary
-Phase 10.4 adds a MATCH decision mode to the Chef Agent. When a user asks "what can I make?" (or variants), the system ranks all available recipes by inventory completion percentage and returns the top 5 suggestions with missing ingredients listed per recipe. The response is informational only — no proposal, no confirmation required.
+Phase 10.9 is a verification phase ensuring that the propose → confirm → apply
+semantics remain intact after all Phase 10 changes (10.1–10.8). No production code
+changed. New explicit tests validate: plan proposal returns confirmation_required,
+confirm returns plan_id deterministically, decline returns applied=False, cross-thread
+confirm is rejected (400), and double-confirm is rejected (400).
 
 ## Changes
 
-### 1. app/services/chef_agent.py
-- Added `_MATCH_RE` compiled regex detecting 9 MATCH query patterns: what can I make/cook, what should/could I eat/make/cook, suggest meals/recipes/something, recipe/meal ideas, what to cook, what's possible
-- Added `_MAX_MATCH_SUGGESTIONS = 5` constant
-- Added `handle_match(user, request) -> ChatResponse` method (~95 lines):
-  - Builds unified recipe catalog (pack books + 3 built-in recipes)
-  - Filters out allergy/dislike-matching recipes via existing `_excluded_recipe_ids()`
-  - Queries inventory for current stock names
-  - Scores each recipe via `_score_recipe()` → (completion_pct, missing_items)
-  - Sorts by completion % descending, then title ascending (deterministic)
+### 1. tests/test_propose_confirm_apply.py (NEW — 4 tests)
+- `test_propose_confirm_returns_plan_id`: Full propose/confirm cycle — generates plan via `/chat/mealplan`, asserts `confirmation_required=True`, confirms → `applied=True`, `plan_id` in `applied_event_ids`
+- `test_decline_does_not_apply`: Decline → `applied=False`, empty `applied_event_ids`
+- `test_thread_isolation_cross_confirm_rejected`: Confirm on wrong thread_id → 400
+- `test_double_confirm_rejected`: Second confirm on same proposal_id → 400
+
+### 2. No production code changes
+Phase 10.9 is verification-only. All existing propose/confirm/apply logic was already correct.
   - Takes top 5, formats reply with numbered list, bold titles, percentage, missing items
   - Appends cook time note if `cook_time_weekday_mins`/`cook_time_weekend_mins` prefs exist
   - Returns `ChatResponse(confirmation_required=False, proposal_id=None)`
