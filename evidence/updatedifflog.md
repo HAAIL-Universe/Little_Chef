@@ -1,33 +1,78 @@
 ﻿# Diff Log (overwrite each cycle)
 
 ## Cycle Metadata
-- Phase: 10.3 — Ingredient Extraction MVP Parser
+- Phase: 10.4 — Decision Mode (MATCH): "What can I make right now?"
 - Branch: claude/romantic-jones
-- HEAD (pre): a06f24f (Phase 10.2 commit)
+- HEAD (pre): 1cbe2ca (Phase 10.3 commit)
 - Status: COMPLETE
-- Commit: 90497cf
+- Commit: 9a14fd6
 
 ## Previous Cycle
-Phase 10.2 (Instructions / Step-by-step Display) — COMPLETE at 45c2773. Populated PlannedMeal.instructions for every meal. 196 tests passed.
+Phase 10.3 (Ingredient Extraction MVP Parser) — COMPLETE at 1cbe2ca. Enhanced `extract_ingredients_from_markdown()` with name normalization, optional detection, safe fraction parsing. 201 tests passed.
 
 ## Summary
-Phase 10.3 improves `extract_ingredients_from_markdown()` to produce reliable, normalized IngredientLine entries from pack recipe markdown. Three enhancements:
-1. **Name normalization**: all item_name values lowercased, trailing punctuation stripped, whitespace collapsed — aligns with downstream `ShoppingService._normalize()` and `_annotate_inventory_notes()`.
-2. **Optional detection**: lines containing "optional" (case-insensitive) set `optional=True`; "(optional)" parenthetical stripped from name.
-3. **Safe fraction parsing**: replaced `eval()` with `_safe_parse_qty()` for deterministic, safe handling of "1/2", "3/4" etc.
+Phase 10.4 adds a MATCH decision mode to the Chef Agent. When a user asks "what can I make?" (or variants), the system ranks all available recipes by inventory completion percentage and returns the top 5 suggestions with missing ingredients listed per recipe. The response is informational only — no proposal, no confirmation required.
 
-No changes to mealplan_service.py, chef_agent.py, or schemas.py. Built-in recipe handling untouched (Hardness #4).
+## Changes
 
-## Parsing Strategy
-- Regex `_QTY_UNIT_RE` matches `[qty] [unit] [name]` pattern (unchanged)
-- `_safe_parse_qty()`: splits on "/" for fractions, catches ValueError/ZeroDivisionError
-- `_normalize_name()`: strips "(optional)", lowercases, trims punctuation, collapses whitespace
-- `_OPTIONAL_RE`: compiled regex `\s*\(optional\)\s*` (case-insensitive)
-- Fallback: unrecognized lines → `item_name=normalized_name, quantity=1, unit="count"` (schema requires non-None)
-- No `## Ingredients` section → empty list (Hardness #1)
+### 1. app/services/chef_agent.py
+- Added `_MATCH_RE` compiled regex detecting 9 MATCH query patterns: what can I make/cook, what should/could I eat/make/cook, suggest meals/recipes/something, recipe/meal ideas, what to cook, what's possible
+- Added `_MAX_MATCH_SUGGESTIONS = 5` constant
+- Added `handle_match(user, request) -> ChatResponse` method (~95 lines):
+  - Builds unified recipe catalog (pack books + 3 built-in recipes)
+  - Filters out allergy/dislike-matching recipes via existing `_excluded_recipe_ids()`
+  - Queries inventory for current stock names
+  - Scores each recipe via `_score_recipe()` → (completion_pct, missing_items)
+  - Sorts by completion % descending, then title ascending (deterministic)
+  - Takes top 5, formats reply with numbered list, bold titles, percentage, missing items
+  - Appends cook time note if `cook_time_weekday_mins`/`cook_time_weekend_mins` prefs exist
+  - Returns `ChatResponse(confirmation_required=False, proposal_id=None)`
+- Added `_score_recipe(ingredients, stock_names) -> (float, list[str])` static method:
+  - Name-only matching (lowercased `item_name` vs stock set)
+  - Returns `(have_count / total_count, missing_names)`
+  - Empty ingredients → `(0.0, [])`
+
+### 2. app/services/chat_service.py
+- Added 6 lines in `_handle_ask()` method, placed BEFORE `_MEALPLAN_NUDGE_RE` check:
+  - Imports `_MATCH_RE` from chef_agent
+  - If `_MATCH_RE.search(message)`: constructs `UserMe` + `ChatRequest`, delegates to `self.chef_agent.handle_match()`
+- This ensures MATCH queries like "what can I make" are detected before the broader mealplan nudge regex catches them
+
+### 3. tests/test_match_decision_mode.py (NEW)
+- 25 tests total:
+  - 9 parametrized MATCH regex positive detection tests
+  - 4 parametrized MATCH regex negative (non-match) tests
+  - 4 scoring unit tests (full match, partial, no match, empty ingredients)
+  - 8 integration tests via POST /chat:
+    - suggestions returned with "ingredients in stock"
+    - inventory-aware ranking (100% match ranks first)
+    - missing ingredients displayed
+    - pack recipe inclusion (with fixture alignment workaround)
+    - allergy exclusion
+    - cook time note
+    - no proposal created
+    - suggested next questions
+
+## Routing
+MATCH detection is in `_handle_ask()` dispatch chain:
+prefs → low stock → inventory → **MATCH** → mealplan nudge → None
+
+MATCH is placed before mealplan nudge because `_MEALPLAN_NUDGE_RE` catches "what should I cook/make/eat" which overlaps with MATCH queries. MATCH should win for these — it provides ranked suggestions with scoring vs a redirect to /chat/mealplan.
 
 ## Hardness Rule Compliance
-1. **Parser limited to pack-style structured markdown** — only parses `## Ingredients` section; no freeform user upload parsing.
+1. No changes to DB schema or migrations
+2. Built-in recipe ingredients unchanged (hardcoded in `_INGREDIENTS_BY_RECIPE`)
+3. Pack recipes used via existing `_build_pack_catalog()` and `extract_ingredients_from_markdown()`
+4. No changes to proposal/confirm flow — MATCH is informational only
+
+## Test Results
+- 226 passed, 0 failed, 1 warning
+- Pre-10.4: 201 tests → +25 new tests
+
+## Files Changed
+- `app/services/chef_agent.py` — added MATCH regex, handle_match(), _score_recipe()
+- `app/services/chat_service.py` — added MATCH routing in _handle_ask()
+- `tests/test_match_decision_mode.py` — new test file (25 tests)
 2. **Deterministic and safe parsing** — no LLM, no randomness. Regex/line-based. `eval()` removed.
 3. **Name extraction priority** — every parseable line produces an item_name. Names normalized for downstream matching.
 4. **No regressions for built-ins** — `_INGREDIENTS_BY_RECIPE` dict untouched. Built-in names already lowercase.

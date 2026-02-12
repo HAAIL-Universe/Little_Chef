@@ -17,6 +17,13 @@ from app.services.recipe_service import BUILT_IN_RECIPES
 
 _DAYS_RE = re.compile(r"(\d+)\s*days?", re.IGNORECASE)
 _MEALS_RE = re.compile(r"(\d+)\s*meals?\s*(?:per\s*day|a\s*day)?", re.IGNORECASE)
+_MATCH_RE = re.compile(
+    r"\b(?:what\s+can\s+i\s+(?:make|cook)|what\s+(?:should|could)\s+i\s+(?:make|cook|eat)"
+    r"|what(?:'s|\s+is)\s+possible|suggest\s+(?:meals?|recipes?|something)"
+    r"|recipe\s+ideas?|meal\s+ideas?|what\s+to\s+cook)\b",
+    re.IGNORECASE,
+)
+_MAX_MATCH_SUGGESTIONS = 5
 
 
 class ChefAgent:
@@ -37,6 +44,123 @@ class ChefAgent:
         self.recipe_service = recipe_service
         self._pending: Dict[Tuple[str, str], str] = {}  # (user_id, thread_id) -> proposal_id
         self._proposal_threads: Dict[str, Tuple[str, str]] = {}  # proposal_id -> (user_id, thread_id)
+
+    def handle_match(self, user: UserMe, request: ChatRequest) -> ChatResponse:
+        """Decision mode: rank recipes by inventory completion and return suggestions.
+
+        Informational only — no proposal, no confirm.
+        """
+        # Build full recipe catalog (pack + built-in)
+        pack_recipes = self._build_pack_catalog(user.user_id)
+
+        # Get prefs for filtering
+        prefs = None
+        if self.prefs_service:
+            try:
+                prefs = self.prefs_service.get_prefs(user.user_id)
+            except Exception:
+                pass
+
+        excluded_ids = set(self._excluded_recipe_ids(prefs, pack_recipes))
+
+        # Build unified catalog with ingredients
+        catalog: list[dict] = []
+        for r in pack_recipes:
+            if r["id"] not in excluded_ids:
+                catalog.append(r)
+        for r in BUILT_IN_RECIPES:
+            if r["id"] not in excluded_ids:
+                catalog.append({
+                    "id": r["id"],
+                    "title": r["title"],
+                    "ingredients": _INGREDIENTS_BY_RECIPE.get(r["id"], []),
+                    "source_type": "built_in",
+                })
+
+        if not catalog:
+            return ChatResponse(
+                reply_text="No recipes available — all conflict with your allergies/dislikes.",
+                confirmation_required=False,
+                proposal_id=None,
+                proposed_actions=[],
+                suggested_next_questions=[],
+                mode="ask",
+            )
+
+        # Get inventory stock names
+        stock_names: set[str] = set()
+        if self.inventory_service:
+            try:
+                inv = self.inventory_service.summary(user.user_id)
+                stock_names = {item.item_name.lower() for item in inv.items}
+            except Exception:
+                pass
+
+        # Score and rank
+        scored: list[tuple[dict, float, list[str]]] = []
+        for recipe in catalog:
+            ingredients = recipe.get("ingredients", [])
+            pct, missing = self._score_recipe(ingredients, stock_names)
+            scored.append((recipe, pct, missing))
+
+        # Sort by completion % descending, then title ascending for determinism
+        scored.sort(key=lambda x: (-x[1], x[0]["title"].lower()))
+
+        # Take top N
+        top = scored[:_MAX_MATCH_SUGGESTIONS]
+
+        # Cook time note
+        time_note = ""
+        if prefs:
+            wk = getattr(prefs, "cook_time_weekday_mins", None)
+            we = getattr(prefs, "cook_time_weekend_mins", None)
+            if wk or we:
+                parts = []
+                if wk:
+                    parts.append(f"weekday ≤{wk}min")
+                if we:
+                    parts.append(f"weekend ≤{we}min")
+                time_note = f"\n\nCook time prefs: {', '.join(parts)} (no duration data on recipes yet)."
+
+        # Format reply
+        lines: list[str] = ["Here's what you can make based on your inventory:\n"]
+        for i, (recipe, pct, missing) in enumerate(top, 1):
+            pct_str = f"{pct:.0%}"
+            line = f"{i}. **{recipe['title']}** — {pct_str} ingredients in stock"
+            if missing:
+                line += f"\n   Missing: {', '.join(missing)}"
+            lines.append(line)
+
+        reply = "\n".join(lines)
+        if time_note:
+            reply += time_note
+
+        return ChatResponse(
+            reply_text=reply,
+            confirmation_required=False,
+            proposal_id=None,
+            proposed_actions=[],
+            suggested_next_questions=["Generate a meal plan", "Can I cook [recipe name]?"],
+            mode="ask",
+        )
+
+    @staticmethod
+    def _score_recipe(
+        ingredients: list, stock_names: set[str]
+    ) -> tuple[float, list[str]]:
+        """Compute completion % and missing items for a recipe (name-only matching)."""
+        if not ingredients:
+            return 0.0, []
+        total = len(ingredients)
+        missing: list[str] = []
+        have = 0
+        for ing in ingredients:
+            name = ing.item_name.lower() if hasattr(ing, "item_name") else str(ing).lower()
+            if name in stock_names:
+                have += 1
+            else:
+                missing.append(name)
+        return have / total, missing
 
     def handle_fill(self, user: UserMe, request: ChatRequest) -> ChatResponse:
         thread_id = request.thread_id

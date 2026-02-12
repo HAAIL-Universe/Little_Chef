@@ -1062,6 +1062,12 @@ class ChatService:
                 suggested_next_questions=[],
                 mode=effective_mode,
             )
+        # MATCH decision mode: "what can I make?"
+        from app.services.chef_agent import _MATCH_RE
+        if _MATCH_RE.search(message):
+            user_obj = UserMe(user_id=user_id)
+            request_obj = ChatRequest(mode="ask", message=message)
+            return self.chef_agent.handle_match(user_obj, request_obj)
         if _MEALPLAN_NUDGE_RE.search(message):
             return ChatResponse(
                 reply_text="To generate a meal plan, use the Meal Plan flow (send a message to /chat/mealplan with mode=fill and a thread_id).",
