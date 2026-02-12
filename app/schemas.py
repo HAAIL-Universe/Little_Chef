@@ -107,11 +107,32 @@ class LowStockItem(BaseModel):
     unit: Unit
     threshold: float
     reason: str = ""
+    is_staple: bool = False
 
 
 class LowStockResponse(BaseModel):
     items: List[LowStockItem]
     generated_at: str
+
+
+class StapleItem(BaseModel):
+    item_name: str
+    unit: Unit = "count"
+
+
+class StapleToggleRequest(BaseModel):
+    item_name: str = Field(..., min_length=1)
+    unit: Unit = "count"
+
+
+class StapleToggleResponse(BaseModel):
+    item_name: str
+    unit: Unit
+    is_staple: bool
+
+
+class StaplesListResponse(BaseModel):
+    staples: List[StapleItem]
 
 
 class ProposedInventoryEventAction(BaseModel):
@@ -265,7 +286,7 @@ class ShoppingListItem(BaseModel):
     item_name: str
     quantity: float
     unit: Unit
-    reason: str = Field(default="missing for meal plan", min_length=1)
+    reason: str = Field(default="needed for plan", min_length=1)
     citations: conlist(RecipeSource, min_length=1)
 
 
@@ -275,6 +296,7 @@ class ShoppingDiffRequest(BaseModel):
 
 class ShoppingDiffResponse(BaseModel):
     missing_items: List[ShoppingListItem]
+    staple_items: List[ShoppingListItem] = Field(default_factory=list)
 
 
 class ChatRequest(BaseModel):

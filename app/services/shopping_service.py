@@ -6,6 +6,7 @@ from app.schemas import (
     ShoppingDiffResponse,
     ShoppingListItem,
     RecipeSource,
+    StapleItem,
 )
 from app.services.inventory_service import InventoryService, get_inventory_service
 
@@ -54,12 +55,54 @@ class ShoppingService:
                         item_name=name,
                         quantity=delta,
                         unit=unit,
-                        reason="missing for meal plan",
+                        reason="needed for plan",
                         citations=citations,
                     )
                 )
 
-        return ShoppingDiffResponse(missing_items=missing_items)
+        # Staple items that are low/out of stock
+        staple_items = self._staple_shortfall(user_id, available, required)
+
+        return ShoppingDiffResponse(missing_items=missing_items, staple_items=staple_items)
+
+    def _staple_shortfall(
+        self,
+        user_id: str,
+        available: Dict[Tuple[str, str], float],
+        already_listed: Dict[Tuple[str, str], float],
+    ) -> list[ShoppingListItem]:
+        """Return shopping items for staples that are low/out of stock."""
+        from app.services.inventory_service import THRESHOLDS
+
+        staples = self.inventory_service.list_staples(user_id)
+        items: list[ShoppingListItem] = []
+        for s in staples:
+            key = (self._normalize(s.item_name), s.unit)
+            # Skip if already covered by plan-based missing items
+            if key in already_listed:
+                continue
+            have = available.get(key, 0.0)
+            threshold = THRESHOLDS.get(s.unit, 0)
+            if have <= threshold:
+                # Suggest restocking to a reasonable amount above threshold
+                restock_qty = max(threshold - have, 1) if threshold > 0 else 1
+                citation = RecipeSource(
+                    source_type="built_in",
+                    built_in_recipe_id=None,
+                    file_id=None,
+                    book_id=None,
+                    excerpt=None,
+                )
+                items.append(
+                    ShoppingListItem(
+                        item_name=s.item_name,
+                        quantity=restock_qty,
+                        unit=s.unit,
+                        reason="auto-added: staple low/out of stock",
+                        citations=[citation],
+                    )
+                )
+        return items
 
     def _normalize(self, name: str) -> str:
         return name.strip().lower()

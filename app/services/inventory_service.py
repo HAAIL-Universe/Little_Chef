@@ -1,5 +1,5 @@
 from functools import lru_cache
-from typing import List, Dict
+from typing import List, Dict, Set, Tuple
 from datetime import datetime, timezone
 
 from app.repos.inventory_repo import InventoryRepository, DbInventoryRepository, get_inventory_repository
@@ -10,6 +10,7 @@ from app.schemas import (
     InventorySummaryItem,
     LowStockResponse,
     LowStockItem,
+    StapleItem,
 )
 
 
@@ -23,6 +24,8 @@ THRESHOLDS = {
 class InventoryService:
     def __init__(self, repo) -> None:
         self.repo = repo
+        # staples: user_id -> set of (normalized_item_name, unit)
+        self._staples: Dict[str, Set[Tuple[str, str]]] = {}
 
     def create_event(self, user_id: str, provider_subject: str, email: str | None, req: InventoryEventCreateRequest) -> InventoryEvent:
         try:
@@ -70,19 +73,73 @@ class InventoryService:
     def low_stock(self, user_id: str) -> LowStockResponse:
         summary = self.summary(user_id)
         lows: List[LowStockItem] = []
+        # Track all items that appear in summary (regardless of stock level)
+        summary_keys: set[tuple[str, str]] = set()
+        user_staples = self._staples.get(user_id, set())
+
         for item in summary.items:
             threshold = THRESHOLDS.get(item.unit, 0)
+            key = (self._normalize(item.item_name), item.unit)
+            summary_keys.add(key)
+            is_staple = key in user_staples
             if item.quantity <= threshold:
+                reason = "staple: low/out of stock" if is_staple else "below threshold"
                 lows.append(
                     LowStockItem(
                         item_name=item.item_name,
                         quantity=item.quantity,
                         unit=item.unit,
                         threshold=threshold,
-                        reason="",
+                        reason=reason,
+                        is_staple=is_staple,
                     )
                 )
+
+        # Staples with zero inventory (never added) should also appear
+        for (name, unit) in user_staples:
+            if (name, unit) not in summary_keys:
+                threshold = THRESHOLDS.get(unit, 0)
+                lows.append(
+                    LowStockItem(
+                        item_name=name,
+                        quantity=0,
+                        unit=unit,
+                        threshold=threshold,
+                        reason="staple: out of stock",
+                        is_staple=True,
+                    )
+                )
+
         return LowStockResponse(items=lows, generated_at=summary.generated_at)
+
+    # ── Staples management ──────────────────────────────────────────────
+
+    def set_staple(self, user_id: str, item_name: str, unit: str = "count") -> bool:
+        """Mark an item as a staple. Returns True if newly added."""
+        key = (self._normalize(item_name), unit)
+        user_set = self._staples.setdefault(user_id, set())
+        if key in user_set:
+            return False
+        user_set.add(key)
+        return True
+
+    def remove_staple(self, user_id: str, item_name: str, unit: str = "count") -> bool:
+        """Remove staple status. Returns True if it was a staple."""
+        key = (self._normalize(item_name), unit)
+        user_set = self._staples.get(user_id, set())
+        if key not in user_set:
+            return False
+        user_set.discard(key)
+        return True
+
+    def list_staples(self, user_id: str) -> List[StapleItem]:
+        """Return all staple items for a user."""
+        user_set = self._staples.get(user_id, set())
+        return [StapleItem(item_name=name, unit=unit) for name, unit in sorted(user_set)]
+
+    def is_staple(self, user_id: str, item_name: str, unit: str = "count") -> bool:
+        key = (self._normalize(item_name), unit)
+        return key in self._staples.get(user_id, set())
 
     def clear(self) -> None:
         self.repo.clear()

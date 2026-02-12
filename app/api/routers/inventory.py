@@ -8,6 +8,9 @@ from app.schemas import (
     InventoryEventListResponse,
     InventorySummaryResponse,
     LowStockResponse,
+    StapleToggleRequest,
+    StapleToggleResponse,
+    StaplesListResponse,
     UserMe,
 )
 from app.services.inventory_service import get_inventory_service
@@ -67,3 +70,49 @@ def get_inventory_summary(current_user: UserMe = Depends(get_current_user)) -> I
 def get_inventory_low_stock(current_user: UserMe = Depends(get_current_user)) -> LowStockResponse:
     service = get_inventory_service()
     return service.low_stock(current_user.user_id)
+
+
+@router.get(
+    "/inventory/staples",
+    response_model=StaplesListResponse,
+    responses={"401": {"model": ErrorResponse}},
+)
+def list_staples(current_user: UserMe = Depends(get_current_user)) -> StaplesListResponse:
+    service = get_inventory_service()
+    return StaplesListResponse(staples=service.list_staples(current_user.user_id))
+
+
+@router.post(
+    "/inventory/staples",
+    response_model=StapleToggleResponse,
+    responses={"401": {"model": ErrorResponse}},
+)
+def set_staple(
+    request: StapleToggleRequest,
+    current_user: UserMe = Depends(get_current_user),
+) -> StapleToggleResponse:
+    service = get_inventory_service()
+    service.set_staple(current_user.user_id, request.item_name, request.unit)
+    return StapleToggleResponse(
+        item_name=request.item_name,
+        unit=request.unit,
+        is_staple=True,
+    )
+
+
+@router.delete(
+    "/inventory/staples",
+    response_model=StapleToggleResponse,
+    responses={"401": {"model": ErrorResponse}},
+)
+def remove_staple(
+    request: StapleToggleRequest,
+    current_user: UserMe = Depends(get_current_user),
+) -> StapleToggleResponse:
+    service = get_inventory_service()
+    service.remove_staple(current_user.user_id, request.item_name, request.unit)
+    return StapleToggleResponse(
+        item_name=request.item_name,
+        unit=request.unit,
+        is_staple=False,
+    )
