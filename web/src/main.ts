@@ -2556,6 +2556,17 @@ function toggleComposeDictation() {
 }
 
 function startComposeDictation() {
+  // Guard: abort any lingering instance before creating a new one.
+  // Chrome allows only one active SpeechRecognition session; if the
+  // previous session's stop() hasn't fully completed (common in the
+  // rapid back-and-forth prefs wizard flow), start() on a new
+  // instance fails with a "network" error.
+  if (speechRecognition) {
+    try { speechRecognition.abort(); } catch (_) { /* ignore */ }
+    speechRecognition = null;
+  }
+  dictationActive = false;
+
   const SRCtor = getSpeechRecognitionCtor();
   if (!SRCtor) {
     setDuetStatus("Voice dictation is not supported on this browser.", false);
@@ -2621,7 +2632,7 @@ function stopComposeDictation() {
   if (!dictationActive && !speechRecognition) return;
   dictationActive = false;
   if (speechRecognition) {
-    try { speechRecognition.stop(); } catch (_) { /* ignore */ }
+    try { speechRecognition.abort(); } catch (_) { /* ignore */ }
     speechRecognition = null;
   }
   updateMicButtonState();

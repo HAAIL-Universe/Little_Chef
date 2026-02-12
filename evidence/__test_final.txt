@@ -1,0 +1,19 @@
+......................F................................................. [ 17%]
+........................................................................ [ 35%]
+........................................................................ [ 53%]
+........................................................................ [ 71%]
+........................................................................ [ 89%]
+............................................                             [100%]
+================================== FAILURES ===================================
+E   assert 200 == 503
+     +  where 200 = <Response [200 OK]>.status_code
+Z:\LittleChef\.claude\worktrees\romantic-jones\tests\test_auth_schema_missing.py:32: assert 200 == 503
+============================== warnings summary ===============================
+.venv\Lib\site-packages\starlette\formparsers.py:12
+  Z:\LittleChef\.claude\worktrees\romantic-jones\.venv\Lib\site-packages\starlette\formparsers.py:12: PendingDeprecationWarning: Please use `import python_multipart` instead.
+    import multipart
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED tests/test_auth_schema_missing.py::test_auth_me_schema_missing_returns_503
+1 failed, 403 passed, 1 warning in 246.34s (0:04:06)

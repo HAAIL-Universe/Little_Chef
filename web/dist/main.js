@@ -2442,6 +2442,15 @@ function toggleComposeDictation() {
     }
 }
 function startComposeDictation() {
+    // Guard: abort any lingering instance (Chrome allows only one active session)
+    if (speechRecognition) {
+        try {
+            speechRecognition.abort();
+        }
+        catch (_) { /* ignore */ }
+        speechRecognition = null;
+    }
+    dictationActive = false;
     const SRCtor = getSpeechRecognitionCtor();
     if (!SRCtor) {
         setDuetStatus("Voice dictation is not supported on this browser.", false);
@@ -2506,7 +2515,7 @@ function stopComposeDictation() {
     dictationActive = false;
     if (speechRecognition) {
         try {
-            speechRecognition.stop();
+            speechRecognition.abort();
         }
         catch (_) { /* ignore */ }
         speechRecognition = null;
