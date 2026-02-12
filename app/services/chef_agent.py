@@ -119,17 +119,7 @@ class ChefAgent:
         top = scored[:_MAX_MATCH_SUGGESTIONS]
 
         # Cook time note
-        time_note = ""
-        if prefs:
-            wk = getattr(prefs, "cook_time_weekday_mins", None)
-            we = getattr(prefs, "cook_time_weekend_mins", None)
-            if wk or we:
-                parts = []
-                if wk:
-                    parts.append(f"weekday ≤{wk}min")
-                if we:
-                    parts.append(f"weekend ≤{we}min")
-                time_note = f"\n\nCook time prefs: {', '.join(parts)} (no duration data on recipes yet)."
+        time_note = self._format_time_note(prefs)
 
         # Format reply
         lines: list[str] = ["Here's what you can make based on your inventory:\n"]
@@ -266,14 +256,36 @@ class ChefAgent:
                     alt_line += f" (missing: {', '.join(a_missing)})"
                 lines.append(alt_line)
 
+        # Time constraint note (informational)
+        time_note = self._format_time_note(prefs)
+        reply = "\n".join(lines)
+        if time_note:
+            reply += time_note
+
         return ChatResponse(
-            reply_text="\n".join(lines),
+            reply_text=reply,
             confirmation_required=False,
             proposal_id=None,
             proposed_actions=[],
             suggested_next_questions=["What can I make?", "Generate a meal plan"],
             mode="ask",
         )
+
+    @staticmethod
+    def _format_time_note(prefs) -> str:
+        """Return an informational cook-time note when time prefs are set."""
+        if not prefs:
+            return ""
+        wk = getattr(prefs, "cook_time_weekday_mins", None)
+        we = getattr(prefs, "cook_time_weekend_mins", None)
+        if not wk and not we:
+            return ""
+        parts: list[str] = []
+        if wk:
+            parts.append(f"weekday ≤{wk}min")
+        if we:
+            parts.append(f"weekend ≤{we}min")
+        return f"\n\nCook time prefs: {', '.join(parts)} (no duration data on recipes yet)."
 
     @staticmethod
     def _score_recipe(
@@ -367,6 +379,13 @@ class ChefAgent:
 
         # Inventory notes (informational)
         plan = self._annotate_inventory_notes(plan, user.user_id)
+
+        # Append cook-time note when prefs exist
+        time_note = self._format_time_note(prefs)
+        if time_note and plan.notes:
+            plan.notes += time_note
+        elif time_note:
+            plan.notes = time_note.lstrip()
 
         action = ProposedGenerateMealPlanAction(mealplan=plan)
         proposal_id = str(uuid.uuid4())
