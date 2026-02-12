@@ -19,8 +19,20 @@ from app.services.prefs_service import PrefsService
 from app.services.recipe_service import BUILT_IN_RECIPES
 from app.services.stt_normalize import normalize_stt, voice_hint_for
 
-_DAYS_RE = re.compile(r"(\d+)\s*days?", re.IGNORECASE)
+_DAYS_RE = re.compile(r"(\d+)\s*[-\s]?days?", re.IGNORECASE)
 _MEALS_RE = re.compile(r"(\d+)\s*meals?\s*(?:per\s*day|a\s*day)?", re.IGNORECASE)
+
+# Word-form number support for days/meals parsing
+_NUMBER_WORDS: dict[str, int] = {
+    "one": 1, "two": 2, "three": 3, "four": 4, "five": 5,
+    "six": 6, "seven": 7, "eight": 8, "nine": 9, "ten": 10,
+}
+_WORD_DAYS_RE = re.compile(
+    r"\b(" + "|".join(_NUMBER_WORDS.keys()) + r")[-\s]?days?\b", re.IGNORECASE
+)
+_WORD_MEALS_RE = re.compile(
+    r"\b(" + "|".join(_NUMBER_WORDS.keys()) + r")\s*meals?\s*(?:per\s*day|a\s*day)?\b", re.IGNORECASE
+)
 _MATCH_RE = re.compile(
     r"\b(?:what\s+can\s+i\s+(?:make|cook)|what\s+(?:should|could)\s+i\s+(?:make|cook|eat)"
     r"|what(?:'s|\s+is)\s+possible|suggest\s+(?:meals?|recipes?|something)"
@@ -758,6 +770,11 @@ class ChefAgent:
             val = int(m.group(1))
             if 1 <= val <= 31:
                 return val
+        wm = _WORD_DAYS_RE.search(message)
+        if wm:
+            val = _NUMBER_WORDS.get(wm.group(1).lower())
+            if val and 1 <= val <= 31:
+                return val
         return None
 
     @staticmethod
@@ -766,5 +783,10 @@ class ChefAgent:
         if m:
             val = int(m.group(1))
             if 1 <= val <= 6:
+                return val
+        wm = _WORD_MEALS_RE.search(message)
+        if wm:
+            val = _NUMBER_WORDS.get(wm.group(1).lower())
+            if val and 1 <= val <= 6:
                 return val
         return None

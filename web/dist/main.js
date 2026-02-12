@@ -1530,8 +1530,10 @@ async function sendAsk(message, opts) {
     setComposerBusy(true);
     try {
         const threadId = ensureThread();
-        const endpoint = currentFlowKey === "inventory" ? "/chat/inventory" : "/chat";
-        const mode = currentFlowKey === "inventory" || currentFlowKey === "prefs" ? "fill" : currentModeLower();
+        const endpoint = currentFlowKey === "inventory" ? "/chat/inventory"
+            : currentFlowKey === "mealplan" ? "/chat/mealplan"
+                : "/chat";
+        const mode = currentFlowKey === "inventory" || currentFlowKey === "prefs" || currentFlowKey === "mealplan" ? "fill" : currentModeLower();
         const res = await fetch(endpoint, {
             method: "POST",
             headers: headers(),
