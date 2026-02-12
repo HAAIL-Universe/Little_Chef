@@ -1,274 +1,304 @@
-# Pantry Scan Parsing — Senior Review (2026-02-08)
+# CLAUDE_FIND — Pre-existing Failure Analysis
 
-## A) Diagnosis
+## Summary
 
-### Failure mode 1 — Leading chatter not stripped before first quantity match
-
-**JSON proof:** `"I ve got pasta"` (event #1)
-
-The segment for the first quantity (`2`) spans from the text start. `_extract_candidate_phrase` looks at text *before* the number match (`"I ve got pasta"`) and text after (`"gram packs"`). After-text looks like a unit phrase → rejected. Before-text is returned as the candidate. `_clean_segment_text` runs `FALLBACK_FILLERS` stripping on `"i ve got pasta"` — it matches `"i've got"` in the list **but not `"i ve got"`** (the apostrophe-less STT variant). `"i ve got"` *is* in `CHATTER_LEADING_PREFIXES` but `_strip_leading_chatter_tokens` runs **after** `_strip_item_stop_words`, and the candidate phrase goes through `_clean_segment_text` where filler matching happens on the lowered form before chatter-token stripping. The net result: `"I ve got pasta"` leaks through.
-
-### Failure mode 2 — Segment boundary failure across section transitions
-
-**JSON proof:** `"Coco Pops box quarter full Now fridge stuff milk"` (event #12)
-
-The quantity match for `2000` (from `"two litres"` after number-word replacement) lands in a clause that stretches back across the period-free transition `"… quarter full Now fridge stuff milk two litres …"`. No comma, semicolon, or sentence terminator separates "Coco Pops" from "milk". The `_previous_separator` call finds no boundary between them, so the entire run is treated as one segment. The candidate phrase greedily collects words from before the number, yielding `"Coco Pops box quarter full Now fridge stuff milk"`. `_clean_segment_text` strips some tokens but not enough to isolate `"milk"`.
-
-**Root cause:** `SPLIT_PATTERN` doesn't split on section-transition phrases like `"now fridge stuff"`, `"now freezer"`, `"and freezer"`. These are *implicit segment boundaries* in natural speech.
-
-### Failure mode 3 — `"unopened"` leaking into item names
-
-**JSON proof:** `"unopened Chips"` (event #27)
-
-`"unopened"` is in `BARE_FILLER_WORDS` and is checked in `_is_disallowed_item_name` — but only for an **exact** match (`lower in BARE_FILLER_WORDS`). It's not stripped *from within* a compound name. `_strip_item_stop_words` only removes `ITEM_STOP_WORDS`, and `BARE_FILLER_WORDS` is **not** a member of that union. So `"unopened Chips"` passes all guards: it's not filler-only, not container-only, not in the disallowed set (because it's `"unopened chips"`, not just `"unopened"`).
-
-### Failure mode 4 — Dates not captured in `note`
-
-**JSON proof:** All events with known best-before/use-by dates have `note: ""` (or only `weight_g` notes). The `DATE_STRIP_PATTERN` *removes* date text from the candidate to prevent name pollution, but the stripped date value is never captured and written into the event's `note` field. `_extract_use_by_values` only captures the ordinal+item pattern (`"10th on the milk"` format), which doesn't match the natural speech pattern `"best before 10 October"`.
-
-### Failure mode 5 — `FALLBACK_MISSING_QUANTITY` warning from fraction-left items
-
-Phrases like `"half left"`, `"third left"`, `"quarter full"` describe *remaining proportion*, not a parseable quantity. They contain no digit after number-word replacement (since "half"/"third"/"quarter" aren't in `NUMBER_WORDS`). These segments fall through to the no-quantity fallback path and trigger the warning. The fractions aren't being normalized to any useful value or note.
+- **TS2339 L1199** — (A) real product bug. Frontend `InventorySummaryItem` type is missing `location` field that the backend schema declares and returns. Deterministic.
+- **history-badge.spec.ts** — (B) test fragility. Test asserts "👍" in `#duet-user-bubble .bubble-text`, but "👍" is rendered in a separate `#duet-sent-indicator` button. Test also lacks `/chat` API mock, so sends fail with network error. Deterministic.
+- **inventory-overlay.spec.ts** — (B) test fragility. Test expects `button[data-onboard-item=mealplan]` in the onboard menu, but `?skipauth=1` never sets `state.token`, so `renderOnboardMenuButtons()` gates at the token check and only renders a Login button. Deterministic.
 
 ---
 
-## B) Concrete Minimal Fixes (ordered by impact/effort)
+## Failure 1: TS2339 — `Property 'location' does not exist on type 'InventorySummaryItem'`
 
-### Fix 1 — Add section-transition phrases as segment splitters (HIGH impact, LOW effort)
+### 1) Evidence Anchors
 
-**Problem:** "Now fridge stuff milk" glues to prior cereal clause.
-
-**Change:** Add section-transition phrases to `SPLIT_PATTERN` or add a pre-processing step that inserts a separator before them.
-
-In `inventory_agent.py` (line ~28), add a pre-split normalization in `_parse_inventory_actions` right after `_replace_number_words`:
-
-```python
-# Before segment splitting, insert separators at section transitions
-SECTION_TRANSITIONS = re.compile(
-    r"\b(now\s+(?:fridge|freezer|cupboard|pantry)\s+(?:stuff|items|things)?)"
-    r"|\b(and\s+(?:fridge|freezer|cupboard|pantry))",
-    re.IGNORECASE,
-)
-text = SECTION_TRANSITIONS.sub(r". \1\2", text)
+**Compiler error:**
+```
+src/main.ts:1199:26 - error TS2339: Property 'location' does not exist on type 'InventorySummaryItem'.
+1199         const loc = item.location || "pantry";
+                              ~~~~~~~~
 ```
 
-**Test to lock it:**
-```python
-def test_section_transition_splits_milk_from_cereal():
-    agent = InventoryAgent(...)
-    actions, _ = agent._parse_inventory_actions(
-        "Coco Pops one box quarter full Now fridge stuff milk two litres"
-    )
-    names = {a.event.item_name.lower() for a in actions}
-    assert "milk" in names
-    assert not any("fridge" in n or "now" in n for n in names)
-    assert not any("coco pops" in n and "milk" in n for n in names)
+**Frontend type definition** (`web/src/main.ts` L110):
+```ts
+type InventorySummaryItem = { item_name: string; quantity: number; unit: string; approx?: boolean };
 ```
+
+**Usage site** (`web/src/main.ts` L1196–1210):
+```ts
+      const groups: Record<string, InventorySummaryItem[]> = {};
+      summary.forEach(item => {
+        const loc = item.location || "pantry";     // ← TS2339 here
+        (groups[loc] ??= []).push(item);
+      });
+      for (const loc of ["pantry", "fridge", "freezer"]) {
+        if (!groups[loc]?.length) continue;
+        const hdr = document.createElement("li");
+        hdr.className = "inv-loc-header";
+        hdr.textContent = loc.charAt(0).toUpperCase() + loc.slice(1);
+        summaryList.appendChild(hdr);
+        groups[loc].forEach(item => {
+          const li = document.createElement("li");
+          li.textContent = `${item.item_name} - ${formatQuantity(item.quantity, item.unit, item.approx)}`;
+          summaryList.appendChild(li);
+        });
+      }
+```
+
+**Backend schema** (`app/schemas.py` L54, L91–97):
+```python
+Location = Literal["pantry", "fridge", "freezer"]   # L54
+
+class InventorySummaryItem(BaseModel):               # L91
+    item_name: str
+    quantity: float
+    unit: Unit
+    location: Location = "pantry"                    # ← field exists in backend
+    approx: bool = False
+```
+
+### 2) Root Cause
+
+The frontend runtime code correctly accesses `item.location` — this property IS returned by the API (default `"pantry"`). The **TypeScript type alias** at L110 was never updated when `location` was added to the backend schema. This is a type-definition-only gap; the runtime behavior is correct and working.
+
+**Classification: (A) real product bug** (type definition incomplete — causes tsc failure).
+**Deterministic: Yes** — pure compile-time, 100% reproducible.
+
+### 3) Fix Options
+
+**Option 1 (preferred): Add `location` to the frontend type**
+- File: `web/src/main.ts` L110
+- Change:
+  ```ts
+  // Before
+  type InventorySummaryItem = { item_name: string; quantity: number; unit: string; approx?: boolean };
+  // After
+  type InventorySummaryItem = { item_name: string; quantity: number; unit: string; location?: "pantry" | "fridge" | "freezer"; approx?: boolean };
+  ```
+- Why: Matches backend `Location = Literal["pantry", "fridge", "freezer"]` with default `"pantry"`. Optional (`?`) because the fallback `|| "pantry"` at L1199 already handles it.
+- Risk: None. Purely additive type change.
+
+**Option 2: Use type assertion at usage site**
+- File: `web/src/main.ts` L1199
+- Change: `const loc = (item as any).location || "pantry";`
+- Why: Suppresses the error without touching the shared type.
+- Risk: Hides future type errors on that property. Not recommended.
+
+### 4) Verification
+
+```powershell
+cd web && npx tsc --noEmit
+```
+Expected: 0 errors (was 1 error).
 
 ---
 
-### Fix 2 — Add `"i ve got"` (apostrophe-less) to `FALLBACK_FILLERS` (HIGH impact, TRIVIAL effort)
+## Failure 2: history-badge.spec.ts — bubble text never shows "👍"
 
-**Problem:** `"I ve got pasta"` — STT sometimes emits `"i ve got"` instead of `"i've got"`.
+### 1) Evidence Anchors
 
-**Change:** In `FALLBACK_FILLERS` (line ~33), add `"i ve got"`. Also defensively add to `CHATTER_LEADING_PREFIXES` (already there, but the filler list is checked first and short-circuits).
+**Test file:** `web/e2e/history-badge.spec.ts`
+**Full test name:** `History badge and bubble › sent bubble and badge track normal chat activity`
 
-```python
-FALLBACK_FILLERS = [
-    "i've got", "i ve got", "i have", "i got", ...
-]
+**Failing assertion** (L19):
+```ts
+await expect(bubbleText).toHaveText("👍", { timeout: 5000 });
+```
+where `bubbleText = page.locator("#duet-user-bubble .bubble-text")`.
+
+**Error output:**
+```
+Error: expect(locator).toHaveText(expected) failed
+Locator:  locator('#duet-user-bubble .bubble-text')
+Expected: "👍"
+Received: "Long-press this chat bubble to log in."
+Timeout:  5000ms
 ```
 
-**Test:**
-```python
-def test_apostrophe_less_stt_filler_stripped():
-    agent = InventoryAgent(...)
-    actions, _ = agent._parse_inventory_actions(
-        "I ve got pasta two 500 gram packs"
-    )
-    assert actions[0].event.item_name.lower() == "pasta"
+**DOM selectors involved:**
+- `#duet-user-bubble .bubble-text` — the user bubble's text div (resolved to `<div class="bubble-text" id="duet-user-text">`)
+- `#duet-sent-indicator` — separate button rendered by `ensureDuetShellControls()` at L1080–1088
+
+**Where "👍" is actually rendered** (`web/src/main.ts` L164, L1086):
+```ts
+const USER_BUBBLE_SENT_TEXT = "👍";
+// ...
+sentIndicatorBtn.textContent = USER_BUBBLE_SENT_TEXT; // L1086 — on #duet-sent-indicator
 ```
+
+**Where `.bubble-text` content is set** (`web/src/main.ts` L845–862, `updateDuetBubbles()`):
+```ts
+const fallbackText = isNormalChatFlow() ? userSystemHint : lastUser?.text ?? userSystemHint;
+setBubbleText(user, fallbackText);
+```
+
+Since `?skipauth=1` never sets `state.token`, `refreshSystemHints()` (L183) sets:
+```ts
+if (!s.is_logged_in) {
+    userSystemHint = "Long-press this chat bubble to log in.";
+```
+
+**No API mocks:** The test has zero `page.route()` calls. Sends to `/chat` fail with network error. Even if they succeeded, `updateDuetBubbles()` sets bubble text to `userSystemHint`, never "👍".
+
+### 2) Root Cause
+
+Two independent issues:
+1. **Wrong selector**: The "👍" text is displayed in `#duet-sent-indicator` (a separate button in the shell), not in `#duet-user-bubble .bubble-text`. The test asserts on the wrong element.
+2. **No API mock**: Without mocking `/chat`, the `send()` path hits a network error. The assistant text becomes "Network error. Try again." but the user bubble text remains the system hint regardless — it's always set via `updateDuetBubbles()` to `userSystemHint`.
+
+The DOM snapshot from `error-context.md` confirms: the sent indicator button shows `"👍"` at `button "Message sent"` while `.bubble-text` shows the login hint.
+
+**Classification: (B) test fragility** — test locator doesn't match the actual UI structure.
+**Deterministic: Yes** — structurally never passes.
+
+### 3) Fix Options
+
+**Option 1 (preferred): Fix the locator + add API mock**
+- File: `web/e2e/history-badge.spec.ts`
+- Changes:
+  1. Add `page.route("**/chat", ...)` mock returning `{ reply_text: "ok", thread_id: "t1" }` before the loop.
+  2. Change `bubbleText` locator from `#duet-user-bubble .bubble-text` to `#duet-sent-indicator`.
+  3. Adjust visible/text assertions accordingly. The sent-indicator gets class `visible` after send + reply, and its text is always "👍".
+- Why: Aligns test with actual UI. The mock ensures the send completes and triggers the sent-indicator visibility.
+- Risk: Low. Purely test-side change.
+
+**Option 2: Mock /chat AND set a fake token via skipauth**
+- Files: `web/e2e/history-badge.spec.ts` + potentially `web/src/main.ts`
+- If `?skipauth=1` also set `state.token = "test"`, then `userSystemHint` would change, and `updateDuetBubbles()` would show different text. But the bubble text still wouldn't become "👍" — that's structurally on a separate element.
+- Risk: Requires product code change for test purposes. Not recommended standalone.
+
+**Option 3: Skip the bubble-text assertion entirely, test only the badge counter**
+- File: `web/e2e/history-badge.spec.ts`
+- Remove the `await expect(bubbleText).toHaveText("👍", ...)` lines, keep only badge counter assertions.
+- Why: The badge counter is the stated purpose of the test. The bubble assertion is an unrelated concern.
+- Risk: Loses coverage of send-indicator visibility. Acceptable if covered elsewhere.
+
+### 4) Verification
+
+```powershell
+cd web && npx playwright test e2e/history-badge.spec.ts --reporter=list
+```
+Expected: 1 passed (was 1 failed).
 
 ---
 
-### Fix 3 — Add `BARE_FILLER_WORDS` to per-token stripping (MEDIUM impact, LOW effort)
+## Failure 3: inventory-overlay.spec.ts — mealplan button not found
 
-**Problem:** `"unopened Chips"` — `BARE_FILLER_WORDS` are only checked as whole-name disqualifiers, not stripped token-by-token.
+### 1) Evidence Anchors
 
-**Change:** Add `BARE_FILLER_WORDS` to the `ITEM_STOP_WORDS` union (line ~121):
+**Test file:** `web/e2e/inventory-overlay.spec.ts`
+**Full test name:** `inventory overlay appears after confirming inventory proposal`
 
-```python
-ITEM_STOP_WORDS = (
-    CONTEXT_IGNORE_WORDS
-    | CONTAINER_WORDS
-    | QUANTITY_ADVERBS
-    | UNIT_KEYWORDS
-    | ATTACHMENT_ONLY_WORDS
-    | CHATTER_WORDS
-    | BARE_FILLER_WORDS  # ← add this
-)
+**Failing assertion** (L139):
+```ts
+const mealPlanBtn = onboardMenu.locator("button[data-onboard-item=mealplan]");
+await expect(mealPlanBtn).toHaveCount(1);
 ```
 
-**Caution:** This means `"cereal"` as a standalone will always be stripped. But `"cereal"` alone is already disallowed by `_is_disallowed_item_name`, so no loss. The cereal *brand* names (`"cornflakes"`, `"coco pops"`) are extracted via `_extract_cereal_candidate` before stop-word stripping, so they're safe.
-
-**Test:**
-```python
-def test_unopened_stripped_from_item_name():
-    agent = InventoryAgent(...)
-    actions, _ = agent._parse_inventory_actions(
-        "Mixed veg one bag unopened. Chips one bag third left"
-    )
-    names = {a.event.item_name.lower() for a in actions}
-    assert "chips" in names
-    assert "unopened chips" not in names
-    assert "mixed veg" in names
+**Error output:**
 ```
+Error: expect(locator).toHaveCount(expected) failed
+Locator:  locator('#onboard-menu').locator('button[data-onboard-item=mealplan]')
+Expected: 1
+Received: 0
+Timeout:  5000ms
+```
+
+**DOM selectors involved:**
+- `#onboard-menu` — the onboard context menu (visible after long-press)
+- `button[data-onboard-item=mealplan]` — button created via `planBtn.dataset.onboardItem = "mealplan"` at L2958
+
+**`renderOnboardMenuButtons()`** (`web/src/main.ts` L2911–2968):
+```ts
+function renderOnboardMenuButtons() {
+  if (!onboardMenu) return;
+  onboardMenu.innerHTML = "";
+
+  // Before login: show only Login button
+  if (!state.token?.trim()) {     // ← GATE: no token means early return
+    const loginBtn = document.createElement("button");
+    // ... loginBtn.dataset.onboardItem = "login"
+    onboardMenu.appendChild(loginBtn);
+    return;                        // ← returns here, never reaches mealplan
+  }
+
+  // ... Preferences button (always after login) ...
+  if (state.onboarded) {
+    // ... Inventory button ...
+  }
+  if (state.inventoryOnboarded) {  // ← mealplan button created here
+    const planBtn = document.createElement("button");
+    planBtn.dataset.onboardItem = "mealplan";
+    // ...
+  }
+}
+```
+
+**`?skipauth=1` behavior** (`web/src/main.ts` L2203–2205):
+```ts
+if (!isSkipAuth()) {
+    openLoginModal();
+}
+```
+It only skips the login modal. It does NOT set `state.token`. So `!state.token?.trim()` is truthy, and `renderOnboardMenuButtons()` returns early with only a Login button.
+
+**DOM snapshot confirms:** The `error-context.md` shows `button "Login"` inside the menu — no Preferences, Inventory, or Meal Plan buttons.
+
+### 2) Root Cause
+
+The test successfully confirms the inventory proposal (setting `state.inventoryOnboarded = true`), then long-presses the bubble to open the onboard menu. But `renderOnboardMenuButtons()` checks `!state.token?.trim()` first and returns early, rendering only the Login button. The `inventoryOnboarded` check on L2955 is never reached.
+
+The test was likely written assuming `?skipauth=1` would also set a fake token, or was written before the token gate was added to `renderOnboardMenuButtons()`.
+
+**Classification: (B) test fragility** — test setup doesn't match the state required by the UI gate.
+**Deterministic: Yes** — token is structurally never set.
+
+### 3) Fix Options
+
+**Option 1 (preferred): Set a fake token in the test setup via page.evaluate + expose state**
+- File: `web/e2e/inventory-overlay.spec.ts`
+- The challenge is that `state` is module-scoped. The cleanest approach is to make `?skipauth=1` also set `state.token = "skip"` in the product code.
+- File: `web/src/main.ts` — in the startup path where `isSkipAuth()` is checked, add:
+  ```ts
+  if (isSkipAuth()) {
+    state.token = "skip";
+  }
+  ```
+- Why: Makes `?skipauth=1` behave fully as-if-logged-in, which matches the intent of all e2e tests that use it.
+- Risk: Medium. Changes `skipauth` semantics globally. Any test relying on skipauth being token-less would break. Verify all tests using `?skipauth=1` still pass.
+
+**Option 2: Expose state for testing via a window global**
+- File: `web/src/main.ts`
+- Add: `if (isSkipAuth()) { (window as any).__littlechef_state = state; }`
+- Then in test before long-press:
+  ```ts
+  await page.evaluate(() => { (window as any).__littlechef_state.token = "fake"; });
+  ```
+  And trigger re-render: `await page.evaluate(() => { renderOnboardMenuButtons(); });`
+- Why: Allows test-only state manipulation without changing skipauth behavior for other code paths.
+- Risk: Exposes internals. Should be gated behind debug/test flag.
+
+**Option 3: Remove the mealplan assertion from this test**
+- File: `web/e2e/inventory-overlay.spec.ts`
+- Remove L126–141 (the long-press and onboard-menu assertions).
+- Why: The test's primary purpose is "inventory overlay appears after confirming inventory proposal" — the mealplan button assertion is an unrelated concern tacked on.
+- Risk: Loses coverage of mealplan onboard-menu entry. Acceptable if tested elsewhere.
+
+### 4) Verification
+
+```powershell
+cd web && npx playwright test e2e/inventory-overlay.spec.ts --reporter=list
+```
+Expected: 1 passed (was 1 failed).
 
 ---
 
-### Fix 4 — Capture date values into `note` field before stripping (MEDIUM impact, MEDIUM effort)
+## Cross-cutting Notes
 
-**Problem:** Best-before/use-by dates present in STT but lost during `DATE_STRIP_PATTERN.sub("", ...)`.
+| # | File | Classification | Deterministic | Recent Changes Exposed It? |
+|---|------|---------------|--------------|--------------------------|
+| 1 | `web/src/main.ts` L110 | (A) real product bug | Yes | No — introduced when inventory location grouping was added |
+| 2 | `web/e2e/history-badge.spec.ts` | (B) test fragility | Yes | No — structural mismatch since sent-indicator was split from bubble |
+| 3 | `web/e2e/inventory-overlay.spec.ts` | (B) test fragility | Yes | No — structural mismatch since token gate was added to onboard menu |
 
-**Change:** In `_clean_segment_text`, before stripping dates, extract them into a return channel. Or better: in `_parse_inventory_actions`, after extracting the candidate and before cleaning, run a date-extraction regex and stash the result, then attach it as a note.
-
-```python
-DATE_VALUE_PATTERN = re.compile(
-    r"\b(?:best before|use by|use-by|sell by|expires on|due by)\s+"
-    r"(\d{1,2})\s*(?:st|nd|rd|th)?\s*(?:of\s+)?"
-    rf"({MONTH_NAME_PATTERN})\b",
-    re.IGNORECASE,
-)
-```
-
-For each quantity match's segment, find `DATE_VALUE_PATTERN`, extract `f"bb={day} {month}"` or `f"use_by={day} {month}"`, and inject into the action's `note`.
-
-**Test:**
-```python
-def test_best_before_captured_in_note():
-    agent = InventoryAgent(...)
-    actions, _ = agent._parse_inventory_actions(
-        "Tuna four tins best before 3 March"
-    )
-    tuna = [a for a in actions if "tuna" in a.event.item_name.lower()][0]
-    assert "bb=3 march" in tuna.event.note.lower() or "best_before=" in tuna.event.note.lower()
-```
-
----
-
-### Fix 5 — Add a final-gate invariant: item name must contain ≥1 likely-food alpha token (MEDIUM impact, LOW effort)
-
-**Problem:** Defense-in-depth against future regressions. Names like `"left"`, `"stuff"`, `"fridge"` could sneak back in. Current guards are additive (each checks one thing); no single invariant prevents all junk.
-
-**Change:** After all cleaning and before creating the `ProposedInventoryEventAction`, add:
-
-```python
-def _passes_final_gate(self, item_name: str) -> bool:
-    """Item name must have ≥1 token that is not in any stop/filler/container set."""
-    ALL_NON_FOOD = ITEM_STOP_WORDS | BARE_FILLER_WORDS | CONTAINER_WORD_HINTS
-    tokens = re.findall(r"[a-zA-Z]+", item_name.lower())
-    return any(t not in ALL_NON_FOOD for t in tokens)
-```
-
-This is a structural invariant — it guarantees no name composed entirely of non-food tokens can reach DB.
-
-**Test:**
-```python
-@pytest.mark.parametrize("junk", [
-    "unopened", "sliced", "left", "fridge", "now", "freezer",
-    "bag pack", "tin jar", "about roughly",
-])
-def test_final_gate_rejects_all_junk_names(junk):
-    agent = InventoryAgent(...)
-    assert not agent._passes_final_gate(junk)
-
-@pytest.mark.parametrize("good", ["pasta", "milk", "chicken breast", "coco pops"])
-def test_final_gate_accepts_food_names(good):
-    agent = InventoryAgent(...)
-    assert agent._passes_final_gate(good)
-```
-
----
-
-### Fix 6 — Normalize `"both unopened"` and `"half full"` / `"quarter full"` as state notes (LOW impact, MEDIUM effort)
-
-**Problem:** Phrases like `"both unopened"`, `"half full"`, `"quarter full"` either pollute names or are silently lost. They carry useful state info.
-
-**Change:** Add a pattern that extracts state descriptors and attaches them as notes:
-
-```python
-STATE_DESCRIPTOR = re.compile(
-    r"\b(unopened|half\s+(?:left|full)|third\s+(?:left|full)|quarter\s+(?:left|full)|both\s+unopened)\b",
-    re.IGNORECASE,
-)
-```
-
-Before cleaning, extract matches and append to note as `state=unopened` or `remaining=half`. Then strip them from the candidate.
-
-**Test:**
-```python
-def test_state_descriptor_captured_as_note():
-    agent = InventoryAgent(...)
-    actions, _ = agent._parse_inventory_actions("Chips one bag half left")
-    chips = [a for a in actions if "chips" in a.event.item_name.lower()][0]
-    assert "remaining=half" in chips.event.note or "half left" in chips.event.note
-```
-
----
-
-## C) Stretch Ideas
-
-### Small curated alias file (brand → generic)
-
-Worth it, but **controlled**:
-- A `data/item_aliases.json` with human-approved entries: `{"coco pops": "chocolate cereal", "lurpak": "butter", ...}`
-- Loaded once at startup; used only for **dedup matching**, not for renaming. The user sees `"Coco Pops"` in the proposal; the dedup key maps through the alias.
-- Rule: aliases can only be added via PR, never auto-generated.
-- Max ~50 entries. Not a food database.
-
-### Confidence scoring / "needs-edit" UI hint
-
-Each proposed action could carry a `confidence: "high" | "medium" | "low"` field:
-- **High:** quantity extracted from explicit number + recognized unit.
-- **Medium:** quantity=1 fallback, or state descriptor stripped.
-- **Low:** `_guess_item_name` was used, or name came from container fallback.
-
-The UI renders low-confidence items with an edit icon. This is a 1-field schema addition + a few assignment lines — not a rewrite.
-
----
-
-## D) Red-Team Safety Check
-
-### How junk can still slip into DB today:
-
-| Vector | Example | Current guard gap |
-|--------|---------|-------------------|
-| **Adjective-only names** | `"sliced"`, `"unopened"` as part of compound | `BARE_FILLER_WORDS` only blocks exact match, not substring (Fix 3 solves) |
-| **Location words surviving** | `"fridge stuff milk"` | `"fridge"` and `"stuff"` not in `ITEM_STOP_WORDS`; `"stuff"` not in any set | Add `"stuff"`, `"things"`, `"items"` to `BARE_FILLER_WORDS` |
-| **Future new fillers** | Any new STT preamble pattern | No structural invariant catches unknown filler | Fix 5's final gate solves |
-| **Numeric-only after cleaning** | Edge case: segment cleaned to `"250"` | `_is_filler_text` checks for alpha but `re.search(r"[a-zA-Z]")` would still pass `"250g"` | Add check: reject names where *all* alpha tokens are stop words |
-| **LLM path bypass** | If LLM is enabled and returns junk `name_raw` | `normalize_items` doesn't run `_is_disallowed_item_name` | Add the same final-gate to the LLM path |
-
-### Proposed invariant (hard safety wall):
-
-```python
-# In confirm() — right before DB write, not just at proposal time
-for action in proposal.actions:
-    if action.action_type == "create_inventory_event":
-        assert self._passes_final_gate(action.event.item_name), \
-            f"Blocked junk item: {action.event.item_name}"
-```
-
-This ensures that even if parsing regresses, **nothing hits the DB** without passing the structural check. It's the equivalent of a database constraint — defense at the write boundary.
-
----
-
-## E) Questions (4)
-
-1. **Is the LLM extraction path (`extract_new_draft`) currently enabled in production/test, or is the regex parser always the active path?** This affects whether Fix 5's final gate needs to be duplicated into `normalize_items`.
-
-2. **Can I see `_split_segments` (around line 1091)?** I want to confirm whether it already handles any implicit boundaries beyond `SPLIT_PATTERN`, or if Fix 1 is the first such logic.
-
-3. **Is `"stuff"` appearing in any legitimate item name in your test fixtures?** I want to add it to `BARE_FILLER_WORDS` but need to confirm it won't break `"stuffed peppers"` or similar.
-
-4. **What's the current test count on `test_inventory_agent.py` and pass rate?** This tells me how much regression surface exists for the fixes above.
+None of these failures were introduced or worsened by the recent compose-next-hint changes. All three are long-standing structural mismatches between tests/types and the current product code.

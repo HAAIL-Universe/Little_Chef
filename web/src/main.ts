@@ -107,7 +107,7 @@ const flowOptions: FlowOption[] = [
   { key: "prefs", label: "Preferences", placeholder: "Update dislikes, allergies, or servings..." },
 ];
 
-type InventorySummaryItem = { item_name: string; quantity: number; unit: string; approx?: boolean };
+type InventorySummaryItem = { item_name: string; quantity: number; unit: string; location?: "pantry" | "fridge" | "freezer"; approx?: boolean };
 type LowStockItem = { item_name: string; quantity: number; unit: string; threshold: number; reason?: string };
 
 const duetState = {
@@ -2203,6 +2203,12 @@ function wire() {
     // Skip when ?skipauth=1 is present (e2e tests, local dev)
     if (!isSkipAuth()) {
       openLoginModal();
+    } else {
+      // e2e / local-dev: behave as logged-in so onboard menu + hints work
+      state.token = "skipauth";
+      refreshSystemHints();
+      renderOnboardMenuButtons();
+      updateDuetBubbles();
     }
   }
 
@@ -2257,24 +2263,7 @@ function wireDuetComposer() {
   input.addEventListener("input", () => {
     syncButtons();
     autoExpandTextarea(input);
-    // Delayed "next info" ghost hint for Preferences compose
-    if (composeActive && currentFlowKey === "prefs") {
-      const hasText = input.value.trim().length > 0;
-      if (hasText && !composeNextHintTriggered) {
-        composeNextHintTriggered = true;
-        composeNextHintTimer = window.setTimeout(() => {
-          composeNextHintTimer = null;
-          showComposeNextHint();
-        }, 1500);
-      } else if (!hasText && composeNextHintTriggered && !composeNextHintShown) {
-        // Cleared text before timer fired — cancel
-        if (composeNextHintTimer !== null) {
-          window.clearTimeout(composeNextHintTimer);
-          composeNextHintTimer = null;
-        }
-        composeNextHintTriggered = false;
-      }
-    }
+    maybeTriggerPrefsComposeNextHint(input);
   });
   sendBtn.addEventListener("click", send);
   input.addEventListener("keydown", (ev) => {
@@ -2502,13 +2491,31 @@ function hideComposeOverlay() {
   input?.blur();
 }
 
+function maybeTriggerPrefsComposeNextHint(input: HTMLTextAreaElement) {
+  if (!composeActive || currentFlowKey !== "prefs") return;
+  const hasText = input.value.trim().length > 0;
+  if (hasText && !composeNextHintTriggered) {
+    composeNextHintTriggered = true;
+    composeNextHintTimer = window.setTimeout(() => {
+      composeNextHintTimer = null;
+      showComposeNextHint();
+    }, 1500);
+  } else if (!hasText && composeNextHintTriggered && !composeNextHintShown) {
+    if (composeNextHintTimer !== null) {
+      window.clearTimeout(composeNextHintTimer);
+      composeNextHintTimer = null;
+    }
+    composeNextHintTriggered = false;
+  }
+}
+
 function showComposeNextHint() {
   if (!composeActive || !composeOverlay) return;
   if (document.getElementById("compose-next-hint")) return;
   const hint = document.createElement("div");
   hint.id = "compose-next-hint";
   hint.className = "compose-next-hint";
-  hint.textContent = "Also tell me how many days you want to plan, how many meals per day, and how many servings.";
+  hint.textContent = "Quick prefs: allergies first.\nThen likes/dislikes, and meals in this format: X meals a day for Y people, Z days a week.";
   // Insert into overlay (not narrator) so it doesn't affect centering
   const micBtn = composeOverlay.querySelector(".compose-mic-btn");
   if (micBtn && micBtn.nextSibling) {
@@ -2582,6 +2589,7 @@ function startComposeDictation() {
     input.value = baseText + separator + final + interim;
     autoExpandTextarea(input);
     input.setSelectionRange(input.value.length, input.value.length);
+    maybeTriggerPrefsComposeNextHint(input);
   };
 
   sr.onerror = (event: any) => {

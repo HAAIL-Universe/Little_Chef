@@ -928,6 +928,7 @@ pre {
   text-align: center;
   pointer-events: none;
   user-select: none;
+  white-space: pre-line;
   z-index: 2;
 }
 
