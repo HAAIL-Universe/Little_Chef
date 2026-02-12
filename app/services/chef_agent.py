@@ -222,7 +222,7 @@ class ChefAgent:
         """Query installed pack books and extract ingredients for meal planning."""
         if not self.recipe_service:
             return []
-        from app.services.recipe_service import extract_ingredients_from_markdown
+        from app.services.recipe_service import extract_ingredients_from_markdown, extract_instructions_from_markdown
         try:
             resp = self.recipe_service.list_books(user_id)
         except Exception:
@@ -234,10 +234,12 @@ class ChefAgent:
             ingredients = extract_ingredients_from_markdown(book.text_content)
             if not ingredients:  # Hardness #2: skip ingredientless recipes
                 continue
+            instructions = extract_instructions_from_markdown(book.text_content)
             catalog.append({
                 "id": book.book_id,
                 "title": book.title or book.filename,
                 "ingredients": ingredients,
+                "instructions": instructions,
                 "source_type": "user_library",
             })
         return catalog

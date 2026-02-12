@@ -79,6 +79,59 @@ def extract_ingredients_from_markdown(text_content: str) -> list[IngredientLine]
     return results
 
 
+# ── Procedure / instructions extraction from pack markdown ──────────────
+_INSTRUCTION_HEADINGS = frozenset({
+    "procedure", "steps", "directions", "method",
+    "instructions", "preparation", "cooking",
+})
+_MAX_INSTRUCTION_CHARS = 4000  # deterministic truncation limit
+
+
+def extract_instructions_from_markdown(text_content: str) -> list[str]:
+    """Extract procedure/steps section from pack markdown into a list of steps.
+
+    Strategy (Hardness #3):
+    1. Find a recognised heading (## Procedure, ## Steps, ## Directions, etc.).
+    2. Collect lines until the next ## heading or end of file.
+    3. Split into individual steps (one per non-empty line/paragraph).
+    4. If no recognised section found, fall back to full text_content as a single block.
+    5. Truncate to _MAX_INSTRUCTION_CHARS for response size safety.
+
+    Always returns a non-empty list when text_content is non-empty.
+    """
+    if not text_content:
+        return []
+    lines = text_content.splitlines()
+    section_lines: list[str] = []
+    in_section = False
+    for raw in lines:
+        stripped = raw.strip()
+        if stripped.startswith("## "):
+            heading = stripped[3:].strip().lower()
+            if heading in _INSTRUCTION_HEADINGS:
+                in_section = True
+                continue
+            elif in_section:
+                break  # next section after our target
+        if stripped.startswith("# ") and in_section:
+            break
+        if in_section and stripped:
+            # Strip leading numbering (1. 2. etc.) for cleaner steps
+            cleaned = re.sub(r"^\d+\.\s*", "", stripped)
+            if cleaned:
+                section_lines.append(cleaned)
+    if section_lines:
+        text = "\n".join(section_lines)
+        if len(text) > _MAX_INSTRUCTION_CHARS:
+            text = text[:_MAX_INSTRUCTION_CHARS]
+        return [s for s in text.split("\n") if s.strip()]
+    # Fallback: full markdown as single block (truncated)
+    fallback = text_content.strip()
+    if len(fallback) > _MAX_INSTRUCTION_CHARS:
+        fallback = fallback[:_MAX_INSTRUCTION_CHARS]
+    return [fallback] if fallback else []
+
+
 class RecipeService:
     def __init__(self, repo: RecipeRepo) -> None:
         self.repo = repo

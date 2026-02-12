@@ -30,6 +30,25 @@ _INGREDIENTS_BY_RECIPE = {
     ],
 }
 
+_INSTRUCTIONS_BY_RECIPE = {
+    "builtin_1": [
+        "Boil pasta according to package directions.",
+        "Dice tomatoes and simmer in a pan with olive oil for 5 minutes.",
+        "Drain pasta, toss with tomato sauce, and serve.",
+    ],
+    "builtin_2": [
+        "Season chicken breast with salt and pepper.",
+        "Melt butter in a pan over medium-high heat.",
+        "Cook chicken 6-7 minutes per side until golden and cooked through.",
+        "Rest for 2 minutes before slicing. Serve.",
+    ],
+    "builtin_3": [
+        "Heat oil in a wok or large pan over high heat.",
+        "Add mixed veggies and stir-fry for 3-4 minutes.",
+        "Add soy sauce, toss to coat, and serve immediately.",
+    ],
+}
+
 
 class MealPlanService:
     def generate(self, request: MealPlanGenerateRequest, *, excluded_recipe_ids: list | None = None, pack_recipes: list[dict] | None = None) -> MealPlanResponse:
@@ -62,6 +81,7 @@ class MealPlanService:
                 recipe_id = recipe["id"]
                 # Inline ingredients (pack recipes) take priority over built-in lookup
                 ingredients = recipe.get("ingredients") or _INGREDIENTS_BY_RECIPE.get(recipe_id, [])
+                instructions = recipe.get("instructions") or _INSTRUCTIONS_BY_RECIPE.get(recipe_id, [])
                 source_type = recipe.get("source_type", "built_in")
                 src = RecipeSource(
                     source_type=source_type,
@@ -75,7 +95,7 @@ class MealPlanService:
                         name=recipe["title"],
                         slot=self._slot_for_index(meal_idx),
                         ingredients=ingredients,
-                        instructions=[],
+                        instructions=instructions,
                         source=src,
                         citations=[src],
                     )

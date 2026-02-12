@@ -1,62 +1,57 @@
 ﻿# Diff Log (overwrite each cycle)
 
 ## Cycle Metadata
-- Phase: 10.1 — Recipe Corpus Integration
+- Phase: 10.2 — Instructions / Step-by-step Display
 - Branch: claude/romantic-jones
-- HEAD (pre): 6652083bbe73e8e19052c61d3e7c0ea985284554
+- HEAD (pre): 316383c (Phase 10.1 commit)
 - Status: COMPLETE
-- Commit: 5160215
+- Commit: 45c2773
+
+## Previous Cycle
+Phase 10.1 (Recipe Corpus Integration) — COMPLETE at 316383c/5160215. Wired installed pack recipe books into meal planning via ChefAgent→RecipeService→MealPlanService. 191 tests passed.
 
 ## Summary
-Phase 10.1 wires installed pack recipe books into meal planning. ChefAgent now queries RecipeService for installed packs, extracts ingredients from their markdown `## Ingredients` sections, builds a catalog, and passes it to MealPlanService. Pack recipes are primary; built-in recipes serve as fallback when no packs are installed. Selection uses deterministic random shuffle (seeded by plan_id) replacing the old static round-robin. Ingredientless pack recipes are filtered out. Allergy/dislike filtering applies to both pack and built-in recipes.
+Phase 10.2 populates `PlannedMeal.instructions` for every meal in generated plans. Pack recipes get best-effort extraction of procedure/steps sections from their markdown text_content. Built-in recipes get minimal human-usable instructions. No meal is returned with empty instructions.
 
 ## Hardness Rule Compliance
-1. **No new endpoints** — zero router changes. All changes in service/agent layer.
-2. **No ingredientless meals** — `_build_pack_catalog` skips books where `extract_ingredients_from_markdown` returns `[]`. Test: `test_ingredientless_pack_recipe_skipped`.
-3. **No fixed round-robin** — `random.Random(plan_id).shuffle(catalog)` replaces `meal_idx % len`. Deterministic per-plan but varying across plans.
-4. **Built-in fallback preserved** — when `pack_recipes` is empty/None or `include_user_library=False`, only `BUILT_IN_RECIPES` used. Test: `test_fallback_to_builtins_when_no_packs`.
+1. **No new endpoints** — zero router changes.
+2. **Instructions non-empty** — both pack and built-in meals have non-empty `instructions: List[str]`. Tests: `test_fallback_to_builtins_when_no_packs`, `test_pack_recipes_in_mealplan`.
+3. **Best-effort section extraction with fallback** — `extract_instructions_from_markdown()` recognises 7 heading variants (Procedure, Steps, Directions, Method, Instructions, Preparation, Cooking). Falls back to full text_content as a single block. Truncation at 4000 chars for response size safety.
+4. **Phase 10.1 selection semantics preserved** — no changes to catalog construction, shuffle, or source fields.
 
 ## Files Changed
 
 ### app/services/recipe_service.py
-- Added `import re`, `from __future__ import annotations`, `IngredientLine` import
-- Added `extract_ingredients_from_markdown()` function (~50 lines): parses `## Ingredients` sections from pack markdown, extracts item_name/quantity/unit via regex, falls back to `quantity=1, unit="count"` for unparseable lines
-- Added `_VALID_UNITS`, `_QTY_UNIT_RE`, `_UNIT_ALIAS` module constants
+- Added `extract_instructions_from_markdown()` function (~45 lines)
+- Added `_INSTRUCTION_HEADINGS` frozenset (7 recognised headings)
+- Added `_MAX_INSTRUCTION_CHARS = 4000` truncation constant
 
 ### app/services/mealplan_service.py
-- Added `import random`
-- `generate()`: new `pack_recipes: list[dict] | None = None` parameter
-- Catalog construction: `pack_recipes + BUILT_IN_RECIPES` when `include_user_library and pack_recipes`, else `BUILT_IN_RECIPES` only
-- Recipe selection: `random.Random(plan_id).shuffle(catalog)` replaces static `meal_idx % len`
-- Source construction: reads `source_type` from recipe dict, sets `book_id` for pack recipes
+- Added `_INSTRUCTIONS_BY_RECIPE` dict with minimal instructions for 3 built-in recipes
+- `generate()`: reads `instructions` from recipe dict; falls back to `_INSTRUCTIONS_BY_RECIPE` for built-ins
+- `PlannedMeal` construction: uses extracted/lookup instructions instead of hardcoded `[]`
 
 ### app/services/chef_agent.py
-- `__init__`: added `recipe_service=None` parameter
-- `handle_fill()`: calls `self._build_pack_catalog(user_id)`, passes result to `generate()`
-- `_excluded_recipe_ids()`: now accepts `pack_recipes` parameter, filters both built-in and pack recipes by allergy/dislike keywords
-- Added `_build_pack_catalog()` method: queries `recipe_service.list_books()`, filters to pack books, extracts ingredients, skips ingredientless recipes
+- `_build_pack_catalog()`: now calls `extract_instructions_from_markdown()` and includes `"instructions"` key in catalog dict
 
-### app/services/chat_service.py
-- `ChefAgent` construction: added `recipe_service=self._get_recipe_service()`
-- Added `_get_recipe_service()` static method (lazy import)
-
-### tests/test_pack_mealplan_integration.py (NEW)
-- 8 tests: 3 unit (ingredient extraction), 5 integration (pack in plan, source fields, fallback, ingredientless skip, allergy filter)
-
-### tests/test_shopping_diff.py
-- `test_shopping_diff_works_with_generated_plan`: made order-agnostic — seeds inventory with first ingredient from generated plan instead of hardcoded "tomato"
+### tests/test_pack_mealplan_integration.py
+- Added 5 instruction extraction unit tests (procedure, steps, method, fallback, empty)
+- Updated `test_pack_recipes_in_mealplan`: asserts `instructions` non-empty for every meal
+- Updated `test_fallback_to_builtins_when_no_packs`: asserts `instructions` non-empty
 
 ## Test Results
-- Full suite: 191 passed, 0 failed
-- New tests: 8 (3 unit + 5 integration)
+- Full suite: 196 passed, 0 failed (was 191 → +5 new instruction tests)
 - Regressions: 0
 
 ## Verification Hierarchy
 - Static (Pylance/errors): 0 errors across all changed files
-- Runtime: all imports resolve, no circular deps
-- Behaviour: ingredient extraction produces valid IngredientLine, pack catalog builds correctly
-- Tests: 191/191 pass
-- Contract: 4 Hardness Rules verified ✓
+- Runtime: imports resolve, no circular deps
+- Behaviour: instructions populated for both pack and built-in meals
+- Tests: 196/196 pass
+- Contract: delivered Phase 10.2 only; did not pull 10.3/10.6/10.7 forward
+
+## Next Step
+Phase 10.3 — Ingredient extraction improvements (MVP parser)
 - evidence/test_runs_latest.md
 - evidence/updatedifflog.md
 - web/dist/main.js

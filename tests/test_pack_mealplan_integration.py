@@ -1,4 +1,4 @@
-"""Phase 10.1 — Pack recipe corpus integration into meal planning.
+"""Phase 10.1/10.2 — Pack recipe corpus integration + instructions display.
 
 Tests that:
 - installed pack recipes appear in generated meal plans
@@ -6,10 +6,12 @@ Tests that:
 - ingredientless pack books are skipped (Hardness #2)
 - allergy filtering applies to pack recipes
 - recipe selection is non-static (Hardness #3)
+- instructions are non-empty for both pack and built-in meals (Phase 10.2)
 """
 
 from app.services.recipe_service import (
     extract_ingredients_from_markdown,
+    extract_instructions_from_markdown,
     get_recipe_service,
     reset_recipe_service_cache,
 )
@@ -52,6 +54,52 @@ def test_extract_ingredients_no_section():
     assert extract_ingredients_from_markdown(md) == []
 
 
+# ── Unit: instruction extraction ─────────────────────────────────────────
+
+def test_extract_instructions_procedure_section():
+    md = (
+        "# My Soup\n\n"
+        "## Ingredients\n\n- onion\n\n"
+        "## Procedure\n\n"
+        "1. Chop onion\n"
+        "2. Boil water\n"
+        "3. Simmer for 20 minutes\n\n"
+        "## Notes\n\nServe hot.\n"
+    )
+    result = extract_instructions_from_markdown(md)
+    assert len(result) == 3
+    assert "Chop onion" in result[0]
+    assert "Boil water" in result[1]
+    assert "Simmer" in result[2]
+
+
+def test_extract_instructions_steps_section():
+    """Recognises ## Steps as an instruction heading."""
+    md = "# Cake\n\n## Steps\n\nMix flour and sugar.\nBake at 180°C.\n"
+    result = extract_instructions_from_markdown(md)
+    assert len(result) >= 2
+    assert "Mix flour" in result[0]
+
+
+def test_extract_instructions_method_section():
+    """Recognises ## Method as an instruction heading."""
+    md = "# Stir Fry\n\n## Method\n\nHeat oil.\nAdd veggies.\n"
+    result = extract_instructions_from_markdown(md)
+    assert len(result) == 2
+
+
+def test_extract_instructions_fallback_to_full_text():
+    """When no recognised heading exists, full text_content is returned."""
+    md = "# Mystery Recipe\n\nJust wing it.\n"
+    result = extract_instructions_from_markdown(md)
+    assert len(result) == 1
+    assert "Mystery Recipe" in result[0]
+
+
+def test_extract_instructions_empty_content():
+    assert extract_instructions_from_markdown("") == []
+
+
 # ── Integration: pack recipes wired into meal plan ───────────────────────
 
 def test_pack_recipes_in_mealplan(authed_client):
@@ -92,10 +140,11 @@ def test_pack_recipes_in_mealplan(authed_client):
     assert has_pack or all(s == "built_in" for s in all_sources), \
         "Expected at least one pack recipe in the plan"
 
-    # Every meal must have ingredients (Hardness #2)
+    # Every meal must have ingredients (Hardness #2) and instructions (Phase 10.2)
     for day in plan["days"]:
         for meal in day["meals"]:
             assert meal["ingredients"], f"Meal {meal['name']} has no ingredients"
+            assert meal["instructions"], f"Meal {meal['name']} has no instructions"
 
 
 def test_pack_mealplan_source_fields(authed_client):
@@ -140,6 +189,7 @@ def test_fallback_to_builtins_when_no_packs(authed_client):
             assert meal["source"]["source_type"] == "built_in"
             assert meal["source"]["built_in_recipe_id"] is not None
             assert meal["ingredients"]  # built-ins always have ingredients
+            assert meal["instructions"]  # Phase 10.2: built-ins have instructions
 
 
 def test_ingredientless_pack_recipe_skipped(authed_client):
