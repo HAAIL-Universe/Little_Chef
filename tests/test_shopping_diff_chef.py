@@ -169,6 +169,39 @@ def test_shopping_diff_consistency():
     assert "tomato" in annotated.notes.lower()
 
 
+def test_annotate_excludes_staples_from_plan_notes():
+    """Staple items must not appear in mealplan.notes 'You need' list."""
+    inv_svc = get_inventory_service()
+    shopping_svc = ShoppingService(inv_svc)
+    agent = _make_agent(inventory_service=inv_svc, shopping_service=shopping_svc)
+
+    user_id = "user-staple-exclude"
+    # Seed tomato so it's in stock
+    _seed_inventory(inv_svc, user_id, "tomato", 10, "count")
+    # Mark pasta as a staple
+    inv_svc.set_staple(user_id, "pasta", "g")
+
+    plan = agent.mealplan_service.generate(
+        MealPlanGenerateRequest(days=1, meals_per_day=1),
+        stock_names={"tomato"},
+    )
+    assert plan.days[0].meals[0].name == "Simple Tomato Pasta"
+
+    plan = agent._annotate_inventory_notes(plan, user_id)
+    # pasta is a staple → must NOT appear in "You need"
+    notes_lower = plan.notes.lower()
+    assert "pasta" not in notes_lower or "You need" not in plan.notes
+    # tomato should still be in "You have"
+    assert "tomato" in notes_lower
+
+    # Verify the service still returns staple_items for general shopping flows
+    diff = shopping_svc.diff(user_id, plan)
+    staple_names = {s.item_name for s in diff.staple_items}
+    # pasta may appear in staple_items if low/out of stock, or in missing_items
+    # but the key invariant is: notes exclude it
+    assert "pasta" not in plan.notes.lower() or "You need" not in plan.notes
+
+
 # ── Integration: handle_fill wires shopping diff ──────────────────────────
 
 

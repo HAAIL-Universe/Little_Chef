@@ -733,7 +733,12 @@ class ChefAgent:
         return plan
 
     def _annotate_via_shopping_diff(self, plan, user_id: str):
-        """Use ShoppingService.diff() for quantity-aware stock annotations."""
+        """Use ShoppingService.diff() for quantity-aware stock annotations.
+
+        Only plan-specific missing items appear in notes; staple items
+        (low-stock pantry staples) are excluded from the meal-plan annotation
+        but remain available through the general /shopping/diff endpoint.
+        """
         try:
             diff = self.shopping_service.diff(user_id, plan)
         except Exception:
@@ -746,12 +751,18 @@ class ChefAgent:
                 for ing in meal.ingredients:
                     needed.add(ing.item_name.strip().lower())
 
-        # Missing items from diff (quantity-aware)
-        missing_names = {item.item_name for item in diff.missing_items}
+        # Filter out staple items from missing list for meal-plan notes
+        inv_svc = self.shopping_service.inventory_service
+        plan_missing = [
+            item for item in diff.missing_items
+            if not inv_svc.is_staple(user_id, item.item_name, item.unit)
+        ]
+
+        missing_names = {item.item_name for item in plan_missing}
         have_names = sorted(needed - missing_names)
         need_parts = sorted(
             f"{item.item_name} ({item.quantity:.4g} {item.unit})"
-            for item in diff.missing_items
+            for item in plan_missing
         )
 
         parts: list[str] = []

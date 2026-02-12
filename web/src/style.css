@@ -1067,10 +1067,23 @@ pre {
   box-shadow: var(--shadow);
 }
 
+/* ── Shopping list button ─────────────────────────────────── */
+.shopping-list-btn {
+  position: absolute;
+  top: 226px;
+  right: 22px;
+  z-index: 50;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  overflow: visible;
+  box-shadow: var(--shadow);
+}
+
 /* ── Sent indicator (thumbs-up column button) ───────────── */
 .sent-indicator-btn {
   position: absolute;
-  top: 226px;
+  top: 294px;
   right: 22px;
   z-index: 50;
   width: 46px;
@@ -1735,4 +1748,42 @@ pre {
   font-size: 0.88rem;
   line-height: 1.45;
   margin: 0.25rem 0 0.75rem;
+}
+
+/* ── Shopping list modal content ─────────────────────────── */
+.shopping-modal-title {
+  font-size: 1.05rem;
+  font-weight: 600;
+  color: var(--text);
+  flex: 1;
+  padding: 0.25rem 0;
+}
+.shopping-section-title {
+  font-size: 0.95rem;
+  font-weight: 600;
+  margin: 0 0 0.5rem;
+  color: var(--text);
+}
+.shopping-list {
+  list-style: none;
+  padding: 0;
+  margin: 0 0 0.5rem;
+}
+.shopping-list li {
+  padding: 0.4rem 0.6rem;
+  margin-bottom: 4px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  font-size: 0.92rem;
+  color: var(--text);
+}
+.shopping-list.shopping-have li {
+  opacity: 0.6;
+}
+.shopping-empty {
+  color: rgba(255, 255, 255, 0.5);
+  font-size: 0.92rem;
+  text-align: center;
+  padding: 2rem 0;
 }

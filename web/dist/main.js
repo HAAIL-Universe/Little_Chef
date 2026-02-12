@@ -269,6 +269,8 @@ var flowMenuOpen = false;
 var flowMenuListenersBound = false;
 var recipePacksButton = null;
 var packsModalOverlay = null;
+var shoppingListBtn = null;
+var shoppingModalOverlay = null;
 var mealplanReached = false;
 var devPanelVisible = false;
 var inventoryOverlay = null;
@@ -1062,6 +1064,16 @@ function setupHistoryDrawerUi() {
     recipePacksButton.addEventListener("click", () => openPacksModal());
     shell.appendChild(recipePacksButton);
   }
+  if (!shoppingListBtn) {
+    shoppingListBtn = document.createElement("button");
+    shoppingListBtn.id = "duet-shopping-list";
+    shoppingListBtn.type = "button";
+    shoppingListBtn.className = "icon-btn shopping-list-btn";
+    shoppingListBtn.setAttribute("aria-label", "Shopping list");
+    shoppingListBtn.textContent = "\u{1F5D2}\uFE0F";
+    shoppingListBtn.addEventListener("click", () => openShoppingListModal());
+    shell.appendChild(shoppingListBtn);
+  }
   if (!sentIndicatorBtn) {
     sentIndicatorBtn = document.createElement("button");
     sentIndicatorBtn.id = "duet-sent-indicator";
@@ -1560,6 +1572,10 @@ ${replyBase}` : replyBase;
     updateHistory(thinkingIndex, assistantText);
     state.proposalId = json.proposal_id ?? null;
     state.proposedActions = Array.isArray(json.proposed_actions) ? json.proposed_actions : [];
+    const mealplanAction = state.proposedActions.find((a) => a.action_type === "generate_mealplan" && a.mealplan);
+    if (mealplanAction) {
+      state.lastPlan = mealplanAction.mealplan;
+    }
     renderProposal();
     if (opts?.updateChatPanel) {
       setText("chat-reply", { status: res.status, json });
@@ -2766,6 +2782,88 @@ async function checkMealplanFirstVisit() {
       mealplanNudged = true;
     }
   } catch {
+  }
+}
+function openShoppingListModal() {
+  if (shoppingModalOverlay && shoppingModalOverlay.isConnected) {
+    refreshShoppingModalContent();
+    shoppingModalOverlay.style.display = "";
+    shoppingModalOverlay.classList.add("open");
+    return;
+  }
+  const overlay = document.createElement("div");
+  overlay.className = "packs-modal-overlay";
+  overlay.addEventListener("click", (ev) => {
+    if (ev.target === overlay) closeShoppingListModal();
+  });
+  const wrapper = document.createElement("div");
+  wrapper.className = "packs-modal-wrapper";
+  const topBar = document.createElement("div");
+  topBar.className = "packs-top-bar";
+  const titleEl = document.createElement("span");
+  titleEl.className = "shopping-modal-title";
+  titleEl.textContent = "Shopping list";
+  topBar.appendChild(titleEl);
+  const closeBtn = document.createElement("button");
+  closeBtn.type = "button";
+  closeBtn.className = "icon-btn packs-close-btn";
+  closeBtn.textContent = "\u2715";
+  closeBtn.addEventListener("click", () => closeShoppingListModal());
+  topBar.appendChild(closeBtn);
+  wrapper.appendChild(topBar);
+  const panel = document.createElement("div");
+  panel.className = "packs-modal";
+  panel.id = "shopping-modal-content";
+  wrapper.appendChild(panel);
+  overlay.appendChild(wrapper);
+  document.body.appendChild(overlay);
+  shoppingModalOverlay = overlay;
+  refreshShoppingModalContent();
+  requestAnimationFrame(() => overlay.classList.add("open"));
+}
+function refreshShoppingModalContent() {
+  const panel = document.getElementById("shopping-modal-content") ?? shoppingModalOverlay?.querySelector(".packs-modal");
+  if (!panel) return;
+  const plan = state.lastPlan;
+  if (!plan) {
+    panel.innerHTML = "<p class='shopping-empty'>Generate a meal plan first.</p>";
+    return;
+  }
+  const notes = plan.notes || "";
+  if (!notes) {
+    panel.innerHTML = "<p class='shopping-empty'>No missing items \u2014 you have everything!</p>";
+    return;
+  }
+  const needMatch = notes.match(/You need:\s*(.+?)(?:\.|$)/i);
+  const haveMatch = notes.match(/You have:\s*(.+?)(?:\.|$)/i);
+  let html = "<h3 class='shopping-section-title'>Missing for this plan</h3>";
+  if (needMatch) {
+    const items = needMatch[1].split(",").map((s) => s.trim()).filter(Boolean);
+    html += "<ul class='shopping-list'>";
+    for (const item of items) {
+      html += `<li>${escapeHtml(item)}</li>`;
+    }
+    html += "</ul>";
+  } else {
+    html += "<p class='shopping-empty'>Nothing missing \u2014 you have everything!</p>";
+  }
+  if (haveMatch) {
+    html += "<h3 class='shopping-section-title' style='margin-top:1rem;'>Already in stock</h3>";
+    const items = haveMatch[1].split(",").map((s) => s.trim()).filter(Boolean);
+    html += "<ul class='shopping-list shopping-have'>";
+    for (const item of items) {
+      html += `<li>${escapeHtml(item)}</li>`;
+    }
+    html += "</ul>";
+  }
+  panel.innerHTML = html;
+}
+function closeShoppingListModal() {
+  if (shoppingModalOverlay) {
+    shoppingModalOverlay.classList.remove("open");
+    setTimeout(() => {
+      if (shoppingModalOverlay) shoppingModalOverlay.style.display = "none";
+    }, 200);
   }
 }
 function openPacksModal() {

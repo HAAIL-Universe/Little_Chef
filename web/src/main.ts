@@ -143,6 +143,8 @@ let flowMenuOpen = false;
 let flowMenuListenersBound = false;
 let recipePacksButton: HTMLButtonElement | null = null;
 let packsModalOverlay: HTMLDivElement | null = null;
+let shoppingListBtn: HTMLButtonElement | null = null;
+let shoppingModalOverlay: HTMLDivElement | null = null;
 let mealplanReached = false;
 let devPanelVisible = false;
 let inventoryOverlay: HTMLDivElement | null = null;
@@ -1084,6 +1086,16 @@ function setupHistoryDrawerUi() {
     recipePacksButton.addEventListener("click", () => openPacksModal());
     shell.appendChild(recipePacksButton);
   }
+  if (!shoppingListBtn) {
+    shoppingListBtn = document.createElement("button");
+    shoppingListBtn.id = "duet-shopping-list";
+    shoppingListBtn.type = "button";
+    shoppingListBtn.className = "icon-btn shopping-list-btn";
+    shoppingListBtn.setAttribute("aria-label", "Shopping list");
+    shoppingListBtn.textContent = "🗒️";
+    shoppingListBtn.addEventListener("click", () => openShoppingListModal());
+    shell.appendChild(shoppingListBtn);
+  }
   if (!sentIndicatorBtn) {
     sentIndicatorBtn = document.createElement("button");
     sentIndicatorBtn.id = "duet-sent-indicator";
@@ -1645,6 +1657,10 @@ async function sendAsk(message: string, opts?: { flowLabel?: string; updateChatP
     updateHistory(thinkingIndex, assistantText);
     state.proposalId = json.proposal_id ?? null;
     state.proposedActions = Array.isArray(json.proposed_actions) ? json.proposed_actions : [];
+    const mealplanAction = state.proposedActions.find((a: any) => a.action_type === "generate_mealplan" && a.mealplan);
+    if (mealplanAction) {
+      state.lastPlan = mealplanAction.mealplan;
+    }
     renderProposal();
     if (opts?.updateChatPanel) {
       setText("chat-reply", { status: res.status, json });
@@ -3045,6 +3061,112 @@ async function checkMealplanFirstVisit() {
     }
   } catch {
     // network error — skip nudge silently
+  }
+}
+
+// ── Shopping list modal ─────────────────────────────────────
+
+function openShoppingListModal() {
+  // Reuse existing overlay if present
+  if (shoppingModalOverlay && shoppingModalOverlay.isConnected) {
+    refreshShoppingModalContent();
+    shoppingModalOverlay.style.display = "";
+    shoppingModalOverlay.classList.add("open");
+    return;
+  }
+
+  const overlay = document.createElement("div");
+  overlay.className = "packs-modal-overlay";
+  overlay.addEventListener("click", (ev) => {
+    if (ev.target === overlay) closeShoppingListModal();
+  });
+
+  const wrapper = document.createElement("div");
+  wrapper.className = "packs-modal-wrapper";
+
+  // Top bar with title + close
+  const topBar = document.createElement("div");
+  topBar.className = "packs-top-bar";
+  const titleEl = document.createElement("span");
+  titleEl.className = "shopping-modal-title";
+  titleEl.textContent = "Shopping list";
+  topBar.appendChild(titleEl);
+
+  const closeBtn = document.createElement("button");
+  closeBtn.type = "button";
+  closeBtn.className = "icon-btn packs-close-btn";
+  closeBtn.textContent = "✕";
+  closeBtn.addEventListener("click", () => closeShoppingListModal());
+  topBar.appendChild(closeBtn);
+
+  wrapper.appendChild(topBar);
+
+  // Scrollable content panel
+  const panel = document.createElement("div");
+  panel.className = "packs-modal";
+  panel.id = "shopping-modal-content";
+  wrapper.appendChild(panel);
+
+  overlay.appendChild(wrapper);
+  document.body.appendChild(overlay);
+  shoppingModalOverlay = overlay;
+
+  refreshShoppingModalContent();
+  requestAnimationFrame(() => overlay.classList.add("open"));
+}
+
+function refreshShoppingModalContent() {
+  const panel = document.getElementById("shopping-modal-content") ?? shoppingModalOverlay?.querySelector(".packs-modal");
+  if (!panel) return;
+
+  const plan = state.lastPlan;
+  if (!plan) {
+    panel.innerHTML = "<p class='shopping-empty'>Generate a meal plan first.</p>";
+    return;
+  }
+
+  // Use plan.notes (already filtered to missing-only by backend)
+  const notes: string = plan.notes || "";
+  if (!notes) {
+    panel.innerHTML = "<p class='shopping-empty'>No missing items — you have everything!</p>";
+    return;
+  }
+
+  // Parse "You need: item1, item2" from notes
+  const needMatch = notes.match(/You need:\s*(.+?)(?:\.|$)/i);
+  const haveMatch = notes.match(/You have:\s*(.+?)(?:\.|$)/i);
+
+  let html = "<h3 class='shopping-section-title'>Missing for this plan</h3>";
+  if (needMatch) {
+    const items = needMatch[1].split(",").map((s: string) => s.trim()).filter(Boolean);
+    html += "<ul class='shopping-list'>";
+    for (const item of items) {
+      html += `<li>${escapeHtml(item)}</li>`;
+    }
+    html += "</ul>";
+  } else {
+    html += "<p class='shopping-empty'>Nothing missing — you have everything!</p>";
+  }
+
+  if (haveMatch) {
+    html += "<h3 class='shopping-section-title' style='margin-top:1rem;'>Already in stock</h3>";
+    const items = haveMatch[1].split(",").map((s: string) => s.trim()).filter(Boolean);
+    html += "<ul class='shopping-list shopping-have'>";
+    for (const item of items) {
+      html += `<li>${escapeHtml(item)}</li>`;
+    }
+    html += "</ul>";
+  }
+
+  panel.innerHTML = html;
+}
+
+function closeShoppingListModal() {
+  if (shoppingModalOverlay) {
+    shoppingModalOverlay.classList.remove("open");
+    setTimeout(() => {
+      if (shoppingModalOverlay) shoppingModalOverlay.style.display = "none";
+    }, 200);
   }
 }
 

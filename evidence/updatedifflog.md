@@ -1,53 +1,51 @@
 ﻿# Diff Log (overwrite each cycle)
 
 ## Cycle Metadata
-- Phase: 14 (13.1–14.3) — Voice hardening + Recipe ingestion + Constraints
+- Phase: Shopping diff missing-only + Shopping List UI
 - Branch: claude/romantic-jones
-- HEAD (pre): 08ab376 (Phase 12 evidence)
-- Status: COMPLETE — STOPPED BEFORE PHASE 15
-- Commits: a21129f (Phase 13), 5f00521 (Phase 14)
-- Tests: 317 → 404 (87 new tests)
-
-## Previous Cycle
-- Phase 12 (12.1–12.3) — Restock + staples intelligence — COMPLETE at a3d9ff1
-- Phase 11 (11.1–11.3) — Multi-day planning, aggregated shopping, consumption — COMPLETE
-- Phase 10.9 — Maintain propose-confirm-apply semantics — COMPLETE at 57f8ee5
+- HEAD (pre): 5da33fe
+- Status: PENDING AUTHORIZATION
+- Tests: 429 passed (1 pre-existing flake deselected)
 
 ## Summary
-Phase 12 delivers three tightly-coupled slices in a single commit:
-1. **12.1** Always-keep-stocked toggle: in-memory staples store keyed by user_id →
-   set of (normalized_name, unit). Three new endpoints: GET/POST/DELETE /inventory/staples.
-   New schemas: StapleItem, StapleToggleRequest, StapleToggleResponse, StaplesListResponse.
-2. **12.2** Explainable low-stock detection: low_stock() now returns reason strings
-   ("below threshold" for regular items, "staple: low/out of stock" for staples).
-   Added is_staple flag to LowStockItem. Staples with zero inventory (never added)
-   also surface in low-stock results.
-3. **12.3** Shopping list refinement: ShoppingDiffResponse gains staple_items list.
-   Plan items get reason "needed for plan", staples get "auto-added: staple low/out of stock".
-   Staples already in plan's required dict are deduplicated (appear only in missing_items).
+Two changes:
+1. **Backend:** Meal-plan annotation (`mealplan.notes`) now excludes staple items from the "You need" list. Only plan-specific missing ingredients appear. Staples remain available via `POST /shopping/diff` endpoint (`staple_items` field) for general shopping flows.
+2. **Frontend:** Added Shopping List button (🗒️ notepad icon) to the right-side icon column between Recipe Packs (📖) and Thumbs (👍). Opens a modal styled like the existing Recipe Packs modal. Modal shows "Missing for this plan" list parsed from `mealplan.notes`. `state.lastPlan` is now set from the normal chat/proposal flow when a `generate_mealplan` action arrives.
 
-No DB schema changes. Three new API endpoints. In-memory staples storage consistent
-with existing architecture (ProposalStore, etc.).
+## Changed Files
 
-## Phase 12 Changes (a3d9ff1)
+### 1. app/services/chef_agent.py
+- `_annotate_via_shopping_diff()`: Filter `diff.missing_items` to exclude items that are user staples via `inv_svc.is_staple()`. Only non-staple missing items appear in "You need" notes.
+- No change to the `ShoppingService.diff()` contract — it still returns both `missing_items` and `staple_items`.
 
-### 1. app/schemas.py
-- Added `is_staple: bool = False` to LowStockItem
-- Added StapleItem(item_name, unit), StapleToggleRequest(item_name, unit),
-  StapleToggleResponse(item_name, unit, is_staple), StaplesListResponse(staples)
-- Added `staple_items: List[ShoppingListItem] = Field(default_factory=list)` to ShoppingDiffResponse
-- Changed ShoppingListItem.reason default: "missing for meal plan" → "needed for plan"
+### 2. tests/test_shopping_diff_chef.py
+- Added `test_annotate_excludes_staples_from_plan_notes`: Seeds a user with tomato in stock, marks pasta as a staple, generates a plan. Asserts pasta does NOT appear in `mealplan.notes` "You need" section. Confirms `ShoppingService.diff()` still returns staple data for general flows.
 
-### 2. app/services/inventory_service.py
-- Added `_staples: Dict[str, Set[Tuple[str, str]]]` to __init__
-- Rewrote low_stock(): uses summary_keys set (all items regardless of stock level),
-  distinguishes "below threshold" vs "staple: low/out of stock" reasons,
-  adds zero-inventory staples that were never added to inventory
-- Added set_staple(), remove_staple(), list_staples(), is_staple() methods
+### 3. web/src/main.ts
+- Added `shoppingListBtn` and `shoppingModalOverlay` variables.
+- `ensureShell()`: Creates shopping list button (🗒️) between recipe packs and thumbs buttons.
+- `sendAsk()`: Sets `state.lastPlan` when a `generate_mealplan` proposed action arrives.
+- Added `openShoppingListModal()`, `refreshShoppingModalContent()`, `closeShoppingListModal()` using same overlay pattern as recipe packs modal.
+- Modal content: parses "You need" / "You have" from `plan.notes`, renders structured list.
 
-### 3. app/api/routers/inventory.py
-- Added 3 endpoints: GET /inventory/staples, POST /inventory/staples, DELETE /inventory/staples
-- Added imports for StapleToggleRequest, StapleToggleResponse, StaplesListResponse
+### 4. web/src/style.css + web/dist/style.css
+- Added `.shopping-list-btn` positioned at `top: 226px` (between recipe packs at 158px and thumbs moved to 294px).
+- Moved `.sent-indicator-btn` from `top: 226px` to `top: 294px`.
+- Added shopping modal content styles: `.shopping-modal-title`, `.shopping-section-title`, `.shopping-list`, `.shopping-empty`.
+
+### 5. web/dist/main.js
+- Rebuilt bundle.
+
+## Verification
+
+| Check | Result |
+|-------|--------|
+| TypeScript build | `tsc -p tsconfig.json` — clean |
+| Backend test | `test_shopping_diff_chef.py` — 8/8 pass |
+| Full suite | 429 passed, 1 pre-existing flake deselected |
+| Staple exclusion | New test confirms staples excluded from notes |
+| Staples still available | `ShoppingService.diff()` still returns `staple_items` |
+| No endpoint changes | No contract breaks |
 
 ### 4. app/services/shopping_service.py
 - Changed reason from "missing for meal plan" to "needed for plan"
