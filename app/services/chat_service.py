@@ -1063,7 +1063,11 @@ class ChatService:
                 mode=effective_mode,
             )
         # MATCH decision mode: "what can I make?"
-        from app.services.chef_agent import _MATCH_RE
+        from app.services.chef_agent import _MATCH_RE, _CHECK_RE
+        if _CHECK_RE.search(message):
+            user_obj = UserMe(user_id=user_id)
+            request_obj = ChatRequest(mode="ask", message=message)
+            return self.chef_agent.handle_check(user_obj, request_obj)
         if _MATCH_RE.search(message):
             user_obj = UserMe(user_id=user_id)
             request_obj = ChatRequest(mode="ask", message=message)

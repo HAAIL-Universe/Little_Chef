@@ -1,13 +1,16 @@
 ﻿# Diff Log (overwrite each cycle)
 
 ## Cycle Metadata
-- Phase: 10.4 — Decision Mode (MATCH): "What can I make right now?"
+- Phase: 10.5 — Feasibility check (CHECK): "Can I cook X?"
 - Branch: claude/romantic-jones
-- HEAD (pre): 1cbe2ca (Phase 10.3 commit)
+- HEAD (pre): cb8fb17 (Phase 10.4 commit)
 - Status: COMPLETE
-- Commit: 9a14fd6
+- Commit: d441a03
 
 ## Previous Cycle
+- Phase 10.4 — Decision Mode (MATCH): "What can I make right now?"
+- Commit: cb8fb17
+- Status: COMPLETE
 Phase 10.3 (Ingredient Extraction MVP Parser) — COMPLETE at 1cbe2ca. Enhanced `extract_ingredients_from_markdown()` with name normalization, optional detection, safe fraction parsing. 201 tests passed.
 
 ## Summary

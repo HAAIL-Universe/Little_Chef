@@ -23,7 +23,14 @@ _MATCH_RE = re.compile(
     r"|recipe\s+ideas?|meal\s+ideas?|what\s+to\s+cook)\b",
     re.IGNORECASE,
 )
+_CHECK_RE = re.compile(
+    r"\b(?:can\s+i\s+(?:cook|make|prepare)\s+(.+?)(?:\?|$)"
+    r"|(?:is|are)\s+(.+?)\s+(?:feasible|possible|doable)(?:\?|$)"
+    r"|(?:do\s+i\s+have\s+(?:enough|what\s+i\s+need)\s+(?:for|to\s+(?:cook|make))\s+(.+?))(?:\?|$))",
+    re.IGNORECASE,
+)
 _MAX_MATCH_SUGGESTIONS = 5
+_MAX_CHECK_ALTERNATIVES = 3
 
 
 class ChefAgent:
@@ -141,6 +148,128 @@ class ChefAgent:
             proposal_id=None,
             proposed_actions=[],
             suggested_next_questions=["Generate a meal plan", "Can I cook [recipe name]?"],
+            mode="ask",
+        )
+
+    def handle_check(self, user: UserMe, request: ChatRequest) -> ChatResponse:
+        """Feasibility check: can the user cook a specific recipe?
+
+        Searches the recipe corpus by name (substring), scores against inventory,
+        and returns feasible / almost / not feasible with missing items.
+        Informational only — no proposal.
+        """
+        # Extract recipe name from the message
+        m = _CHECK_RE.search(request.message)
+        if not m:
+            return ChatResponse(
+                reply_text="Please specify a recipe name, e.g. \"Can I cook Tomato Pasta?\"",
+                confirmation_required=False,
+                proposal_id=None,
+                proposed_actions=[],
+                suggested_next_questions=[],
+                mode="ask",
+            )
+        query = (m.group(1) or m.group(2) or m.group(3) or "").strip().rstrip("?").strip()
+        if not query:
+            return ChatResponse(
+                reply_text="Please specify a recipe name, e.g. \"Can I cook Tomato Pasta?\"",
+                confirmation_required=False,
+                proposal_id=None,
+                proposed_actions=[],
+                suggested_next_questions=[],
+                mode="ask",
+            )
+        query_lower = query.lower()
+
+        # Build full catalog
+        pack_recipes = self._build_pack_catalog(user.user_id)
+        catalog: list[dict] = []
+        for r in pack_recipes:
+            catalog.append(r)
+        for r in BUILT_IN_RECIPES:
+            catalog.append({
+                "id": r["id"],
+                "title": r["title"],
+                "ingredients": _INGREDIENTS_BY_RECIPE.get(r["id"], []),
+                "source_type": "built_in",
+            })
+
+        # Search by substring match
+        matches = [r for r in catalog if query_lower in r["title"].lower()]
+        if not matches:
+            return ChatResponse(
+                reply_text=f"I couldn't find a recipe matching \"{query}\" in your library.",
+                confirmation_required=False,
+                proposal_id=None,
+                proposed_actions=[],
+                suggested_next_questions=["What can I make?", "Generate a meal plan"],
+                mode="ask",
+            )
+
+        recipe = matches[0]  # best match (first hit)
+
+        # Get inventory stock names
+        stock_names: set[str] = set()
+        if self.inventory_service:
+            try:
+                inv = self.inventory_service.summary(user.user_id)
+                stock_names = {item.item_name.lower() for item in inv.items}
+            except Exception:
+                pass
+
+        ingredients = recipe.get("ingredients", [])
+        pct, missing = self._score_recipe(ingredients, stock_names)
+
+        # Determine feasibility label
+        if pct >= 1.0:
+            label = "Feasible"
+            emoji = "✅"
+        elif pct >= 0.5:
+            label = "Almost"
+            emoji = "🟡"
+        else:
+            label = "Not feasible"
+            emoji = "❌"
+
+        lines: list[str] = [f"{emoji} **{recipe['title']}** — {label} ({pct:.0%} ingredients in stock)"]
+        if missing:
+            lines.append(f"Missing: {', '.join(missing)}")
+
+        # Suggest alternatives (other recipes with higher completion %)
+        prefs = None
+        if self.prefs_service:
+            try:
+                prefs = self.prefs_service.get_prefs(user.user_id)
+            except Exception:
+                pass
+        excluded_ids = set(self._excluded_recipe_ids(prefs, pack_recipes))
+        excluded_ids.add(recipe["id"])
+
+        alternatives: list[tuple[dict, float, list[str]]] = []
+        for r in catalog:
+            if r["id"] in excluded_ids:
+                continue
+            r_ings = r.get("ingredients", [])
+            r_pct, r_missing = self._score_recipe(r_ings, stock_names)
+            if r_pct > pct:
+                alternatives.append((r, r_pct, r_missing))
+        alternatives.sort(key=lambda x: (-x[1], x[0]["title"].lower()))
+        top_alts = alternatives[:_MAX_CHECK_ALTERNATIVES]
+
+        if top_alts:
+            lines.append("\nAlternatives with better ingredient coverage:")
+            for alt, a_pct, a_missing in top_alts:
+                alt_line = f"- **{alt['title']}** — {a_pct:.0%} in stock"
+                if a_missing:
+                    alt_line += f" (missing: {', '.join(a_missing)})"
+                lines.append(alt_line)
+
+        return ChatResponse(
+            reply_text="\n".join(lines),
+            confirmation_required=False,
+            proposal_id=None,
+            proposed_actions=[],
+            suggested_next_questions=["What can I make?", "Generate a meal plan"],
             mode="ask",
         )
 
