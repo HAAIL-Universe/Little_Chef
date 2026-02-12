@@ -379,7 +379,7 @@ var composeNextHintTriggered = false;
 var suppressComposeBackdropUntil = 0;
 var dictationActive = false;
 var speechRecognition = null;
-var dictationAbortedIntentionally = false;
+var dictationGeneration = 0;
 function headers() {
   const h = { "Content-Type": "application/json" };
   const raw = state.token?.trim();
@@ -2353,6 +2353,7 @@ function toggleComposeDictation() {
   }
 }
 function startComposeDictation() {
+  const gen = ++dictationGeneration;
   if (speechRecognition) {
     try {
       speechRecognition.abort();
@@ -2361,7 +2362,6 @@ function startComposeDictation() {
     speechRecognition = null;
   }
   dictationActive = false;
-  dictationAbortedIntentionally = false;
   const SRCtor = getSpeechRecognitionCtor();
   if (!SRCtor) {
     setDuetStatus("Voice dictation is not supported on this browser.", false);
@@ -2371,16 +2371,17 @@ function startComposeDictation() {
   }
   const input = document.getElementById("duet-input");
   if (!input) return;
-  setTimeout(() => doStartRecognition(SRCtor, input), 120);
+  setTimeout(() => doStartRecognition(SRCtor, input, gen), 120);
 }
-function doStartRecognition(SRCtor, input) {
-  if (dictationAbortedIntentionally) return;
+function doStartRecognition(SRCtor, input, gen) {
+  if (gen !== dictationGeneration) return;
   const sr = new SRCtor();
   sr.continuous = true;
   sr.interimResults = true;
   sr.lang = "en-US";
   const baseText = input.value;
   sr.onresult = (event) => {
+    if (gen !== dictationGeneration) return;
     let interim = "";
     let final = "";
     for (let i = 0; i < event.results.length; i++) {
@@ -2398,15 +2399,14 @@ function doStartRecognition(SRCtor, input) {
     maybeTriggerPrefsComposeNextHint(input);
   };
   sr.onerror = (event) => {
-    if (dictationAbortedIntentionally) {
-      return;
-    }
+    if (gen !== dictationGeneration) return;
     if (event.error !== "aborted" && event.error !== "no-speech") {
       setDuetStatus("Dictation error: " + event.error, false);
     }
     stopComposeDictation();
   };
   sr.onend = () => {
+    if (gen !== dictationGeneration) return;
     if (dictationActive) {
       dictationActive = false;
       updateMicButtonState();
@@ -2416,7 +2416,6 @@ function doStartRecognition(SRCtor, input) {
     sr.start();
     speechRecognition = sr;
     dictationActive = true;
-    dictationAbortedIntentionally = false;
     updateMicButtonState();
   } catch (e) {
     setDuetStatus("Could not start dictation.", false);
@@ -2424,8 +2423,8 @@ function doStartRecognition(SRCtor, input) {
 }
 function stopComposeDictation() {
   if (!dictationActive && !speechRecognition) return;
+  dictationGeneration++;
   dictationActive = false;
-  dictationAbortedIntentionally = true;
   if (speechRecognition) {
     try {
       speechRecognition.abort();

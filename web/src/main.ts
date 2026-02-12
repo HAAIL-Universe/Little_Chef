@@ -263,7 +263,7 @@ let composeNextHintTriggered = false;
 let suppressComposeBackdropUntil = 0;
 let dictationActive = false;
 let speechRecognition: any = null;
-let dictationAbortedIntentionally = false;
+let dictationGeneration = 0;
 
 function headers() {
   const h: Record<string, string> = { "Content-Type": "application/json" };
@@ -2581,17 +2581,17 @@ function toggleComposeDictation() {
 }
 
 function startComposeDictation() {
-  // Guard: abort any lingering instance before creating a new one.
-  // Chrome allows only one active SpeechRecognition session; if the
-  // previous session's stop() hasn't fully completed (common in the
-  // rapid back-and-forth prefs wizard flow), start() on a new
-  // instance fails with a "network" error.
+  // Bump generation so any lingering onerror/onend from old sessions is ignored.
+  const gen = ++dictationGeneration;
+
+  // Abort any lingering instance.  Chrome allows only one active
+  // SpeechRecognition session; if the previous session's stop() hasn't
+  // fully completed, start() on a new instance fails with "network".
   if (speechRecognition) {
     try { speechRecognition.abort(); } catch (_) { /* ignore */ }
     speechRecognition = null;
   }
   dictationActive = false;
-  dictationAbortedIntentionally = false;
 
   const SRCtor = getSpeechRecognitionCtor();
   if (!SRCtor) {
@@ -2604,14 +2604,12 @@ function startComposeDictation() {
   if (!input) return;
 
   // Short delay to let Chrome fully release the previous session.
-  // Without this, sr.start() can throw "network" if the old session's
-  // abort() hasn't fully propagated.
-  setTimeout(() => doStartRecognition(SRCtor, input), 120);
+  setTimeout(() => doStartRecognition(SRCtor, input, gen), 120);
 }
 
-function doStartRecognition(SRCtor: any, input: HTMLTextAreaElement) {
-  // If user toggled off before the delay elapsed, bail out
-  if (dictationAbortedIntentionally) return;
+function doStartRecognition(SRCtor: any, input: HTMLTextAreaElement, gen: number) {
+  // If a newer start or a stop happened since we were scheduled, bail out.
+  if (gen !== dictationGeneration) return;
 
   const sr = new SRCtor();
   sr.continuous = true;
@@ -2621,6 +2619,7 @@ function doStartRecognition(SRCtor: any, input: HTMLTextAreaElement) {
   const baseText = input.value;
 
   sr.onresult = (event: any) => {
+    if (gen !== dictationGeneration) return;
     let interim = "";
     let final = "";
     for (let i = 0; i < event.results.length; i++) {
@@ -2639,12 +2638,10 @@ function doStartRecognition(SRCtor: any, input: HTMLTextAreaElement) {
   };
 
   sr.onerror = (event: any) => {
-    if (dictationAbortedIntentionally) {
-      // Suppress errors that arrive asynchronously after intentional abort().
-      // Chrome sometimes delivers "network" instead of "aborted" on rapid
-      // session teardown.
-      return;
-    }
+    // Ignore errors from a session that is no longer current.
+    // Chrome often fires "network" instead of "aborted" on rapid teardown;
+    // the generation check catches ALL stale errors regardless of timing.
+    if (gen !== dictationGeneration) return;
     if (event.error !== "aborted" && event.error !== "no-speech") {
       setDuetStatus("Dictation error: " + event.error, false);
     }
@@ -2652,6 +2649,7 @@ function doStartRecognition(SRCtor: any, input: HTMLTextAreaElement) {
   };
 
   sr.onend = () => {
+    if (gen !== dictationGeneration) return;
     // If still marked active, recognition stopped unexpectedly — update UI
     if (dictationActive) {
       dictationActive = false;
@@ -2663,7 +2661,6 @@ function doStartRecognition(SRCtor: any, input: HTMLTextAreaElement) {
     sr.start();
     speechRecognition = sr;
     dictationActive = true;
-    dictationAbortedIntentionally = false;
     updateMicButtonState();
   } catch (e) {
     setDuetStatus("Could not start dictation.", false);
@@ -2672,8 +2669,10 @@ function doStartRecognition(SRCtor: any, input: HTMLTextAreaElement) {
 
 function stopComposeDictation() {
   if (!dictationActive && !speechRecognition) return;
+  // Bump generation so any async onerror/onend from the dying session
+  // is silently discarded.
+  dictationGeneration++;
   dictationActive = false;
-  dictationAbortedIntentionally = true;
   if (speechRecognition) {
     try { speechRecognition.abort(); } catch (_) { /* ignore */ }
     speechRecognition = null;
