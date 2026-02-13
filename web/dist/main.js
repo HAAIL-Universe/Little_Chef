@@ -533,11 +533,19 @@ function updateProposalActionsVisibility() {
     if (!container)
         return;
     const visible = shouldShowProposalActions();
-    if (visible) {
-        console.info("[proposal-debug] showing traffic-light buttons", { proposalId: state.proposalId });
-        setDuetStatus("Confirm ✔ / Edit ✏ / Deny ✖ your proposal.");
-    }
+    console.info("[proposal-debug] updateProposalActionsVisibility", {
+        visible,
+        proposalId: state.proposalId,
+        actionsLen: state.proposedActions.length,
+        confirmRequired: lastResponseRequiresConfirmation,
+    });
     container.classList.toggle("visible", visible);
+    // Force inline styles — belt-and-suspenders so CSS cannot hide buttons
+    container.style.opacity = visible ? "1" : "0";
+    container.style.pointerEvents = visible ? "auto" : "none";
+    container.style.transform = visible
+        ? "translateY(-50%) scale(1)"
+        : "translateY(-50%) scale(0.85)";
     container.setAttribute("aria-hidden", visible ? "false" : "true");
     [proposalConfirmButton, proposalEditButton, proposalDenyButton].forEach((btn) => {
         if (btn) {
@@ -1601,7 +1609,9 @@ async function sendAsk(message, opts) {
         if (opts === null || opts === void 0 ? void 0 : opts.updateChatPanel) {
             setText("chat-reply", { status: res.status, json });
         }
-        setDuetStatus("Reply received.");
+        setDuetStatus(lastResponseRequiresConfirmation
+            ? "Confirm ✔ / Edit ✏ / Deny ✖ your proposal."
+            : "Reply received.");
     }
     catch (err) {
         updateHistory(thinkingIndex, "Network error. Try again.");
