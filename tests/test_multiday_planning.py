@@ -11,6 +11,7 @@ Tests that:
 """
 
 import pytest
+from typing import Any
 
 from app.services.inventory_service import get_inventory_service
 from app.services.mealplan_service import MealPlanService
@@ -19,7 +20,9 @@ from app.services.proposal_store import ProposalStore
 from app.services.prefs_service import PrefsService, get_prefs_service
 from app.schemas import (
     ChatRequest,
+    ChatResponse,
     MealPlanGenerateRequest,
+    MealPlanResponse,
     UserMe,
     UserPrefs,
 )
@@ -38,7 +41,16 @@ USER = UserMe(user_id="user-111", provider_subject="sub", email=None)
 
 
 def _prefs(**overrides) -> UserPrefs:
-    fields = {"servings": 2, "meals_per_day": 3}
+    fields: dict[str, Any] = {
+        "servings": 2,
+        "meals_per_day": 3,
+        "allergies": [],
+        "dislikes": [],
+        "cuisine_likes": [],
+        "diet_goals": [],
+        "equipment": [],
+        "notes": "",
+    }
     fields.update(overrides)
     return UserPrefs(**fields)
 
@@ -53,6 +65,14 @@ def _make_agent(prefs_service=None):
         inventory_service=inv_svc,
         shopping_service=ShoppingService(inv_svc),
     )
+
+
+def _mealplan_from_response(response: ChatResponse) -> MealPlanResponse:
+    for action in response.proposed_actions:
+        mealplan = getattr(action, "mealplan", None)
+        if mealplan is not None:
+            return mealplan
+    raise AssertionError("No mealplan action in response")
 
 
 # ── Multi-day via API endpoint ────────────────────────────────────────────
@@ -111,7 +131,7 @@ def test_default_1_day_no_prefs():
     )
     request = ChatRequest(mode="fill", message="plan meals", thread_id="t-111-nop")
     response = agent.handle_fill(USER, request)
-    plan = response.proposed_actions[0].mealplan
+    plan = _mealplan_from_response(response)
     assert len(plan.days) == 1
 
 
@@ -123,7 +143,7 @@ def test_plan_days_pref_fallback():
 
     request = ChatRequest(mode="fill", message="plan meals", thread_id="t-111-e")
     response = agent.handle_fill(USER, request)
-    plan = response.proposed_actions[0].mealplan
+    plan = _mealplan_from_response(response)
     assert len(plan.days) == 5
 
 
@@ -136,7 +156,7 @@ def test_recipe_variety_across_days():
 
     request = ChatRequest(mode="fill", message="plan 3 days of meals", thread_id="t-111-f")
     response = agent.handle_fill(USER, request)
-    plan = response.proposed_actions[0].mealplan
+    plan = _mealplan_from_response(response)
     assert len(plan.days) == 3
 
     # Collect all recipe names per day
@@ -166,7 +186,7 @@ def test_prefs_allergy_filter_multiday():
 
     request = ChatRequest(mode="fill", message="plan 3 days", thread_id="t-111-g")
     response = agent.handle_fill(USER, request)
-    plan = response.proposed_actions[0].mealplan
+    plan = _mealplan_from_response(response)
 
     for day in plan.days:
         for meal in day.meals:
