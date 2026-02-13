@@ -22,6 +22,7 @@ import app.api.routers.household as household_router
 from app.services.recipe_service import get_recipe_service, reset_recipe_service_cache
 from app.services.shopping_service import reset_shopping_service_cache
 from app.services.mealplan_service import reset_mealplan_service_cache
+from app.services.mealplan_store_service import reset_mealplan_store_service_cache
 from app.services.llm_client import get_llm_client
 import os
 
@@ -47,6 +48,7 @@ def app_instance(tmp_path, monkeypatch):
     reset_recipe_service_cache()
     reset_shopping_service_cache()
     reset_mealplan_service_cache()
+    reset_mealplan_store_service_cache()
     chat_router.reset_chat_state_for_tests()
     recipes_router.reset_recipes_for_tests()
     alexa_router.reset_alexa_for_tests()

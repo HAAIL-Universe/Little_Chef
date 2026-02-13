@@ -1,3 +1,6 @@
+from app.services.mealplan_store_service import get_mealplan_store_service
+
+
 def test_chef_agent_requires_auth(client):
     resp = client.post(
         "/chat/mealplan",
@@ -52,6 +55,9 @@ def test_chef_agent_propose_and_confirm(authed_client):
     assert confirm_body["applied"] is True
     assert len(confirm_body["applied_event_ids"]) == 1
     assert confirm_body["applied_event_ids"][0] == plan["plan_id"]
+    latest = get_mealplan_store_service().get_latest_plan("test-user")
+    assert latest is not None
+    assert latest.plan_id == plan["plan_id"]
 
 
 def test_chef_agent_propose_and_decline(authed_client):

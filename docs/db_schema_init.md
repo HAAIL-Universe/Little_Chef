@@ -3,12 +3,12 @@
 ## Prereqs
 - Set `DATABASE_URL` (e.g., postgres://user:pass@host:port/db?sslmode=require)
 - Ensure migration runner exists: `scripts/db_migrate.ps1`
-- Migration SQL: `db/migrations/0001_init.sql`
+- Migration SQL: `db/migrations/0001_init.sql` ... `db/migrations/0006_meal_plans.sql`
 
 ## Local steps
 1) `pwsh -NoProfile -File .\scripts\db_migrate.ps1`
 2) Verify tables:
-   - `psql $env:DATABASE_URL -c "\dt"` should list `users`, `prefs`, `inventory_events`, `schema_migrations`.
+   - `psql $env:DATABASE_URL -c "\dt"` should list `users`, `prefs`, `inventory_events`, `meal_plans`, `schema_migrations`.
 3) Smoke: start app (`scripts/run_local.ps1 -Migrate` or run migrations first), then call `/auth/me` with a valid Bearer token; it should not fail with missing table.
 
 ## Render/Neon notes

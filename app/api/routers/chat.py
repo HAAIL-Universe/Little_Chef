@@ -14,6 +14,7 @@ from app.services.prefs_service import get_prefs_service
 from app.services.inventory_service import get_inventory_service
 from app.services.proposal_store import ProposalStore
 from app.services.llm_client import get_llm_client
+from app.services.mealplan_store_service import reset_mealplan_store_service_cache
 from app.services.thread_messages_repo import ThreadMessagesRepo
 from app.errors import BadRequestError
 
@@ -105,6 +106,7 @@ def reset_chat_state_for_tests() -> None:
     """
     global _chat_service
     _proposal_store.clear()
+    reset_mealplan_store_service_cache()
     get_prefs_service.cache_clear()
     get_inventory_service.cache_clear()
     global _thread_messages_repo

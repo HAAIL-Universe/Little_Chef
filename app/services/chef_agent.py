@@ -89,6 +89,7 @@ class ChefAgent:
         inventory_service=None,
         recipe_service=None,
         shopping_service=None,
+        mealplan_store_service=None,
     ) -> None:
         self.mealplan_service = mealplan_service
         self.proposal_store = proposal_store
@@ -97,6 +98,7 @@ class ChefAgent:
         self.inventory_service = inventory_service
         self.recipe_service = recipe_service
         self.shopping_service = shopping_service
+        self.mealplan_store_service = mealplan_store_service
         self._pending: Dict[Tuple[str, str], str] = {}  # (user_id, thread_id) -> proposal_id
         self._proposal_threads: Dict[str, Tuple[str, str]] = {}  # proposal_id -> (user_id, thread_id)
 
@@ -722,6 +724,18 @@ class ChefAgent:
         applied_ids: List[str] = []
         for act in action_list:
             if isinstance(act, ProposedGenerateMealPlanAction):
+                if self.mealplan_store_service:
+                    try:
+                        self.mealplan_store_service.save_confirmed_plan(
+                            user.user_id,
+                            user.provider_subject,
+                            user.email,
+                            thread_id,
+                            proposal_id,
+                            act.mealplan,
+                        )
+                    except Exception:
+                        return False, [], "mealplan_persist_failed"
                 applied_ids.append(act.mealplan.plan_id)
             elif isinstance(act, ProposedInventoryEventAction):
                 if self.inventory_service:
