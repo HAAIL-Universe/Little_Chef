@@ -51,6 +51,7 @@ Unit = Literal[
     "tin", "bag", "box", "jar", "bottle", "pack",
     "loaf", "slice", "piece", "can", "carton", "tub", "pot",
     "bunch", "bulb", "head",
+    "cup", "tbsp", "tsp",
 ]
 Location = Literal["pantry", "fridge", "freezer"]
 InventoryEventType = Literal[
@@ -317,6 +318,8 @@ class ChatRequest(BaseModel):
     include_user_library: bool = True
     location: Optional[Literal["pantry", "fridge", "freezer"]] = None
     thread_id: Optional[str] = None
+    mealplan_behavior: Optional[Literal["inventory_first", "balanced", "adventurous"]] = None
+    mealplan_use_soonest_expiry_first: bool = False
     voice_input: bool = Field(default=False, description="True when message originated from speech-to-text dictation")
 
 

@@ -236,6 +236,103 @@ assert(
 );
 console.log("date= format tests: PASS");
 
+const mealplanResponse = {
+  confirmation_required: true,
+  proposed_actions: [
+    {
+      action_type: "generate_mealplan",
+      mealplan: {
+        plan_id: "plan-test",
+        days: [
+          {
+            day_index: 1,
+            meals: [
+              { name: "Chicken, Lemon Bowl", slot: "breakfast", ingredients: [{ item_name: "chicken" }] },
+              { name: "Tomato Pasta", slot: "lunch", ingredients: [{ item_name: "tomato" }, { item_name: "pasta" }] },
+              { name: "Veg Stir Fry", slot: "dinner", ingredients: [{ item_name: "onion" }, { item_name: "olive oil" }] },
+            ],
+          },
+          {
+            day_index: 2,
+            meals: [
+              { name: "Egg Toast", slot: "breakfast", ingredients: [{ item_name: "egg" }] },
+              { name: "Bean Salad", slot: "lunch", ingredients: [{ item_name: "beans" }] },
+              { name: "Rice Bowl", slot: "dinner", ingredients: [{ item_name: "rice" }] },
+            ],
+          },
+          {
+            day_index: 3,
+            meals: [
+              { name: "Oats", slot: "breakfast", ingredients: [{ item_name: "oats" }] },
+              { name: "Soup", slot: "lunch", ingredients: [{ item_name: "broth" }] },
+              { name: "Chicken Traybake", slot: "dinner", ingredients: [{ item_name: "chicken" }] },
+            ],
+          },
+        ],
+        notes:
+          "You have: tomato, basil. You need: pasta (200 g), olive oil (30 ml), onion (1).\n\nCook time prefs: weekday ≤30min, weekend ≤45min (no duration data on recipes yet).",
+      },
+    },
+  ],
+};
+
+const mealplanSummary = formatProposalSummary(mealplanResponse);
+assert(mealplanSummary, "mealplan summary should exist");
+assert(
+  mealplanSummary.includes("    • breakfast: Chicken, Lemon Bowl"),
+  "meal names containing commas must remain a single meal line"
+);
+
+const mealplanLines = mealplanSummary.split("\n");
+const dayCounts = new Map();
+let currentDay = 0;
+for (const line of mealplanLines) {
+  const dayMatch = line.match(/^ {2}Day (\d+)/);
+  if (dayMatch) {
+    currentDay = Number(dayMatch[1]);
+    if (!dayCounts.has(currentDay)) dayCounts.set(currentDay, 0);
+    continue;
+  }
+  if (/^ {4}• (breakfast|lunch|dinner|supper|snack):/i.test(line) && currentDay) {
+    dayCounts.set(currentDay, (dayCounts.get(currentDay) ?? 0) + 1);
+  }
+}
+assert.strictEqual(dayCounts.get(1), 3, "Day 1 should render exactly 3 meals");
+assert.strictEqual(dayCounts.get(2), 3, "Day 2 should render exactly 3 meals");
+assert.strictEqual(dayCounts.get(3), 3, "Day 3 should render exactly 3 meals");
+const renderedTotal = [...dayCounts.values()].reduce((sum, n) => sum + n, 0);
+assert.strictEqual(renderedTotal, 9, "Rendered meal lines should total 9");
+
+const sectionItems = (label) => {
+  const header = `  ${label}`;
+  const start = mealplanLines.indexOf(header);
+  if (start < 0) return [];
+  const items = [];
+  for (let i = start + 1; i < mealplanLines.length; i++) {
+    const line = mealplanLines[i];
+    if (/^ {2}(You have|You need|Cook time prefs):?/.test(line)) break;
+    if (line.trim().length === 0) continue;
+    if (/^ {4}• /.test(line)) {
+      items.push(line.trim());
+      continue;
+    }
+    break;
+  }
+  return items;
+};
+
+assert(
+  mealplanSummary.includes("\n  You have\n"),
+  "mealplan summary should include a distinct 'You have' section"
+);
+assert(
+  mealplanSummary.includes("\n  You need\n"),
+  "mealplan summary should include a distinct 'You need' section"
+);
+assert(sectionItems("You have").length >= 1, "'You have' section should render bullet items");
+assert(sectionItems("You need").length >= 3, "'You need' section should render separate bullet items");
+console.log("mealplan day/rendering tests: PASS");
+
 console.log("ui proposal renderer test: PASS");
 
 const commands = [

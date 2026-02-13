@@ -73,6 +73,49 @@ def test_generate_partial_stock_ranks_correctly():
     assert plan.days[0].meals[0].name == "Simple Tomato Pasta"
 
 
+def test_generate_adventurous_diverges_from_inventory_first_without_expiry():
+    """Adventurous mode should not open with the top inventory-ranked recipe."""
+    svc = MealPlanService()
+    req = MealPlanGenerateRequest(days=1, meals_per_day=1)
+    stock_names = {"tomato", "pasta"}
+
+    inventory_plan = svc.generate(
+        req,
+        stock_names=stock_names,
+        planning_mode="inventory_first",
+    )
+    adventurous_plan = svc.generate(
+        req,
+        stock_names=stock_names,
+        planning_mode="adventurous",
+        expiry_priority=None,
+    )
+
+    inventory_first_meal = inventory_plan.days[0].meals[0].name
+    adventurous_first_meal = adventurous_plan.days[0].meals[0].name
+
+    assert inventory_first_meal == "Simple Tomato Pasta"
+    assert adventurous_first_meal != inventory_first_meal
+
+
+def test_generate_small_catalog_modes_diverge_visibly():
+    """With only built-ins available, modes should still produce different ordering."""
+    svc = MealPlanService()
+    req = MealPlanGenerateRequest(days=2, meals_per_day=3)
+    stock_names: set[str] = set()
+
+    inventory_plan = svc.generate(req, stock_names=stock_names, planning_mode="inventory_first")
+    balanced_plan = svc.generate(req, stock_names=stock_names, planning_mode="balanced")
+    adventurous_plan = svc.generate(req, stock_names=stock_names, planning_mode="adventurous")
+
+    inv_names = [m.name for d in inventory_plan.days for m in d.meals]
+    bal_names = [m.name for d in balanced_plan.days for m in d.meals]
+    adv_names = [m.name for d in adventurous_plan.days for m in d.meals]
+
+    assert inv_names != bal_names
+    assert inv_names != adv_names
+
+
 def test_generate_empty_stock_ranks_alphabetically():
     """With empty inventory, recipes are sorted alphabetically (deterministic)."""
     svc = MealPlanService()

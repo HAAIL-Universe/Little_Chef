@@ -19,6 +19,7 @@ type InventoryEvent = {
 type PlannedMeal = {
   name: string;
   slot: string;
+  ingredients?: Array<{ item_name?: string }>;
 };
 
 type MealPlanDay = {
@@ -114,6 +115,98 @@ const formatUseByToken = (value?: string): string | null => {
   return `USE BY: ${dayText}/${monthText}`;
 };
 
+const splitSectionItems = (text: string): string[] => {
+  const normalized = text.trim().replace(/\s+/g, " ");
+  if (!normalized) return [];
+  const byLine = normalized
+    .split(/\r?\n/)
+    .map((line) => line.trim().replace(/^[,.;:]+\s*/, "").replace(/[.;:]+$/, ""))
+    .filter(Boolean);
+  if (byLine.length > 1) {
+    return byLine;
+  }
+  // Backend currently emits comma-separated items in notes sections.
+  return normalized
+    .split(/\s*,\s*/)
+    .map((item) => item.trim().replace(/^[,.;:]+\s*/, "").replace(/[.;:]+$/, ""))
+    .filter(Boolean);
+};
+
+const splitNeededItems = (text: string): string[] => {
+  const normalized = text.trim();
+  if (!normalized) return [];
+  const byLine = normalized
+    .split(/\r?\n/)
+    .map((line) => line.trim().replace(/^[,.;:]+\s*/, "").replace(/[.;:]+$/, ""))
+    .filter(Boolean);
+  if (byLine.length > 1) {
+    return byLine;
+  }
+  // Backend format: "name (qty unit), name (qty unit)"
+  const qtyMatches = normalized.match(/[^,]+?\([^)]*\)(?=,\s*|$)/g);
+  if (qtyMatches && qtyMatches.length) {
+    return qtyMatches
+      .map((item) => item.trim().replace(/^[,.;:]+\s*/, "").replace(/[.;:]+$/, ""))
+      .filter(Boolean);
+  }
+  return splitSectionItems(normalized);
+};
+
+const parseMealplanNotes = (notes?: string) => {
+  const result = {
+    have: "",
+    need: "",
+    cookTime: "",
+    extras: [] as string[],
+  };
+  if (!notes) {
+    return result;
+  }
+
+  const sectionMarkers: Array<{ name: string; start: number; end: number }> = [];
+  const sectionRegex = /(You have|You need|Cook time prefs):/gi;
+  let sectionMatch: RegExpExecArray | null = null;
+  while ((sectionMatch = sectionRegex.exec(notes)) !== null) {
+    sectionMarkers.push({
+      name: sectionMatch[1].toLowerCase(),
+      start: sectionMatch.index,
+      end: sectionMatch.index + sectionMatch[0].length,
+    });
+  }
+
+  if (!sectionMarkers.length) {
+    result.extras = notes
+      .split(/\r?\n/)
+      .map((line) => line.trim())
+      .filter(Boolean);
+    return result;
+  }
+
+  for (let i = 0; i < sectionMarkers.length; i++) {
+    const marker = sectionMarkers[i];
+    const nextStart = sectionMarkers[i + 1]?.start ?? notes.length;
+    const raw = notes
+      .slice(marker.end, nextStart)
+      .trim()
+      .replace(/^[\s:.-]+/, "")
+      .replace(/[.\s]+$/, "")
+      .trim();
+    if (!raw) continue;
+    if (marker.name === "you have") {
+      result.have = raw;
+      continue;
+    }
+    if (marker.name === "you need") {
+      result.need = raw;
+      continue;
+    }
+    if (marker.name === "cook time prefs") {
+      result.cookTime = raw;
+    }
+  }
+  return result;
+};
+
 const formatMealplanAction = (action: ChatAction): string => {
   const mp = action.mealplan;
   if (!mp || !mp.days) {
@@ -122,13 +215,63 @@ const formatMealplanAction = (action: ChatAction): string => {
   const dayCount = mp.days.length;
   const mealCount = mp.days.reduce((sum, d) => sum + (d.meals?.length ?? 0), 0);
   const lines: string[] = [`• Meal plan: ${dayCount} day${dayCount !== 1 ? "s" : ""}, ${mealCount} meal${mealCount !== 1 ? "s" : ""}`];
+
+  const ingredientNames = new Map<string, string>();
   mp.days.forEach((day) => {
-    const names = (day.meals ?? []).map((m) => m.name).join(", ");
-    lines.push(`  Day ${day.day_index}: ${names || "(empty)"}`);
+    lines.push(`  Day ${day.day_index}`);
+    const meals = day.meals ?? [];
+    if (!meals.length) {
+      lines.push("    • (empty)");
+      return;
+    }
+    meals.forEach((meal) => {
+      lines.push(`    • ${meal.slot}: ${meal.name}`);
+      (meal.ingredients ?? []).forEach((ingredient) => {
+        const name = (ingredient.item_name ?? "").trim();
+        if (!name) return;
+        const key = name.toLowerCase();
+        if (!ingredientNames.has(key)) {
+          ingredientNames.set(key, name);
+        }
+      });
+    });
   });
   if (mp.notes) {
+    const parsed = parseMealplanNotes(mp.notes);
+    const neededItems = splitNeededItems(parsed.need);
+    const neededNames = new Set(
+      neededItems
+        .map((item) => item.replace(/\s*\([^)]*\)\s*$/, "").trim().toLowerCase())
+        .filter(Boolean)
+    );
+    const derivedHave = Array.from(ingredientNames.entries())
+      .filter(([key]) => !neededNames.has(key))
+      .map(([, original]) => original)
+      .sort((a, b) => a.localeCompare(b));
+    const haveItems = derivedHave.length ? derivedHave : splitSectionItems(parsed.have);
+
     lines.push("");
-    mp.notes.split("\n").forEach((n) => lines.push(`  ${n}`));
+    if (neededItems.length) {
+      lines.push("  You need");
+      neededItems.forEach((item) => lines.push(`    • ${item}`));
+    }
+    if (haveItems.length) {
+      if (neededItems.length) {
+        lines.push("");
+      }
+      lines.push("  You have");
+      haveItems.forEach((item) => lines.push(`    • ${item}`));
+    }
+    if (parsed.cookTime) {
+      lines.push("");
+      lines.push(`  Cook time prefs: ${parsed.cookTime}`);
+    }
+    if (parsed.extras.length) {
+      if (haveItems.length || neededItems.length || parsed.cookTime) {
+        lines.push("");
+      }
+      parsed.extras.forEach((extra) => lines.push(`  ${extra}`));
+    }
   }
   return lines.join("\n");
 };

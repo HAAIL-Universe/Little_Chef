@@ -192,11 +192,11 @@ try {
     $killResult = Kill-PortListeners $desiredPort
     if ($killResult) { $desiredPort = $killResult }
   }
-  # choose a free port — kill stale listeners rather than silently switching
+  # choose a free port - kill stale listeners rather than silently switching
   # (port drift breaks Auth0 callback URLs)
   $freePort = Find-FreePort $desiredPort 0
   if (-not $freePort) {
-    Warn "Port $desiredPort busy — killing stale listeners..."
+    Warn "Port $desiredPort busy - killing stale listeners..."
     $killResult = Kill-PortListeners $desiredPort
     $freePort = Find-FreePort $desiredPort 0
     if (-not $freePort) { Fail "Port $desiredPort still busy after kill attempt. Free it manually." }

@@ -51,7 +51,17 @@ _INSTRUCTIONS_BY_RECIPE = {
 
 
 class MealPlanService:
-    def generate(self, request: MealPlanGenerateRequest, *, excluded_recipe_ids: list | None = None, pack_recipes: list[dict] | None = None, stock_names: set[str] | None = None, target_servings: int = 0) -> MealPlanResponse:
+    def generate(
+        self,
+        request: MealPlanGenerateRequest,
+        *,
+        excluded_recipe_ids: list | None = None,
+        pack_recipes: list[dict] | None = None,
+        stock_names: set[str] | None = None,
+        target_servings: int = 0,
+        planning_mode: str = "inventory_first",
+        expiry_priority: dict[str, float] | None = None,
+    ) -> MealPlanResponse:
         days = request.days
         meals_per_day = request.meals_per_day or 3
         created_at = datetime.now(timezone.utc).isoformat()
@@ -68,25 +78,81 @@ class MealPlanService:
         if not meals_catalog:
             return MealPlanResponse(plan_id=plan_id, created_at=created_at, days=[], notes=request.notes or "")
 
-        # Inventory-aware scoring: sort by completion % descending
+        mode = (planning_mode or "inventory_first").lower()
+        if mode not in {"inventory_first", "balanced", "adventurous"}:
+            mode = "inventory_first"
+
+        # Inventory-aware scoring with optional expiry bias.
         if stock_names is not None:
+            has_expiry_bias = bool(expiry_priority)
             scored = []
             for r in meals_catalog:
                 ingredients = r.get("ingredients") or _INGREDIENTS_BY_RECIPE.get(r["id"], [])
                 total = len(ingredients) if ingredients else 0
                 have = 0
+                expiry_boost = 0.0
                 if total > 0:
                     for ing in ingredients:
                         name = ing.item_name.lower() if hasattr(ing, "item_name") else str(ing).lower()
                         if name in stock_names:
                             have += 1
+                        if expiry_priority:
+                            expiry_boost += float(expiry_priority.get(name, 0.0))
                 pct = have / total if total else 0.0
-                scored.append((pct, r))
-            # Sort by completion % descending, then by title for determinism
-            scored.sort(key=lambda x: (-x[0], x[1]["title"].lower()))
-            shuffled = [r for _, r in scored]
+
+                if mode == "inventory_first":
+                    mode_score = pct + (expiry_boost * 3.0 if has_expiry_bias else 0.0)
+                elif mode == "balanced":
+                    mode_score = pct + (expiry_boost * 2.0 if has_expiry_bias else 0.0)
+                else:  # adventurous
+                    mode_score = (expiry_boost * 4.0 + pct * 0.25) if has_expiry_bias else 0.0
+
+                scored.append((mode_score, pct, expiry_boost, r))
+
+            # Deterministic ordering by selected strategy.
+            scored.sort(key=lambda x: (-x[0], -x[2], -x[1], x[3]["title"].lower()))
+            ordered = [r for _, _, _, r in scored]
+            meals_needed = max(1, days * meals_per_day)
+
+            if len(ordered) <= 6:
+                # Small catalog safeguard: force visibly different ordering per mode.
+                # This prevents "looks the same" behavior when only fallback recipes exist.
+                if mode == "balanced":
+                    shuffled = list(ordered[1:]) + list(ordered[:1]) if len(ordered) > 1 else list(ordered)
+                elif mode == "adventurous":
+                    shuffled = list(reversed(ordered))
+                else:
+                    shuffled = list(ordered)
+            else:
+                if mode == "balanced":
+                    top_window = min(len(ordered), max(meals_needed * 4, 12))
+                    rng = random.Random(f"{plan_id}:balanced")
+                    head = list(ordered[:top_window])
+                    tail = list(ordered[top_window:])
+                    rng.shuffle(head)
+                    shuffled = head + tail
+                elif mode == "adventurous":
+                    if has_expiry_bias:
+                        # Keep strong expiry bias while still introducing variety.
+                        top_window = min(len(ordered), max(meals_needed * 5, 15))
+                        rng = random.Random(f"{plan_id}:adventurous_expiry")
+                        head = list(ordered[:top_window])
+                        tail = list(ordered[top_window:])
+                        rng.shuffle(head)
+                        shuffled = head + tail
+                    else:
+                        # Exploratory mode should visibly diverge from inventory-first:
+                        # pick from the lower-ranked inventory matches first.
+                        split_idx = min(max(len(ordered) // 3, 1), len(ordered) - 1)
+                        exploratory = list(ordered[split_idx:])
+                        high_match_tail = list(ordered[:split_idx])
+                        rng = random.Random(f"{plan_id}:adventurous")
+                        rng.shuffle(exploratory)
+                        shuffled = exploratory + high_match_tail
+                else:
+                    shuffled = ordered
         else:
-            # Deterministic non-static selection: shuffle seeded by plan_id
+            # Adventurous mode (or no inventory context): deterministic-per-plan shuffle.
             rng = random.Random(plan_id)
             shuffled = list(meals_catalog)
             rng.shuffle(shuffled)
@@ -95,8 +161,9 @@ class MealPlanService:
         for day_index in range(1, days + 1):
             day_meals: List[PlannedMeal] = []
             for meal_idx in range(meals_per_day):
-                # Offset by day_index so each day gets different recipes
-                catalog_idx = ((day_index - 1) * meals_per_day + meal_idx) % len(shuffled)
+                # Add a day stride so small catalogs (e.g. 3 fallback recipes with 3 meals/day)
+                # do not render identical day blocks.
+                catalog_idx = ((day_index - 1) * (meals_per_day + 1) + meal_idx) % len(shuffled)
                 recipe = shuffled[catalog_idx]
                 recipe_id = recipe["id"]
                 # Inline ingredients (pack recipes) take priority over built-in lookup

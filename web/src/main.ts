@@ -14,6 +14,8 @@ const state = {
 const DEV_JWT_STORAGE_KEY = "lc_dev_jwt";
 const DEV_JWT_EXP_KEY = "lc_dev_jwt_exp_utc_ms";
 const DEV_JWT_DURATION_KEY = "lc_dev_jwt_duration_ms";
+const MEALPLAN_BEHAVIOR_KEY = "lc_mealplan_behavior";
+const MEALPLAN_EXPIRY_KEY = "lc_mealplan_use_soonest_expiry_first";
 const DEV_JWT_DEFAULT_TTL_MS = 24 * 60 * 60 * 1000;
 const DEV_JWT_DURATION_OPTIONS: { value: number; label: string }[] = [
   { value: DEV_JWT_DEFAULT_TTL_MS, label: "24 hours" },
@@ -94,8 +96,32 @@ function loadRememberedJwt(): { token: string; durationMs: number } | null {
   };
 }
 
+function saveMealplanSettings() {
+  const storage = safeLocalStorage();
+  if (!storage) return;
+  if (mealplanBehavior) {
+    storage.setItem(MEALPLAN_BEHAVIOR_KEY, mealplanBehavior);
+  } else {
+    storage.removeItem(MEALPLAN_BEHAVIOR_KEY);
+  }
+  storage.setItem(MEALPLAN_EXPIRY_KEY, mealplanUseSoonestExpiryFirst ? "1" : "0");
+}
+
+function loadMealplanSettings() {
+  const storage = safeLocalStorage();
+  if (!storage) return;
+  const behavior = storage.getItem(MEALPLAN_BEHAVIOR_KEY);
+  if (behavior === "inventory_first" || behavior === "balanced" || behavior === "adventurous") {
+    mealplanBehavior = behavior;
+  } else {
+    mealplanBehavior = null;
+  }
+  mealplanUseSoonestExpiryFirst = storage.getItem(MEALPLAN_EXPIRY_KEY) === "1";
+}
+
 const PROPOSAL_CONFIRM_COMMANDS = new Set(["confirm"]);
 const PROPOSAL_DENY_COMMANDS = new Set(["deny", "cancel"]);
+type MealplanBehavior = "inventory_first" | "balanced" | "adventurous";
 
 type HistoryItem = { role: "user" | "assistant"; text: string };
 
@@ -160,11 +186,15 @@ let prefsOverlayDetails: HTMLDivElement | null = null;
 let prefsOverlayLoading = false;
 let prefsOverlayHasLoaded = false;
 let onboardMenu: HTMLDivElement | null = null;
+type OnboardMenuMode = "navigation" | "mealplan_behavior";
+let onboardMenuMode: OnboardMenuMode = "navigation";
 const OVERLAY_ROOT_ID = "duet-overlay-root";
 const OVERLAY_ROOT_Z_INDEX = 2147483640;
 const ONBOARD_MENU_EDGE_MARGIN = 8;
 const USER_BUBBLE_SENT_TEXT = "👍";
 const USER_BUBBLE_DEFAULT_HINT = "Long-press this chat bubble to navigate > Preferences";
+const MEALPLAN_FLOW_ASSISTANT_HINT =
+  "Welcome to Meal Plan.\n\nBefore generating a plan, pick your plan behavior.\n\nLong-press this bubble to open plan behavior.";
 let userSystemHint = USER_BUBBLE_DEFAULT_HINT;
 const HISTORY_BADGE_DISPLAY_MAX = 99;
 const NORMAL_CHAT_FLOW_KEYS = new Set(["general", "inventory", "mealplan", "prefs"]);
@@ -239,6 +269,9 @@ let chefBusyDotCount = 0;
 let chefBusyDotTimer: ReturnType<typeof setInterval> | null = null;
 let recipeNudgeTimer: ReturnType<typeof setTimeout> | null = null;
 let inventoryNudgeShowing = false;
+let systemHintDismissed = false;
+let mealplanBehavior: MealplanBehavior | null = null;
+let mealplanUseSoonestExpiryFirst = false;
 
 let overlayRoot: HTMLDivElement | null = null;
 let onboardPressTimer: number | null = null;
@@ -247,6 +280,7 @@ let onboardPointerId: number | null = null;
 let onboardMenuActive = false;
 let onboardActiveItem: HTMLElement | null = null;
 let onboardIgnoreDocClickUntilMs = 0;
+let onboardIgnoreItemClickUntilMs = 0;
 let onboardDragActive = false;
 const COMPOSER_TRIPLE_TAP_WINDOW_MS = 450;
 let composerVisible = false;
@@ -857,6 +891,72 @@ function setBubbleText(element: HTMLElement | null, text: string | null | undefi
   if (!element) return;
   element.innerHTML = "";
   if (!text) return;
+  if (element.id === "duet-assistant-text" && /Proposed meal plan/i.test(text)) {
+    const lines = text.split("\n");
+    type Segment =
+      | { kind: "line"; text: string }
+      | { kind: "details"; heading: "You need" | "You have"; items: string[] };
+    const segments: Segment[] = [];
+    let i = 0;
+    while (i < lines.length) {
+      const heading = lines[i].trim();
+      if (heading === "You need" || heading === "You have") {
+        const items: string[] = [];
+        let j = i + 1;
+        while (j < lines.length) {
+          const current = lines[j].trim();
+          if (!current) {
+            if (items.length) break;
+            j += 1;
+            continue;
+          }
+          const bullet = current.match(/^•\s+(.+)$/);
+          if (!bullet) break;
+          items.push(bullet[1].trim());
+          j += 1;
+        }
+        if (items.length) {
+          segments.push({ kind: "details", heading, items });
+          i = j;
+          continue;
+        }
+      }
+      segments.push({ kind: "line", text: lines[i] });
+      i += 1;
+    }
+
+    const hasDetails = segments.some((seg) => seg.kind === "details");
+    if (hasDetails) {
+      segments.forEach((segment, idx) => {
+        if (segment.kind === "line") {
+          element.append(document.createTextNode(segment.text));
+        } else {
+          const details = document.createElement("details");
+          details.className = "proposal-collapsible";
+          const summary = document.createElement("summary");
+          summary.className = "proposal-collapsible-summary";
+          summary.textContent =
+            segment.heading === "You need"
+              ? `Items you need: ${segment.items.length}`
+              : `Items on hand: ${segment.items.length}`;
+          details.appendChild(summary);
+          const list = document.createElement("ul");
+          list.className = "proposal-collapsible-list";
+          segment.items.forEach((item) => {
+            const li = document.createElement("li");
+            li.textContent = item;
+            list.appendChild(li);
+          });
+          details.appendChild(list);
+          element.append(details);
+        }
+        if (idx < segments.length - 1) {
+          element.append(document.createElement("br"));
+        }
+      });
+      return;
+    }
+  }
   const parts = text.split("\n");
   parts.forEach((line, idx) => {
     element.append(document.createTextNode(line));
@@ -877,14 +977,17 @@ function updateDuetBubbles() {
   const assistant = document.getElementById("duet-assistant-text");
   const user = document.getElementById("duet-user-text");
   const lastAssistant = [...duetState.history].reverse().find((h) => h.role === "assistant");
-  const lastUser = [...duetState.history].reverse().find((h) => h.role === "user");
+  const showSystemHint = isNormalChatFlow() && !systemHintDismissed;
   setBubbleText(assistant, lastAssistant?.text ?? assistantFallbackText);
   const showSent = userBubbleEllipsisActive && isNormalChatFlow();
-  const fallbackText = isNormalChatFlow() ? userSystemHint : lastUser?.text ?? userSystemHint;
+  const fallbackText = showSystemHint ? userSystemHint : "";
   setBubbleText(user, fallbackText);
   const userBubble = document.getElementById("duet-user-bubble");
   if (userBubble) {
     userBubble.classList.remove("sent-mode");
+    const inventoryHidden = currentFlowKey === "inventory" && !inventoryNudgeShowing;
+    const hideBecauseEmpty = fallbackText.trim().length === 0;
+    userBubble.style.display = inventoryHidden || hideBecauseEmpty ? "none" : "";
   }
   setUserBubbleLabel(true);
   // Show/hide the column sent-indicator button
@@ -1019,6 +1122,7 @@ function elevateDuetBubbles() {
 function startNewThread() {
   duetState.threadId = crypto.randomUUID();
   duetState.history = [];
+  systemHintDismissed = false;
   renderDuetHistory();
   updateDuetBubbles();
   updateThreadLabel();
@@ -1643,6 +1747,9 @@ async function sendAsk(message: string, opts?: { flowLabel?: string; updateChatP
     try {
       await submitProposalDecision(command === "confirm", thinkingIndex);
     } finally {
+      if (isNormalChat) {
+        setUserBubbleEllipsis(false);
+      }
       setComposerBusy(false);
     }
     return { userIndex, thinkingIndex };
@@ -1664,6 +1771,9 @@ async function sendAsk(message: string, opts?: { flowLabel?: string; updateChatP
         message,
         include_user_library: true,
         thread_id: threadId,
+        mealplan_behavior: currentFlowKey === "mealplan" ? (mealplanBehavior ?? undefined) : undefined,
+        mealplan_use_soonest_expiry_first:
+          currentFlowKey === "mealplan" ? mealplanUseSoonestExpiryFirst : undefined,
       }),
     });
     const json = await res.json().catch(() => null);
@@ -1677,6 +1787,9 @@ async function sendAsk(message: string, opts?: { flowLabel?: string; updateChatP
     const replyBase = proposalSummary ? stripProposalPrefix(replyText) ?? replyText : replyText;
     const assistantText = proposalSummary ? `${proposalSummary}\n\n${replyBase}` : replyBase;
     updateHistory(thinkingIndex, assistantText);
+    if (assistantText.trim().length > 0) {
+      systemHintDismissed = true;
+    }
     state.proposalId = json.proposal_id ?? null;
     state.proposedActions = Array.isArray(json.proposed_actions) ? json.proposed_actions : [];
     const mealplanAction = state.proposedActions.find((a: any) => a.action_type === "generate_mealplan" && a.mealplan);
@@ -1701,6 +1814,9 @@ async function sendAsk(message: string, opts?: { flowLabel?: string; updateChatP
     }
     console.error(err);
   } finally {
+    if (isNormalChat) {
+      setUserBubbleEllipsis(false);
+    }
     stopChefBusyCycle();
     setComposerBusy(false);
   }
@@ -1992,6 +2108,62 @@ function openSettingsModal() {
   title.textContent = "Settings";
   title.className = "lc-modal-title";
 
+  const plannerSection = document.createElement("section");
+  plannerSection.className = "lc-modal-section";
+  const plannerTitle = document.createElement("h3");
+  plannerTitle.className = "lc-modal-section-title";
+  plannerTitle.textContent = "Plan behavior";
+  plannerSection.appendChild(plannerTitle);
+
+  const behaviorRow = document.createElement("div");
+  behaviorRow.className = "lc-modal-choice-row";
+  const behaviorButtons: HTMLButtonElement[] = [];
+  const applyBehaviorSelection = () => {
+    behaviorButtons.forEach((btn) => {
+      const selected = !!mealplanBehavior && btn.dataset.behavior === mealplanBehavior;
+      btn.classList.toggle("selected", selected);
+      btn.setAttribute("aria-pressed", selected ? "true" : "false");
+    });
+  };
+  const addBehaviorButton = (value: MealplanBehavior, label: string) => {
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "lc-modal-action lc-modal-choice";
+    btn.textContent = label;
+    btn.dataset.behavior = value;
+    btn.setAttribute("aria-pressed", "false");
+    btn.addEventListener("click", () => {
+      mealplanBehavior = value;
+      saveMealplanSettings();
+      applyBehaviorSelection();
+    });
+    behaviorButtons.push(btn);
+    behaviorRow.appendChild(btn);
+  };
+  addBehaviorButton("inventory_first", "Inventory-first");
+  addBehaviorButton("balanced", "Balanced");
+  addBehaviorButton("adventurous", "Adventurous");
+  plannerSection.appendChild(behaviorRow);
+
+  const expiryToggle = document.createElement("button");
+  expiryToggle.type = "button";
+  expiryToggle.className = "lc-modal-action lc-modal-choice lc-modal-choice-toggle";
+  const applyExpiryToggle = () => {
+    expiryToggle.classList.toggle("selected", mealplanUseSoonestExpiryFirst);
+    expiryToggle.setAttribute("aria-pressed", mealplanUseSoonestExpiryFirst ? "true" : "false");
+    expiryToggle.textContent = mealplanUseSoonestExpiryFirst
+      ? "Use soonest expiry first: On"
+      : "Use soonest expiry first: Off";
+  };
+  expiryToggle.addEventListener("click", () => {
+    mealplanUseSoonestExpiryFirst = !mealplanUseSoonestExpiryFirst;
+    saveMealplanSettings();
+    applyExpiryToggle();
+  });
+  plannerSection.appendChild(expiryToggle);
+  applyBehaviorSelection();
+  applyExpiryToggle();
+
   // --- Logout button ---
   const logoutBtn = document.createElement("button");
   logoutBtn.type = "button";
@@ -2013,6 +2185,7 @@ function openSettingsModal() {
 
   panel.appendChild(closeBtn);
   panel.appendChild(title);
+  panel.appendChild(plannerSection);
   panel.appendChild(logoutBtn);
   panel.appendChild(deleteBtn);
   overlay.appendChild(panel);
@@ -2090,6 +2263,7 @@ async function performLogout(): Promise<void> {
   state.onboarded = null;
   state.inventoryOnboarded = null;
   mealplanReached = false;
+  systemHintDismissed = false;
 
   // 2) Clear remembered dev JWT
   clearRememberedJwt();
@@ -2120,6 +2294,7 @@ async function performLogout(): Promise<void> {
 
 function wire() {
   enforceViewportLock();
+  loadMealplanSettings();
   const jwtInput = document.getElementById("jwt") as HTMLInputElement;
   document.getElementById("btn-auth")?.addEventListener("click", async () => {
     state.token = jwtInput.value.trim();
@@ -2922,6 +3097,7 @@ function enforceViewportLock() {
 
 function selectFlow(key: string) {
   if (!flowOptions.find((f) => f.key === key)) return;
+  const previousFlowKey = currentFlowKey;
   currentFlowKey = key;
   renderFlowMenu();
   setFlowMenuOpen(false);
@@ -2955,6 +3131,9 @@ function selectFlow(key: string) {
     if (state.inventoryOnboarded && !mealplanReached) {
       mealplanReached = true;
       updateRecipePacksButtonVisibility();
+    }
+    if (previousFlowKey !== "mealplan") {
+      addHistory("assistant", MEALPLAN_FLOW_ASSISTANT_HINT);
     }
     checkMealplanFirstVisit();
   }
@@ -2997,13 +3176,85 @@ function ensureOnboardMenu() {
     host.appendChild(menu);
     onboardMenu = menu;
   }
-  renderOnboardMenuButtons();
+  renderOnboardMenuButtons(onboardMenuMode);
   return onboardMenu;
 }
 
-function renderOnboardMenuButtons() {
+function applyMealplanBehavior(value: MealplanBehavior) {
+  mealplanBehavior = value;
+  saveMealplanSettings();
+}
+
+function renderOnboardMenuButtons(mode: OnboardMenuMode = "navigation") {
   if (!onboardMenu) return;
   onboardMenu.innerHTML = "";
+  onboardMenuMode = mode;
+  const bindMenuClick = (btn: HTMLElement, fn: () => void) => {
+    btn.addEventListener("click", (ev) => {
+      if (Date.now() < onboardIgnoreItemClickUntilMs) {
+        ev.preventDefault();
+        ev.stopPropagation();
+        return;
+      }
+      ev.stopPropagation();
+      fn();
+    });
+  };
+
+  if (mode === "mealplan_behavior") {
+    const mkBtn = (label: string, item: string, active = false) => {
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "flow-menu-item";
+      btn.dataset.onboardItem = item;
+      btn.textContent = active ? `✓ ${label}` : label;
+      return btn;
+    };
+
+    const invBtn = mkBtn("Inventory-first", "plan_inventory_first", mealplanBehavior === "inventory_first");
+    bindMenuClick(invBtn, () => {
+      applyMealplanBehavior("inventory_first");
+      hideOnboardMenu();
+      setDuetStatus("Plan behavior set: Inventory-first.");
+    });
+    onboardMenu.appendChild(invBtn);
+
+    const balBtn = mkBtn("Balanced", "plan_balanced", mealplanBehavior === "balanced");
+    bindMenuClick(balBtn, () => {
+      applyMealplanBehavior("balanced");
+      hideOnboardMenu();
+      setDuetStatus("Plan behavior set: Balanced.");
+    });
+    onboardMenu.appendChild(balBtn);
+
+    const advBtn = mkBtn("Adventurous", "plan_adventurous", mealplanBehavior === "adventurous");
+    bindMenuClick(advBtn, () => {
+      applyMealplanBehavior("adventurous");
+      hideOnboardMenu();
+      setDuetStatus("Plan behavior set: Adventurous.");
+    });
+    onboardMenu.appendChild(advBtn);
+
+    const expiryLabel = mealplanUseSoonestExpiryFirst
+      ? "Use soonest expiry first: On"
+      : "Use soonest expiry first: Off";
+    const expiryBtn = mkBtn(expiryLabel, "plan_use_expiry", mealplanUseSoonestExpiryFirst);
+    expiryBtn.classList.add(
+      mealplanUseSoonestExpiryFirst ? "flow-menu-expiry-on" : "flow-menu-expiry-off"
+    );
+    bindMenuClick(expiryBtn, () => {
+      mealplanUseSoonestExpiryFirst = !mealplanUseSoonestExpiryFirst;
+      saveMealplanSettings();
+      renderOnboardMenuButtons("mealplan_behavior");
+      setDuetStatus(
+        mealplanUseSoonestExpiryFirst
+          ? "Expiry priority enabled."
+          : "Expiry priority disabled."
+      );
+    });
+    onboardMenu.appendChild(expiryBtn);
+    return;
+  }
 
   // Before login: show only Login button
   if (!state.token?.trim()) {
@@ -3012,7 +3263,7 @@ function renderOnboardMenuButtons() {
     loginBtn.className = "flow-menu-item";
     loginBtn.textContent = "Login";
     loginBtn.dataset.onboardItem = "login";
-    loginBtn.addEventListener("click", () => {
+    bindMenuClick(loginBtn, () => {
       hideOnboardMenu();
       openLoginModal();
     });
@@ -3025,7 +3276,7 @@ function renderOnboardMenuButtons() {
   prefsBtn.className = "flow-menu-item";
   prefsBtn.textContent = "Preferences";
   prefsBtn.dataset.onboardItem = "start";
-  prefsBtn.addEventListener("click", () => {
+  bindMenuClick(prefsBtn, () => {
     hideOnboardMenu();
     startOnboarding();
   });
@@ -3036,7 +3287,7 @@ function renderOnboardMenuButtons() {
     invBtn.className = "flow-menu-item";
     invBtn.textContent = "Inventory";
     invBtn.dataset.onboardItem = "inventory";
-    invBtn.addEventListener("click", () => {
+    bindMenuClick(invBtn, () => {
       hideOnboardMenu();
       selectFlow("inventory");
     });
@@ -3048,7 +3299,7 @@ function renderOnboardMenuButtons() {
     planBtn.className = "flow-menu-item";
     planBtn.textContent = "Meal Plan";
     planBtn.dataset.onboardItem = "mealplan";
-    planBtn.addEventListener("click", () => {
+    bindMenuClick(planBtn, () => {
       hideOnboardMenu();
       selectFlow("mealplan");
     });
@@ -3079,7 +3330,7 @@ async function checkMealplanFirstVisit() {
       mealplanNudged = true;
       addHistory(
         "assistant",
-        "Welcome to the Meal Plan! You don't have any recipes yet.\n\nTap the 📖 button to browse and install a built-in recipe pack."
+        "Tip: you don't have any recipes yet.\n\nTap the 📖 button to browse and install a built-in recipe pack."
       );
       renderDuetHistory();
       updateDuetBubbles();
@@ -3159,33 +3410,95 @@ function refreshShoppingModalContent() {
     return;
   }
 
-  // Parse "You need: item1, item2" from notes
-  const needMatch = notes.match(/You need:\s*(.+?)(?:\.|$)/i);
-  const haveMatch = notes.match(/You have:\s*(.+?)(?:\.|$)/i);
-
-  let html = "<h3 class='shopping-section-title'>Missing for this plan</h3>";
-  if (needMatch) {
-    const items = needMatch[1].split(",").map((s: string) => s.trim()).filter(Boolean);
-    html += "<ul class='shopping-list'>";
-    for (const item of items) {
-      html += `<li>${escapeHtml(item)}</li>`;
+  const parseShoppingSections = (rawNotes: string) => {
+    const normalized = rawNotes.replace(/\r\n/g, "\n");
+    const sectionMarkers: Array<{ name: string; start: number; end: number }> = [];
+    const sectionRegex = /(You have|You need|Cook time prefs):/gi;
+    let sectionMatch: RegExpExecArray | null = null;
+    while ((sectionMatch = sectionRegex.exec(normalized)) !== null) {
+      sectionMarkers.push({
+        name: sectionMatch[1].toLowerCase(),
+        start: sectionMatch.index,
+        end: sectionMatch.index + sectionMatch[0].length,
+      });
     }
-    html += "</ul>";
-  } else {
-    html += "<p class='shopping-empty'>Nothing missing — you have everything!</p>";
+    const sections = { have: "", need: "" };
+    for (let i = 0; i < sectionMarkers.length; i++) {
+      const marker = sectionMarkers[i];
+      const nextStart = sectionMarkers[i + 1]?.start ?? normalized.length;
+      const value = normalized
+        .slice(marker.end, nextStart)
+        .trim()
+        .replace(/^[\s:.-]+/, "")
+        .replace(/[.\s]+$/, "")
+        .trim();
+      if (!value) continue;
+      if (marker.name === "you have") sections.have = value;
+      if (marker.name === "you need") sections.need = value;
+    }
+    return sections;
+  };
+
+  const splitShoppingItems = (text: string, preferQtyChunks: boolean): string[] => {
+    if (!text) return [];
+    const cleanItem = (item: string) =>
+      item
+        .trim()
+        .replace(/^[\s,.;:•-]+/, "")
+        .replace(/[.;]+$/, "")
+        .trim();
+
+    const byLine = text
+      .split(/\r?\n/)
+      .map((line) => cleanItem(line))
+      .filter(Boolean);
+    if (byLine.length > 1) {
+      return byLine.filter((item) => !/^already in stock\s*\(?0\)?$/i.test(item));
+    }
+
+    if (preferQtyChunks) {
+      const qtyChunks = text.match(/[^,]+?\([^)]*\)(?=,\s*|$)/g);
+      if (qtyChunks?.length) {
+        return qtyChunks
+          .map((item) => cleanItem(item))
+          .filter(Boolean)
+          .filter((item) => !/^already in stock\s*\(?0\)?$/i.test(item));
+      }
+    }
+
+    return text
+      .split(/\s*,\s*/)
+      .map((item) => cleanItem(item))
+      .filter(Boolean)
+      .filter((item) => !/^already in stock\s*\(?0\)?$/i.test(item));
+  };
+
+  const sections = parseShoppingSections(notes);
+  const needItems = splitShoppingItems(sections.need, true);
+
+  if (!needItems.length) {
+    panel.innerHTML = "<p class='shopping-empty'>Nothing missing — you have everything!</p>";
+    return;
   }
 
-  if (haveMatch) {
-    html += "<h3 class='shopping-section-title' style='margin-top:1rem;'>Already in stock</h3>";
-    const items = haveMatch[1].split(",").map((s: string) => s.trim()).filter(Boolean);
-    html += "<ul class='shopping-list shopping-have'>";
-    for (const item of items) {
-      html += `<li>${escapeHtml(item)}</li>`;
-    }
-    html += "</ul>";
+  let html = "<h3 class='shopping-section-title'>Items you need</h3>";
+  html += "<ul class='shopping-list shopping-checklist'>";
+  for (const item of needItems) {
+    html += "<li class='shopping-check-item'>";
+    html += "<button type='button' class='shopping-check-toggle' aria-pressed='false'>";
+    html += `<span class='shopping-item-text'>${escapeHtml(item)}</span>`;
+    html += "</button>";
+    html += "</li>";
   }
+  html += "</ul>";
 
   panel.innerHTML = html;
+  panel.querySelectorAll<HTMLButtonElement>(".shopping-check-toggle").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const selected = btn.classList.toggle("checked");
+      btn.setAttribute("aria-pressed", selected ? "true" : "false");
+    });
+  });
 }
 
 function closeShoppingListModal() {
@@ -3745,11 +4058,11 @@ function hideOnboardMenu() {
   onboardActiveItem = null;
 }
 
-function showOnboardMenu(x: number, y: number) {
+function showOnboardMenu(x: number, y: number, mode: OnboardMenuMode = "navigation") {
   const menu = ensureOnboardMenu();
   // Rebuild menu contents immediately before showing to ensure button visibility
   // reflects the latest `state.inventoryOnboarded` value (prevents race in E2E).
-  renderOnboardMenuButtons();
+  renderOnboardMenuButtons(mode);
   menu.style.display = "grid";
   menu.classList.add("open");
   menu.style.visibility = "hidden";
@@ -3770,6 +4083,7 @@ function showOnboardMenu(x: number, y: number) {
   menu.style.visibility = "visible";
   onboardMenuActive = true;
   onboardIgnoreDocClickUntilMs = Date.now() + 800;
+  onboardIgnoreItemClickUntilMs = Date.now() + 450;
   onboardDragActive = true;
 }
 
@@ -3807,7 +4121,10 @@ function setupDock() {
   */
 }
 
-function _bindLongPressToElement(el: HTMLElement) {
+function _bindLongPressToElement(
+  el: HTMLElement,
+  opts?: { menuMode?: OnboardMenuMode; enabledWhen?: () => boolean }
+) {
   const clearTimer = () => {
     if (onboardPressTimer !== null) {
       window.clearTimeout(onboardPressTimer);
@@ -3825,11 +4142,14 @@ function _bindLongPressToElement(el: HTMLElement) {
   };
 
   el.addEventListener("pointerdown", (ev) => {
+    if (opts?.enabledWhen && !opts.enabledWhen()) {
+      return;
+    }
     onboardPressStart = { x: ev.clientX, y: ev.clientY };
     clearTimer();
     onboardPointerId = ev.pointerId;
     onboardPressTimer = window.setTimeout(() => {
-      showOnboardMenu(ev.clientX, ev.clientY);
+      showOnboardMenu(ev.clientX, ev.clientY, opts?.menuMode ?? "navigation");
       onboardPressTimer = null;
       onboardPressStart = null;
       try {
@@ -3867,14 +4187,11 @@ function _bindLongPressToElement(el: HTMLElement) {
 
   el.addEventListener("pointerup", (ev) => {
     if (onboardMenuActive) {
-      const hoveredItem = onboardActiveItem?.dataset.onboardItem;
-      if (hoveredItem === "start") {
-        startOnboarding();
-        hideOnboardMenu();
-      } else if (hoveredItem === "login") {
-        hideOnboardMenu();
-        openLoginModal();
-      }
+      // Keep menu open after releasing long-press; do not auto-select hovered item.
+      ev.preventDefault();
+      ev.stopPropagation();
+      onboardIgnoreDocClickUntilMs = Date.now() + 1200;
+      onboardIgnoreItemClickUntilMs = Date.now() + 350;
       onboardDragActive = false;
       cancel({ hideMenu: false });
       return;
@@ -3893,8 +4210,15 @@ function _bindLongPressToElement(el: HTMLElement) {
 
 function bindOnboardingLongPress() {
   const userBubble = document.getElementById("duet-user-bubble");
-  if (userBubble) _bindLongPressToElement(userBubble);
-  if (sentIndicatorBtn) _bindLongPressToElement(sentIndicatorBtn);
+  const assistantBubble = document.getElementById("duet-assistant-bubble");
+  if (userBubble) _bindLongPressToElement(userBubble, { menuMode: "navigation" });
+  if (sentIndicatorBtn) _bindLongPressToElement(sentIndicatorBtn, { menuMode: "navigation" });
+  if (assistantBubble) {
+    _bindLongPressToElement(assistantBubble, {
+      menuMode: "mealplan_behavior",
+      enabledWhen: () => currentFlowKey === "mealplan",
+    });
+  }
   document.addEventListener("click", (ev) => {
     if (!onboardMenu || onboardMenu.style.display === "none") return;
     if (Date.now() < onboardIgnoreDocClickUntilMs) return;

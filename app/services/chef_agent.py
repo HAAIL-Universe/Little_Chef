@@ -1,5 +1,7 @@
+import math
 import re
 import uuid
+from datetime import date
 from typing import Dict, List, Optional, Tuple
 
 from app.schemas import (
@@ -47,6 +49,29 @@ _CHECK_RE = re.compile(
 )
 _MAX_MATCH_SUGGESTIONS = 5
 _MAX_CHECK_ALTERNATIVES = 3
+_USE_BY_NOTE_RE = re.compile(r"\b(?:use_by|date)\s*=\s*(\d{4}-\d{2}-\d{2})\b", re.IGNORECASE)
+_NOTE_ISO_DATE_RE = re.compile(r"\b(\d{4}-\d{2}-\d{2})\b")
+_NOTE_DDMM_DATE_RE = re.compile(r"\b(\d{1,2})/(\d{1,2})(?:/(\d{2,4}))?\b")
+
+# ── Display formatting for shopping notes ────────────────────────────────
+_COUNT_DISPLAY_UNITS = frozenset({"count"})
+
+
+def _format_quantity_display(name: str, quantity: float, unit: str) -> str:
+    """Format an ingredient for human-readable display in mealplan notes.
+
+    Rules:
+    - unit == "count": ceil fractional to int, suppress the word "count"
+    - unit in {cup, tbsp, tsp}: show unit name
+    - g/ml and others: use :.4g precision
+    """
+    if unit in _COUNT_DISPLAY_UNITS:
+        display_qty = math.ceil(quantity) if quantity != int(quantity) else int(quantity)
+        return f"{name} ({display_qty})"
+    display_qty = f"{quantity:.4g}"
+    return f"{name} ({display_qty} {unit})"
+
+
 _CONSUME_RE = re.compile(
     r"\b(?:(?:i|we)\s+(?:cooked|made|prepared|ate|had)\s+(?:the\s+)?(.+?)(?:\s+today|\s+tonight|\s+yesterday)?(?:\s*[.!]?\s*$)"
     r"|cooked\s+(?:the\s+)?(.+?)(?:\s*[.!]?\s*$))",
@@ -525,7 +550,21 @@ class ChefAgent:
             except Exception:
                 pass
 
-        plan = self.mealplan_service.generate(gen_request, excluded_recipe_ids=excluded_ids, pack_recipes=pack_recipes, stock_names=stock_names, target_servings=prefs.servings if prefs else 0)
+        planning_mode = (request.mealplan_behavior or "inventory_first").lower()
+        use_expiry_first = bool(request.mealplan_use_soonest_expiry_first)
+        expiry_priority: dict[str, float] | None = None
+        if use_expiry_first and stock_names:
+            expiry_priority = self._expiry_priority_from_events(user.user_id, stock_names)
+
+        plan = self.mealplan_service.generate(
+            gen_request,
+            excluded_recipe_ids=excluded_ids,
+            pack_recipes=pack_recipes,
+            stock_names=stock_names,
+            target_servings=prefs.servings if prefs else 0,
+            planning_mode=planning_mode,
+            expiry_priority=expiry_priority,
+        )
 
         # If all recipes were excluded, return a helpful message
         total_meals = sum(len(d.meals) for d in plan.days)
@@ -559,10 +598,21 @@ class ChefAgent:
 
         day_count = len(plan.days)
         meal_count = sum(len(d.meals) for d in plan.days)
+        mode_label = planning_mode.replace("_", "-")
+        expiry_label = "on" if use_expiry_first else "off"
+        library_recipe_count = len(pack_recipes)
         reply = (
             f"I've prepared a {day_count}-day meal plan with {meal_count} meals. "
-            f"Please confirm to apply."
+            f"Please confirm to apply.\n"
+            f"Plan behavior: {mode_label}. "
+            f"Use soonest expiry first: {expiry_label}. "
+            f"Library recipes available: {library_recipe_count}."
         )
+        if library_recipe_count == 0:
+            reply += (
+                "\nNo library recipes were found for this account; "
+                "using built-in starter recipes only."
+            )
 
         voice_hint = None
         if request.voice_input:
@@ -577,6 +627,74 @@ class ChefAgent:
             mode=request.mode or "fill",
             voice_hint=voice_hint,
         )
+
+    def _expiry_priority_from_events(self, user_id: str, stock_names: set[str]) -> dict[str, float]:
+        """Return per-item priority weights where sooner expiry => larger weight.
+
+        Best-effort extraction from inventory event notes.
+        """
+        if not self.inventory_service:
+            return {}
+        try:
+            events = self.inventory_service.list_events(user_id, limit=200, since=None)
+        except Exception:
+            return {}
+
+        today = date.today()
+        earliest_days_by_item: dict[str, int] = {}
+        for ev in events:
+            item_name = (ev.item_name or "").strip().lower()
+            if not item_name or item_name not in stock_names:
+                continue
+            note = ev.note or ""
+            expiry = self._parse_expiry_date_from_note(note)
+            if not expiry:
+                continue
+            days_until = max((expiry - today).days, 0)
+            prev = earliest_days_by_item.get(item_name)
+            if prev is None or days_until < prev:
+                earliest_days_by_item[item_name] = days_until
+
+        return {name: 1.0 / (days + 1.0) for name, days in earliest_days_by_item.items()}
+
+    @staticmethod
+    def _parse_expiry_date_from_note(note: str) -> Optional[date]:
+        if not note:
+            return None
+
+        match = _USE_BY_NOTE_RE.search(note)
+        if match:
+            try:
+                return date.fromisoformat(match.group(1))
+            except ValueError:
+                pass
+
+        iso = _NOTE_ISO_DATE_RE.search(note)
+        if iso:
+            try:
+                return date.fromisoformat(iso.group(1))
+            except ValueError:
+                pass
+
+        ddmm = _NOTE_DDMM_DATE_RE.search(note)
+        if ddmm:
+            try:
+                day = int(ddmm.group(1))
+                month = int(ddmm.group(2))
+                year_raw = ddmm.group(3)
+                today = date.today()
+                if year_raw:
+                    year = int(year_raw)
+                    if year < 100:
+                        year += 2000
+                    return date(year, month, day)
+                candidate = date(today.year, month, day)
+                if candidate < today:
+                    candidate = date(today.year + 1, month, day)
+                return candidate
+            except ValueError:
+                return None
+        return None
 
     def confirm(
         self,
@@ -761,7 +879,7 @@ class ChefAgent:
         missing_names = {item.item_name for item in plan_missing}
         have_names = sorted(needed - missing_names)
         need_parts = sorted(
-            f"{item.item_name} ({item.quantity:.4g} {item.unit})"
+            _format_quantity_display(item.item_name, item.quantity, item.unit)
             for item in plan_missing
         )
 
