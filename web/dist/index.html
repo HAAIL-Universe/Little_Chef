@@ -10,14 +10,6 @@
   <main class="container">
     <section class="duet-shell" id="duet-shell">
       <div class="duet-stage">
-        <div class="duet-bubble assistant" id="duet-assistant-bubble">
-          <div class="bubble-label">Little Chef</div>
-          <div class="bubble-text" id="duet-assistant-text">Hi — how can I help?</div>
-        </div>
-        <div class="duet-bubble user" id="duet-user-bubble">
-          <div class="bubble-label">You</div>
-          <div class="bubble-text" id="duet-user-text">Tap mic or type to start</div>
-        </div>
         <div class="duet-history" id="duet-history">
           <div class="history-header">
             <span>History</span>
@@ -27,17 +19,26 @@
           <div class="history-empty" id="duet-history-empty">No history yet.</div>
         </div>
       </div>
+      <div class="duet-bubble assistant" id="duet-assistant-bubble">
+        <div class="bubble-label">Little Chef</div>
+        <div class="bubble-text" id="duet-assistant-text">Hi — how can I help?</div>
+      </div>
+      <div class="duet-bubble user" id="duet-user-bubble">
+        <div class="bubble-label">System</div>
+        <div class="bubble-text" id="duet-user-text">Tap mic or type to start</div>
+      </div>
       <div class="duet-composer" id="duet-composer" aria-hidden="true">
         <button class="icon-btn" id="duet-mic" aria-label="Start voice input">🎤</button>
         <textarea id="duet-input" rows="1" placeholder="Ask or fill..." autocomplete="off" inputmode="text"></textarea>
         <button class="icon-btn primary" id="duet-send" aria-label="Send message" disabled>➤</button>
       </div>
       <div class="duet-status-row">
-        <div class="duet-status" id="duet-status"></div>
+        <div class="duet-status" id="duet-status">Reply received.</div>
         <div class="duet-flow-chip" id="duet-flow-chip">[General]</div>
       </div>
     </section>
 
+    <!--
     <section class="card legacy-card">
       <h1>Little Chef</h1>
       <p>Paste JWT, then try chat, prefs, mealplan, and shopping diff.</p>
@@ -45,6 +46,7 @@
       <button id="btn-auth">Auth /auth/me</button>
       <pre id="auth-out"></pre>
     </section>
+    -->
 
     <section class="card">
       <h2>Chat</h2>

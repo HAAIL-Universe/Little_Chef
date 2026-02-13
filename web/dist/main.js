@@ -535,6 +535,7 @@ function updateProposalActionsVisibility() {
     const visible = shouldShowProposalActions();
     if (visible) {
         console.info("[proposal-debug] showing traffic-light buttons", { proposalId: state.proposalId });
+        setDuetStatus("Confirm ✔ / Edit ✏ / Deny ✖ your proposal.");
     }
     container.classList.toggle("visible", visible);
     container.setAttribute("aria-hidden", visible ? "false" : "true");

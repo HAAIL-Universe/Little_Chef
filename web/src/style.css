@@ -582,7 +582,7 @@ pre {
 #proposal-actions {
   position: absolute;
   top: 50%;
-  transform: translateY(-50%);
+  transform: translateY(-50%) scale(0.85);
   right: 22px;
   display: flex;
   flex-direction: column;
@@ -590,29 +590,37 @@ pre {
   pointer-events: none;
   opacity: 0;
   z-index: 60;
-  transition: opacity 160ms ease;
+  transition: opacity 200ms ease, transform 200ms ease;
 }
 
 #proposal-actions.visible {
   opacity: 1;
   pointer-events: auto;
+  transform: translateY(-50%) scale(1);
 }
 
 .proposal-action-btn {
-  box-shadow: var(--shadow);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
   border-radius: 12px;
+  font-size: 22px;
 }
 
 .proposal-action-btn.confirm {
-  color: var(--accent);
+  color: #fff;
+  background: rgba(80, 200, 120, 0.35);
+  border-color: rgba(80, 200, 120, 0.5);
 }
 
 .proposal-action-btn.edit {
-  color: #f6d26b;
+  color: #fff;
+  background: rgba(246, 210, 107, 0.3);
+  border-color: rgba(246, 210, 107, 0.45);
 }
 
 .proposal-action-btn.deny {
-  color: #ff7a7a;
+  color: #fff;
+  background: rgba(255, 100, 100, 0.3);
+  border-color: rgba(255, 100, 100, 0.45);
 }
 
 .history-badge {
