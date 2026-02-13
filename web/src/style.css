@@ -600,27 +600,20 @@ pre {
 }
 
 .proposal-action-btn {
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+  box-shadow: var(--shadow);
   border-radius: 12px;
-  font-size: 22px;
 }
 
 .proposal-action-btn.confirm {
-  color: #fff;
-  background: rgba(80, 200, 120, 0.35);
-  border-color: rgba(80, 200, 120, 0.5);
+  color: var(--accent);
 }
 
 .proposal-action-btn.edit {
-  color: #fff;
-  background: rgba(246, 210, 107, 0.3);
-  border-color: rgba(246, 210, 107, 0.45);
+  color: #f6d26b;
 }
 
 .proposal-action-btn.deny {
-  color: #fff;
-  background: rgba(255, 100, 100, 0.3);
-  border-color: rgba(255, 100, 100, 0.45);
+  color: #ff7a7a;
 }
 
 .history-badge {
