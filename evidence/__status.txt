@@ -1,0 +1,12 @@
+﻿ M web/dist/main.js
+ M web/src/main.ts
+?? .vscode/
+?? Contracts/phases_10_plus.md
+?? __git_status.tmp
+?? evidence/__gs.txt
+?? evidence/__status.txt
+?? evidence/__test_all.txt
+?? evidence/__test_final.txt
+?? evidence/__test_final_err.txt
+?? evidence/__test_voice.txt
+?? evidence/e2e_test_blueprint.md

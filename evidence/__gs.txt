@@ -1,0 +1,6 @@
+﻿ M evidence/CLAUDE_FIND.md
+ M evidence/test_runs.md
+ M evidence/updatedifflog.md
+?? .vscode/
+?? Contracts/phases_10_plus.md
+?? __git_status.tmp

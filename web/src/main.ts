@@ -452,33 +452,35 @@ function applyRememberedJwtInput(jwtInput: HTMLInputElement | null) {
 }
 
 function renderProposal() {
+  // Update legacy dev-panel proposal display (if present)
   const container = document.getElementById("chat-proposal");
   const textEl = document.getElementById("chat-proposal-text");
-  if (!container || !textEl) return;
-  if (!state.proposalId || !state.proposedActions.length) {
-    container.classList.add("hidden");
-    textEl.textContent = "";
-    updateProposalActionsVisibility();
-    return;
+  if (container && textEl) {
+    if (!state.proposalId || !state.proposedActions.length) {
+      container.classList.add("hidden");
+      textEl.textContent = "";
+    } else {
+      const summaries = state.proposedActions.map((action: any) => {
+        if (action.action_type === "upsert_prefs" && action.prefs) {
+          return `Update prefs: servings ${action.prefs.servings}, ${action.prefs.plan_days} days, meals/day ${action.prefs.meals_per_day}`;
+        }
+        if (action.action_type === "create_inventory_event" && action.event) {
+          const e = action.event;
+          return `Inventory: ${e.event_type} ${e.quantity} ${e.unit} ${e.item_name}`;
+        }
+        if (action.action_type === "generate_mealplan" && action.mealplan) {
+          const mp = action.mealplan;
+          const dayCount = mp.days?.length ?? 0;
+          const mealCount = (mp.days ?? []).reduce((s: number, d: any) => s + (d.meals?.length ?? 0), 0);
+          return `Meal plan: ${dayCount} day${dayCount !== 1 ? "s" : ""}, ${mealCount} meal${mealCount !== 1 ? "s" : ""}`;
+        }
+        return action.action_type || "proposal";
+      });
+      textEl.textContent = summaries.join(" | ");
+      container.classList.remove("hidden");
+    }
   }
-  const summaries = state.proposedActions.map((action: any) => {
-    if (action.action_type === "upsert_prefs" && action.prefs) {
-      return `Update prefs: servings ${action.prefs.servings}, ${action.prefs.plan_days} days, meals/day ${action.prefs.meals_per_day}`;
-    }
-    if (action.action_type === "create_inventory_event" && action.event) {
-      const e = action.event;
-      return `Inventory: ${e.event_type} ${e.quantity} ${e.unit} ${e.item_name}`;
-    }
-    if (action.action_type === "generate_mealplan" && action.mealplan) {
-      const mp = action.mealplan;
-      const dayCount = mp.days?.length ?? 0;
-      const mealCount = (mp.days ?? []).reduce((s: number, d: any) => s + (d.meals?.length ?? 0), 0);
-      return `Meal plan: ${dayCount} day${dayCount !== 1 ? "s" : ""}, ${mealCount} meal${mealCount !== 1 ? "s" : ""}`;
-    }
-    return action.action_type || "proposal";
-  });
-  textEl.textContent = summaries.join(" | ");
-  container.classList.remove("hidden");
+  // Always update traffic-light button visibility regardless of legacy panel
   updateProposalActionsVisibility();
 }
 
@@ -495,8 +497,16 @@ function clearProposal() {
 function shouldShowProposalActions(): boolean {
   const proposalId = state.proposalId;
   if (!proposalId || !state.proposedActions.length) return false;
-  if (!lastResponseRequiresConfirmation) return false;
-  return !proposalDismissedIds.has(proposalId);
+  if (!lastResponseRequiresConfirmation) {
+    console.warn("[proposal-debug] buttons hidden: lastResponseRequiresConfirmation is false",
+      { proposalId, actionsCount: state.proposedActions.length });
+    return false;
+  }
+  if (proposalDismissedIds.has(proposalId)) {
+    console.warn("[proposal-debug] buttons hidden: proposal dismissed", { proposalId });
+    return false;
+  }
+  return true;
 }
 
 function createProposalActionButton(
@@ -571,6 +581,9 @@ function updateProposalActionsVisibility() {
   const container = ensureProposalActions();
   if (!container) return;
   const visible = shouldShowProposalActions();
+  if (visible) {
+    console.info("[proposal-debug] showing traffic-light buttons", { proposalId: state.proposalId });
+  }
   container.classList.toggle("visible", visible);
   container.setAttribute("aria-hidden", visible ? "false" : "true");
   [proposalConfirmButton, proposalEditButton, proposalDenyButton].forEach((btn) => {
@@ -1662,6 +1675,10 @@ async function sendAsk(message: string, opts?: { flowLabel?: string; updateChatP
       state.lastPlan = mealplanAction.mealplan;
     }
     renderProposal();
+    // Belt-and-suspenders: re-evaluate button visibility after layout
+    if (lastResponseRequiresConfirmation && state.proposalId) {
+      requestAnimationFrame(() => updateProposalActionsVisibility());
+    }
     if (opts?.updateChatPanel) {
       setText("chat-reply", { status: res.status, json });
     }
